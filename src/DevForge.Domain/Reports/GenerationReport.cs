@@ -16,7 +16,7 @@ public sealed record ValidationCheck(
     string Id,
     ValidationCheckStatus Status,
     string Summary,
-    SanitizedText? Detail);
+    RedactedText? Detail);
 
 public sealed class GenerationReport
 {

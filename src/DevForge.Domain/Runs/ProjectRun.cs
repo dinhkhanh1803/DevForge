@@ -119,11 +119,11 @@ public sealed class StepAttempt
                             "A running attempt cannot have completion data.",
                             "outcome"));
                     break;
-                case StepAttemptOutcome.Succeeded when completedAt is null || exitCode is null || error is not null:
+                case StepAttemptOutcome.Succeeded when completedAt is null || error is not null:
                     issues.Add(
                         new ValidationIssue(
                             "attempt.succeeded.inconsistent",
-                            "A succeeded attempt requires completion and exit code without an error.",
+                            "A succeeded attempt requires completion without an error.",
                             "outcome"));
                     break;
                 case StepAttemptOutcome.Failed:
@@ -222,12 +222,14 @@ public sealed class ProjectRun
         string id,
         string recipeId,
         RunStatus status,
+        string? currentStepId,
         IEnumerable<StepAttempt> attempts,
         IEnumerable<DevForgeError> errors)
     {
         Id = id;
         RecipeId = recipeId;
         Status = status;
+        CurrentStepId = currentStepId;
         Attempts = [.. attempts];
         Errors = [.. errors];
     }
@@ -238,27 +240,52 @@ public sealed class ProjectRun
 
     public RunStatus Status { get; }
 
+    public string? CurrentStepId { get; }
+
     public ImmutableArray<StepAttempt> Attempts { get; }
 
     public ImmutableArray<DevForgeError> Errors { get; }
 
     public static ValidationResult<ProjectRun> Create(string? id, string? recipeId)
     {
-        return CreateCore(id, recipeId, RunStatus.Draft, [], [], isRehydration: false);
+        return CreateCore(id, recipeId, RunStatus.Draft, null, [], [], isRehydration: false);
     }
 
     public static ValidationResult<ProjectRun> Rehydrate(
         string? id,
         string? recipeId,
         RunStatus status,
+        string? currentStepId,
         IEnumerable<StepAttempt?>? attempts,
         IEnumerable<DevForgeError?>? errors)
     {
-        return CreateCore(id, recipeId, status, attempts, errors, isRehydration: true);
+        return CreateCore(id, recipeId, status, currentStepId, attempts, errors, isRehydration: true);
     }
 
     public ValidationResult<ProjectRun> StartAttempt(string? stepId, DateTimeOffset startedAt)
     {
+        if (Status != RunStatus.Executing)
+        {
+            return ValidationResult.Failure<ProjectRun>(
+            [
+                new ValidationIssue(
+                    "run.attempt.start.status",
+                    "An attempt can start only while the run is executing.",
+                    "status"),
+            ]);
+        }
+
+        if (CurrentStepId is not null || Attempts.Any(attempt => attempt.Outcome == StepAttemptOutcome.Running))
+        {
+            return ValidationResult.Failure<ProjectRun>(
+            [
+                new ValidationIssue(
+                    "run.attempt.running",
+                    "A run cannot start another attempt while an attempt is running.",
+                    "attempts"),
+            ]);
+        }
+
         var normalizedStepId = stepId?.Trim();
         var attemptNumber = Attempts
             .Where(attempt => string.Equals(attempt.StepId, normalizedStepId, StringComparison.Ordinal))
@@ -267,7 +294,14 @@ public sealed class ProjectRun
             .Max() + 1;
         var attempt = StepAttempt.Start(stepId, attemptNumber, startedAt);
         return attempt.IsValid
-            ? ValidationResult.Success(new ProjectRun(Id, RecipeId, Status, Attempts.Add(attempt.Value), Errors))
+            ? ValidationResult.Success(
+                new ProjectRun(
+                    Id,
+                    RecipeId,
+                    Status,
+                    attempt.Value.StepId,
+                    Attempts.Add(attempt.Value),
+                    Errors))
             : ValidationResult.Failure<ProjectRun>(attempt.Issues);
     }
 
@@ -279,11 +313,24 @@ public sealed class ProjectRun
         int? exitCode,
         DevForgeError? error)
     {
+        if (Status != RunStatus.Executing)
+        {
+            return ValidationResult.Failure<ProjectRun>(
+            [
+                new ValidationIssue(
+                    "run.attempt.complete.status",
+                    "An attempt can complete only while the run is executing.",
+                    "status"),
+            ]);
+        }
+
+        var normalizedStepId = stepId?.Trim();
         var index = -1;
         for (var candidateIndex = 0; candidateIndex < Attempts.Length; candidateIndex++)
         {
             var attempt = Attempts[candidateIndex];
-            if (string.Equals(attempt.StepId, stepId?.Trim(), StringComparison.Ordinal)
+            if (string.Equals(CurrentStepId, normalizedStepId, StringComparison.Ordinal)
+                && string.Equals(attempt.StepId, normalizedStepId, StringComparison.Ordinal)
                 && attempt.AttemptNumber == attemptNumber
                 && attempt.Outcome == StepAttemptOutcome.Running)
             {
@@ -291,13 +338,14 @@ public sealed class ProjectRun
                 break;
             }
         }
+
         if (index < 0)
         {
             return ValidationResult.Failure<ProjectRun>(
             [
                 new ValidationIssue(
                     "run.attempt.running-not-found",
-                    "The running attempt was not found.",
+                    "The matching current running attempt was not found.",
                     "attempt"),
             ]);
         }
@@ -312,24 +360,44 @@ public sealed class ProjectRun
             exitCode,
             error);
         return completed.IsValid
-            ? ValidationResult.Success(new ProjectRun(Id, RecipeId, Status, Attempts.SetItem(index, completed.Value), Errors))
+            ? ValidationResult.Success(
+                new ProjectRun(
+                    Id,
+                    RecipeId,
+                    Status,
+                    null,
+                    Attempts.SetItem(index, completed.Value),
+                    Errors))
             : ValidationResult.Failure<ProjectRun>(completed.Issues);
     }
 
     public ValidationResult<ProjectRun> AppendError(DevForgeError? error)
     {
+        if (Status == RunStatus.Draft || IsTerminalStatus(Status))
+        {
+            return ValidationResult.Failure<ProjectRun>(
+            [
+                new ValidationIssue(
+                    "run.error.append.status",
+                    "Run error history cannot be changed in the current status.",
+                    "status"),
+            ]);
+        }
+
         return error is null
             ? ValidationResult.Failure<ProjectRun>(
             [
                 new ValidationIssue("run.error.required", "A run error is required.", "error"),
             ])
-            : ValidationResult.Success(new ProjectRun(Id, RecipeId, Status, Attempts, Errors.Add(error)));
+            : ValidationResult.Success(
+                new ProjectRun(Id, RecipeId, Status, CurrentStepId, Attempts, Errors.Add(error)));
     }
 
     private static ValidationResult<ProjectRun> CreateCore(
         string? id,
         string? recipeId,
         RunStatus status,
+        string? currentStepId,
         IEnumerable<StepAttempt?>? attempts,
         IEnumerable<DevForgeError?>? errors,
         bool isRehydration)
@@ -348,6 +416,23 @@ public sealed class ProjectRun
         if (!Enum.IsDefined(status))
         {
             issues.Add(new ValidationIssue("run.status.invalid", "The run status is not defined.", "status"));
+        }
+
+        string? normalizedCurrentStepId = null;
+        if (currentStepId is not null)
+        {
+            if (string.IsNullOrWhiteSpace(currentStepId))
+            {
+                issues.Add(
+                    new ValidationIssue(
+                        "run.current-step.invalid",
+                        "A current step identifier cannot be blank.",
+                        "currentStepId"));
+            }
+            else
+            {
+                normalizedCurrentStepId = currentStepId.Trim();
+            }
         }
 
         var attemptsSnapshot = attempts?.ToImmutableArray() ?? [];
@@ -388,12 +473,88 @@ public sealed class ProjectRun
             }
         }
 
+        var runningAttempts = attemptsSnapshot
+            .Where(attempt => attempt?.Outcome == StepAttemptOutcome.Running)
+            .Select(attempt => attempt!)
+            .ToImmutableArray();
+
+        if (status == RunStatus.Draft && (!attemptsSnapshot.IsEmpty || !errorsSnapshot.IsEmpty))
+        {
+            issues.Add(
+                new ValidationIssue(
+                    "run.draft.history.invalid",
+                    "A draft run cannot contain attempt or error history.",
+                    "status"));
+        }
+
+        if (status != RunStatus.Executing)
+        {
+            if (normalizedCurrentStepId is not null)
+            {
+                issues.Add(
+                    new ValidationIssue(
+                        "run.current-step.status.invalid",
+                        "Only an executing run can have a current step.",
+                        "currentStepId"));
+            }
+
+            if (!runningAttempts.IsEmpty)
+            {
+                issues.Add(
+                    new ValidationIssue(
+                        "run.attempt.running-status.invalid",
+                        "Running attempts are valid only while the run is executing.",
+                        "attempts"));
+            }
+        }
+        else
+        {
+            if (runningAttempts.IsEmpty && normalizedCurrentStepId is not null)
+            {
+                issues.Add(
+                    new ValidationIssue(
+                        "run.current-step.running-required",
+                        "A current step requires a running attempt.",
+                        "currentStepId"));
+            }
+
+            if (!runningAttempts.IsEmpty && normalizedCurrentStepId is null)
+            {
+                issues.Add(
+                    new ValidationIssue(
+                        "run.current-step.required",
+                        "A running attempt requires a current step.",
+                        "currentStepId"));
+            }
+
+            if (runningAttempts.Length > 1)
+            {
+                issues.Add(
+                    new ValidationIssue(
+                        "run.attempt.running.multiple",
+                        "A run cannot contain more than one running attempt.",
+                        "attempts"));
+            }
+
+            if (runningAttempts.Length == 1
+                && normalizedCurrentStepId is not null
+                && !string.Equals(runningAttempts[0].StepId, normalizedCurrentStepId, StringComparison.Ordinal))
+            {
+                issues.Add(
+                    new ValidationIssue(
+                        "run.current-step.mismatch",
+                        "The current step must identify the running attempt.",
+                        "currentStepId"));
+            }
+        }
+
         return issues.Count == 0
             ? ValidationResult.Success(
                 new ProjectRun(
                     id!.Trim(),
                     recipeId!.Trim(),
                     status,
+                    normalizedCurrentStepId,
                     attemptsSnapshot.Select(attempt => attempt!),
                     errorsSnapshot.Select(error => error!)))
             : ValidationResult.Failure<ProjectRun>(issues);
@@ -409,6 +570,19 @@ public sealed class ProjectRun
             ]);
         }
 
+        if (Status == RunStatus.Executing
+            && status != Status
+            && Attempts.Any(attempt => attempt.Outcome == StepAttemptOutcome.Running))
+        {
+            return ValidationResult.Failure<ProjectRun>(
+            [
+                new ValidationIssue(
+                    "run.transition.attempt-running",
+                    "An executing run cannot change status while an attempt is running.",
+                    "attempts"),
+            ]);
+        }
+
         if (!_allowedTransitions[Status].Contains(status))
         {
             return ValidationResult.Failure<ProjectRun>(
@@ -421,6 +595,15 @@ public sealed class ProjectRun
         }
 
         return ValidationResult.Success(
-            new ProjectRun(Id, RecipeId, status, Attempts, Errors));
+            new ProjectRun(Id, RecipeId, status, null, Attempts, Errors));
+    }
+
+    private static bool IsTerminalStatus(RunStatus status)
+    {
+        return status is RunStatus.PreflightFailed
+            or RunStatus.ValidationFailed
+            or RunStatus.Completed
+            or RunStatus.Cancelled
+            or RunStatus.Failed;
     }
 }

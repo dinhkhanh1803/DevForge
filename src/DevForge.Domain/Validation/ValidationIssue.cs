@@ -1,6 +1,6 @@
 namespace DevForge.Domain.Validation;
 
-public sealed class ValidationIssue
+public sealed record ValidationIssue
 {
     public ValidationIssue(string code, string message, string? location = null)
     {

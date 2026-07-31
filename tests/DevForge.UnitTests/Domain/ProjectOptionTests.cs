@@ -15,7 +15,7 @@ public sealed class ProjectOptionTests
 
         standards[" nullable "] = "disabled";
 
-        Assert.Equal("enabled", profile.Standards["nullable"]);
+        Assert.Equal(" enabled ", profile.Standards["nullable"]);
     }
 
     [Fact]

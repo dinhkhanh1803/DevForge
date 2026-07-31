@@ -9,12 +9,12 @@ public sealed class DevForgeError
     private DevForgeError(
         string code,
         string summary,
-        SanitizedText technicalDetail,
+        RedactedText technicalDetail,
         string phase,
         string? stepId,
         bool isRetryable,
         IEnumerable<string> suggestedActions,
-        IEnumerable<KeyValuePair<string, SanitizedText>> redactedContext)
+        IEnumerable<KeyValuePair<string, RedactedText>> redactedContext)
     {
         Code = code;
         Summary = summary;
@@ -30,7 +30,7 @@ public sealed class DevForgeError
 
     public string Summary { get; }
 
-    public SanitizedText TechnicalDetail { get; }
+    public RedactedText TechnicalDetail { get; }
 
     public string Phase { get; }
 
@@ -40,18 +40,18 @@ public sealed class DevForgeError
 
     public ImmutableArray<string> SuggestedActions { get; }
 
-    public ImmutableDictionary<string, SanitizedText> RedactedContext { get; }
+    public ImmutableDictionary<string, RedactedText> RedactedContext { get; }
 
 
     public static ValidationResult<DevForgeError> Create(
         string? code,
         string? summary,
-        SanitizedText? technicalDetail,
+        RedactedText? technicalDetail,
         string? phase,
         string? stepId,
         bool isRetryable,
         IEnumerable<string?>? suggestedActions,
-        IEnumerable<KeyValuePair<string, SanitizedText>>? redactedContext)
+        IEnumerable<KeyValuePair<string, RedactedText>>? redactedContext)
     {
         var issues = new List<ValidationIssue>();
         AddRequiredIssue(issues, code, "error.code.required", "Error code is required.", "code");
@@ -120,7 +120,7 @@ public sealed class DevForgeError
                                 "Redacted context keys must be unique.",
                                 $"redactedContext[{index}].key"));
                     }
-                    else if (SanitizedText.IsSecretShapedKey(normalizedKey))
+                    else if (RedactedText.IsSecretShapedKey(normalizedKey))
                     {
                         issues.Add(
                             new ValidationIssue(

@@ -11,8 +11,8 @@ public sealed class DiagnosticAndSnapshotTests
     public void DevForgeErrorSnapshotsSuggestedActionsAndRedactedContext()
     {
         var actions = new List<string> { "Authenticate and retry." };
-        var safeDetail = SanitizedText.Create("The GitHub CLI reported a redacted authentication error.").Value;
-        var context = new Dictionary<string, SanitizedText> { ["repository"] = SanitizedText.Create("redacted-owner/repo").Value };
+        var safeDetail = RedactedText.FromTrustedRedaction("The GitHub CLI reported a redacted authentication error.").Value;
+        var context = new Dictionary<string, RedactedText> { ["repository"] = RedactedText.FromTrustedRedaction("redacted-owner/repo").Value };
 
         var result = DevForgeError.Create(
             "github.auth.failed",
@@ -27,7 +27,7 @@ public sealed class DiagnosticAndSnapshotTests
         var error = result.Value;
 
         actions[0] = "changed";
-        context["repository"] = SanitizedText.Create("changed").Value;
+        context["repository"] = RedactedText.FromTrustedRedaction("changed").Value;
 
         Assert.Equal(["Authenticate and retry."], error.SuggestedActions.ToArray());
         Assert.Equal("redacted-owner/repo", error.RedactedContext["repository"].Value);
@@ -40,11 +40,11 @@ public sealed class DiagnosticAndSnapshotTests
         {
             new(" dotnet ", " 10.0.100 ", true),
         };
-        var properties = new Dictionary<string, SanitizedText> { [" architecture "] = SanitizedText.Create("x64").Value };
+        var properties = new Dictionary<string, RedactedText> { [" architecture "] = RedactedText.FromTrustedRedaction("x64").Value };
 
         var snapshot = EnvironmentSnapshot.Create(DateTimeOffset.UtcNow, tools, properties).Value;
         tools.Clear();
-        properties[" architecture "] = SanitizedText.Create("changed").Value;
+        properties[" architecture "] = RedactedText.FromTrustedRedaction("changed").Value;
 
         Assert.Single(snapshot.Tools);
         Assert.Equal("dotnet", snapshot.Tools[0].Name);
@@ -57,7 +57,7 @@ public sealed class DiagnosticAndSnapshotTests
     {
         var checks = new List<ValidationCheck>
         {
-            new(" build ", ValidationCheckStatus.Passed, "Build passed.", SanitizedText.Create("Safe detail.").Value),
+            new(" build ", ValidationCheckStatus.Passed, "Build passed.", RedactedText.FromTrustedRedaction("Safe detail.").Value),
         };
         var errors = new List<DevForgeError>();
         var artifacts = new List<string> { "README.md" };
@@ -120,7 +120,7 @@ public sealed class DiagnosticAndSnapshotTests
     [Fact]
     public void DiagnosticBoundariesRejectSecretShapedKeys()
     {
-        var safe = SanitizedText.Create("[REDACTED]").Value;
+        var safe = RedactedText.FromTrustedRedaction("[REDACTED]").Value;
         var error = DevForgeError.Create(
             "build.failed",
             "Build failed.",
@@ -129,11 +129,11 @@ public sealed class DiagnosticAndSnapshotTests
             null,
             false,
             [],
-            new Dictionary<string, SanitizedText> { ["api_token"] = safe });
+            new Dictionary<string, RedactedText> { ["api_token"] = safe });
         var environment = EnvironmentSnapshot.Create(
             DateTimeOffset.UtcNow,
             [],
-            new Dictionary<string, SanitizedText> { ["connectionString"] = safe });
+            new Dictionary<string, RedactedText> { ["connectionString"] = safe });
 
         Assert.Equal("error.context.key.secret-shaped", Assert.Single(error.Issues).Code);
         Assert.Equal("environment.property.name.secret-shaped", Assert.Single(environment.Issues).Code);

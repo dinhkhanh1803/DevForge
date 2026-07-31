@@ -30,4 +30,16 @@ public sealed class ValidationPrimitiveTests
         Assert.Equal("Message", issue.Message);
         Assert.Equal("field", issue.Location);
     }
+
+    [Fact]
+    public void ValidationIssueHasValueEqualityAfterNormalization()
+    {
+        var first = ValidationIssue.Create(" code ", " Message ", " field ");
+        var same = ValidationIssue.Create("code", "Message", "field");
+        var different = ValidationIssue.Create("other", "Message", "field");
+
+        Assert.Equal(first, same);
+        Assert.NotEqual(first, different);
+        Assert.Equal(first.GetHashCode(), same.GetHashCode());
+    }
 }

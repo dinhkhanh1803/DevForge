@@ -14,7 +14,7 @@ public sealed class EnvironmentSnapshot
     private EnvironmentSnapshot(
         DateTimeOffset capturedAt,
         IEnumerable<EnvironmentTool> tools,
-        IEnumerable<KeyValuePair<string, SanitizedText>> properties)
+        IEnumerable<KeyValuePair<string, RedactedText>> properties)
     {
         CapturedAt = capturedAt;
         Tools = [.. tools];
@@ -25,12 +25,12 @@ public sealed class EnvironmentSnapshot
 
     public ImmutableArray<EnvironmentTool> Tools { get; }
 
-    public ImmutableDictionary<string, SanitizedText> Properties { get; }
+    public ImmutableDictionary<string, RedactedText> Properties { get; }
 
     public static ValidationResult<EnvironmentSnapshot> Create(
         DateTimeOffset capturedAt,
         IEnumerable<EnvironmentTool?>? tools,
-        IEnumerable<KeyValuePair<string, SanitizedText>>? properties)
+        IEnumerable<KeyValuePair<string, RedactedText>>? properties)
     {
         var issues = new List<ValidationIssue>();
         var toolsSnapshot = tools?.ToImmutableArray() ?? [];
@@ -101,7 +101,7 @@ public sealed class EnvironmentSnapshot
                             $"properties[{index}].name"));
                 }
 
-                else if (SanitizedText.IsSecretShapedKey(normalizedName))
+                else if (RedactedText.IsSecretShapedKey(normalizedName))
                 {
                     issues.Add(
                         new ValidationIssue(

@@ -86,7 +86,7 @@ public sealed class TeamProfile
                 new TeamProfile(
                     id!.Trim(),
                     name!.Trim(),
-                    standardsSnapshot.Select(standard => KeyValuePair.Create(standard.Key.Trim(), standard.Value?.Trim()))))
+                    standardsSnapshot.Select(standard => KeyValuePair.Create(standard.Key.Trim(), standard.Value))))
             : ValidationResult.Failure<TeamProfile>(issues);
     }
 }

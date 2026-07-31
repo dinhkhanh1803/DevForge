@@ -165,7 +165,7 @@ public sealed class ProjectRunTests
     public void ProjectRunEvolvesAttemptAndErrorHistoryImmutably()
     {
         var startedAt = DateTimeOffset.UtcNow;
-        var original = ProjectRun.Create("run-1", "recipe-1").Value;
+        var original = ReachStatus(RunStatus.Executing);
 
         var started = original.StartAttempt("build", startedAt).Value;
         var completed = started.CompleteAttempt(
@@ -179,6 +179,8 @@ public sealed class ProjectRunTests
 
         Assert.Empty(original.Attempts);
         Assert.Equal(StepAttemptOutcome.Running, Assert.Single(started.Attempts).Outcome);
+        Assert.Equal("build", started.CurrentStepId);
+        Assert.Null(completed.CurrentStepId);
         Assert.Equal(StepAttemptOutcome.Succeeded, Assert.Single(completed.Attempts).Outcome);
         Assert.Single(withError.Errors);
         Assert.Empty(completed.Errors);
@@ -200,6 +202,7 @@ public sealed class ProjectRunTests
             "run-1",
             "recipe-1",
             RunStatus.Executing,
+            null,
             [prior],
             []).Value;
 
@@ -209,6 +212,189 @@ public sealed class ProjectRunTests
         Assert.Equal(3, result.Value.Attempts[^1].AttemptNumber);
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData(0)]
+    public void SucceededAttemptAllowsOptionalExitCode(int? exitCode)
+    {
+        var startedAt = DateTimeOffset.UtcNow;
+
+        var result = StepAttempt.Rehydrate(
+            "build",
+            1,
+            startedAt,
+            startedAt.AddSeconds(1),
+            StepAttemptOutcome.Succeeded,
+            exitCode,
+            null);
+
+        Assert.True(result.IsValid);
+        Assert.Equal(exitCode, result.Value.ExitCode);
+    }
+
+    [Fact]
+    public void StartAttemptRejectsEveryNonExecutingStatus()
+    {
+        foreach (var status in Enum.GetValues<RunStatus>().Where(status => status != RunStatus.Executing))
+        {
+            var result = ReachStatus(status).StartAttempt("build", DateTimeOffset.UtcNow);
+
+            Assert.False(result.IsValid);
+            Assert.Equal("run.attempt.start.status", Assert.Single(result.Issues).Code);
+        }
+    }
+
+    [Fact]
+    public void StartAttemptRejectsAnExistingRunningAttempt()
+    {
+        var run = ReachStatus(RunStatus.Executing)
+            .StartAttempt("build", DateTimeOffset.UtcNow).Value;
+
+        var result = run.StartAttempt("test", DateTimeOffset.UtcNow.AddSeconds(1));
+
+        Assert.False(result.IsValid);
+        Assert.Equal("run.attempt.running", Assert.Single(result.Issues).Code);
+    }
+
+    [Fact]
+    public void CompleteAttemptRequiresExecutingStatus()
+    {
+        var run = ProjectRun.Create("run-1", "recipe-1").Value;
+
+        var result = run.CompleteAttempt(
+            "build",
+            1,
+            StepAttemptOutcome.Succeeded,
+            DateTimeOffset.UtcNow,
+            null,
+            null);
+
+        Assert.False(result.IsValid);
+        Assert.Equal("run.attempt.complete.status", Assert.Single(result.Issues).Code);
+    }
+
+    [Theory]
+    [InlineData("other", 1)]
+    [InlineData("build", 2)]
+    public void CompleteAttemptRequiresTheMatchingCurrentRunningAttempt(string stepId, int attemptNumber)
+    {
+        var startedAt = DateTimeOffset.UtcNow;
+        var run = ReachStatus(RunStatus.Executing).StartAttempt("build", startedAt).Value;
+
+        var result = run.CompleteAttempt(
+            stepId,
+            attemptNumber,
+            StepAttemptOutcome.Succeeded,
+            startedAt.AddSeconds(1),
+            null,
+            null);
+
+        Assert.False(result.IsValid);
+        Assert.Equal("run.attempt.running-not-found", Assert.Single(result.Issues).Code);
+    }
+
+    [Theory]
+    [InlineData(RunStatus.ValidationFailed)]
+    [InlineData(RunStatus.LocalReady)]
+    [InlineData(RunStatus.Cancelled)]
+    [InlineData(RunStatus.Failed)]
+    public void TransitionFromExecutingRejectsEveryLegalExitWhileAnAttemptIsRunning(RunStatus nextStatus)
+    {
+        var run = ReachStatus(RunStatus.Executing)
+            .StartAttempt("build", DateTimeOffset.UtcNow).Value;
+
+        var result = run.TransitionTo(nextStatus);
+
+        Assert.False(result.IsValid);
+        Assert.Equal("run.transition.attempt-running", Assert.Single(result.Issues).Code);
+    }
+
+    [Theory]
+    [InlineData(RunStatus.Draft)]
+    [InlineData(RunStatus.PreflightFailed)]
+    [InlineData(RunStatus.ValidationFailed)]
+    [InlineData(RunStatus.Completed)]
+    [InlineData(RunStatus.Cancelled)]
+    [InlineData(RunStatus.Failed)]
+    public void AppendErrorRejectsDraftAndTerminalHistoryMutation(RunStatus status)
+    {
+        var result = ReachStatus(status).AppendError(SafeError());
+
+        Assert.False(result.IsValid);
+        Assert.Equal("run.error.append.status", Assert.Single(result.Issues).Code);
+    }
+
+    [Fact]
+    public void RehydrateRejectsDraftHistoryAndCurrentStep()
+    {
+        var completed = SucceededAttempt("build", 1);
+
+        var result = ProjectRun.Rehydrate(
+            "run-1",
+            "recipe-1",
+            RunStatus.Draft,
+            "build",
+            [completed],
+            []);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Issues, issue => issue.Code == "run.draft.history.invalid");
+        Assert.Contains(result.Issues, issue => issue.Code == "run.current-step.status.invalid");
+    }
+
+    [Fact]
+    public void RehydrateRejectsRunningAttemptsOutsideExecuting()
+    {
+        var running = StepAttempt.Start("build", 1, DateTimeOffset.UtcNow).Value;
+
+        foreach (var status in Enum.GetValues<RunStatus>().Where(status => status != RunStatus.Executing))
+        {
+            var result = ProjectRun.Rehydrate(
+                "run-1",
+                "recipe-1",
+                status,
+                "build",
+                [running],
+                []);
+
+            Assert.False(result.IsValid);
+            Assert.Contains(result.Issues, issue => issue.Code == "run.attempt.running-status.invalid");
+        }
+    }
+
+    [Fact]
+    public void RehydrateRejectsExecutingCurrentStepAndRunningAttemptInconsistencies()
+    {
+        var runningBuild = StepAttempt.Start("build", 1, DateTimeOffset.UtcNow).Value;
+        var runningTest = StepAttempt.Start("test", 1, DateTimeOffset.UtcNow).Value;
+
+        var currentWithoutRunning = ProjectRun.Rehydrate(
+            "run-1", "recipe-1", RunStatus.Executing, "build", [], []);
+        var runningWithoutCurrent = ProjectRun.Rehydrate(
+            "run-1", "recipe-1", RunStatus.Executing, null, [runningBuild], []);
+        var mismatchedCurrent = ProjectRun.Rehydrate(
+            "run-1", "recipe-1", RunStatus.Executing, "test", [runningBuild], []);
+        var multipleRunning = ProjectRun.Rehydrate(
+            "run-1", "recipe-1", RunStatus.Executing, "build", [runningBuild, runningTest], []);
+
+        Assert.Contains(currentWithoutRunning.Issues, issue => issue.Code == "run.current-step.running-required");
+        Assert.Contains(runningWithoutCurrent.Issues, issue => issue.Code == "run.current-step.required");
+        Assert.Contains(mismatchedCurrent.Issues, issue => issue.Code == "run.current-step.mismatch");
+        Assert.Contains(multipleRunning.Issues, issue => issue.Code == "run.attempt.running.multiple");
+    }
+
+    private static StepAttempt SucceededAttempt(string stepId, int attemptNumber)
+    {
+        var startedAt = DateTimeOffset.UtcNow;
+        return StepAttempt.Rehydrate(
+            stepId,
+            attemptNumber,
+            startedAt,
+            startedAt.AddSeconds(1),
+            StepAttemptOutcome.Succeeded,
+            null,
+            null).Value;
+    }
     private static ProjectRun ReachStatus(RunStatus status)
     {
         var run = ProjectRun.Create("run-1", "recipe-1").Value;
@@ -240,11 +426,11 @@ public sealed class ProjectRunTests
         return DevForgeError.Create(
             "build.failed",
             "Build failed.",
-            SanitizedText.Create("Compiler returned a redacted error.").Value,
+            RedactedText.FromTrustedRedaction("Compiler returned a redacted error.").Value,
             "validation",
             "build",
             true,
             ["Run the build again."],
-            new Dictionary<string, SanitizedText>()).Value;
+            new Dictionary<string, RedactedText>()).Value;
     }
 }
