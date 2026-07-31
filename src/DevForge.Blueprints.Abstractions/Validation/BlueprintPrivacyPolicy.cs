@@ -27,7 +27,10 @@ internal static partial class BlueprintPrivacyPolicy
         }
 
         var normalized = NormalizeLettersAndDigits(value);
-        if (_sensitiveIdentifiers.Contains(normalized))
+        if (_sensitiveIdentifiers.Any(
+            sensitiveName => normalized.EndsWith(
+                sensitiveName,
+                StringComparison.Ordinal)))
         {
             return true;
         }

@@ -8,7 +8,9 @@ public sealed class BlueprintManifest
     private BlueprintManifest(
         BlueprintManifestDraft draft,
         BlueprintTrustAssignment trustAssignment,
+        SemanticVersionRange engineVersionRange,
         ImmutableArray<ToolRequirement?> tools,
+        ImmutableArray<SemanticVersionRange?> toolVersionRanges,
         ImmutableArray<InputDefinition?> inputs,
         ImmutableArray<CompatibilityRule?> compatibilityRules,
         ImmutableArray<BlueprintStepDefinition?> steps,
@@ -16,9 +18,13 @@ public sealed class BlueprintManifest
     {
         Id = draft.Id!.Trim();
         Version = draft.Version!.Trim();
-        EngineVersionRange = SemanticVersionRange.ParseValidated(draft.EngineVersionRange!).Expression;
+        EngineVersionRange = engineVersionRange.Expression;
         Trust = trustAssignment.Trust;
-        Tools = [.. tools.Select(NormalizeTool)];
+        Tools =
+        [
+            .. tools.Select(
+                (tool, index) => NormalizeTool(tool, toolVersionRanges[index]!)),
+        ];
         Inputs = [.. inputs.Select(NormalizeInput)];
         CompatibilityRules = [.. compatibilityRules.Select(NormalizeCompatibilityRule)];
         Steps = [.. steps.Select(NormalizeStep)];
@@ -62,11 +68,22 @@ public sealed class BlueprintManifest
         var compatibilityRules = draft.CompatibilityRules?.ToImmutableArray() ?? [];
         var steps = draft.Steps?.ToImmutableArray() ?? [];
         var validators = draft.Validators?.ToImmutableArray() ?? [];
+        var engineVersionRange =
+            SemanticVersionRange.TryParse(draft.EngineVersionRange, out var parsedEngineVersionRange)
+                ? parsedEngineVersionRange
+                : null;
+        var toolVersionRanges = tools
+            .Select(
+                tool => tool is not null
+                    && SemanticVersionRange.TryParse(tool.VersionRange, out var versionRange)
+                        ? versionRange
+                        : null)
+            .ToImmutableArray();
         var issues = new List<BlueprintValidationIssue>();
 
-        ValidateManifestIdentity(draft, issues);
+        ValidateManifestIdentity(draft, engineVersionRange, issues);
         ValidateTrustAssignment(trustAssignment, issues);
-        ValidateTools(draft.Tools, tools, issues);
+        ValidateTools(draft.Tools, tools, toolVersionRanges, issues);
         ValidateInputs(draft.Inputs, inputs, issues);
         ValidateCompatibilityRules(
             draft.CompatibilityRules,
@@ -80,7 +97,9 @@ public sealed class BlueprintManifest
                 new BlueprintManifest(
                     draft,
                     trustAssignment!,
+                    engineVersionRange!,
                     tools,
+                    toolVersionRanges,
                     inputs,
                     compatibilityRules,
                     steps,
@@ -90,6 +109,7 @@ public sealed class BlueprintManifest
 
     private static void ValidateManifestIdentity(
         BlueprintManifestDraft draft,
+        SemanticVersionRange? engineVersionRange,
         List<BlueprintValidationIssue> issues)
     {
         if (!BlueprintIdentifierValidator.IsValid(draft.Id))
@@ -110,7 +130,7 @@ public sealed class BlueprintManifest
                     "version"));
         }
 
-        if (!SemanticVersionRange.TryParse(draft.EngineVersionRange, out _))
+        if (engineVersionRange is null)
         {
             issues.Add(
                 new BlueprintValidationIssue(
@@ -145,6 +165,7 @@ public sealed class BlueprintManifest
     private static void ValidateTools(
         IReadOnlyCollection<ToolRequirement?>? source,
         ImmutableArray<ToolRequirement?> tools,
+        ImmutableArray<SemanticVersionRange?> toolVersionRanges,
         List<BlueprintValidationIssue> issues)
     {
         if (source is null)
@@ -179,7 +200,7 @@ public sealed class BlueprintManifest
                         $"tools[{index}].id"));
             }
 
-            if (!SemanticVersionRange.TryParse(tool.VersionRange, out _))
+            if (toolVersionRanges[index] is null)
             {
                 issues.Add(
                     new BlueprintValidationIssue(
@@ -457,11 +478,13 @@ public sealed class BlueprintManifest
         }
     }
 
-    private static ToolRequirement NormalizeTool(ToolRequirement? tool)
+    private static ToolRequirement NormalizeTool(
+        ToolRequirement? tool,
+        SemanticVersionRange versionRange)
     {
         return new ToolRequirement(
             tool!.Id.Trim(),
-            SemanticVersionRange.ParseValidated(tool.VersionRange).Expression,
+            versionRange.Expression,
             tool.Required);
     }
 

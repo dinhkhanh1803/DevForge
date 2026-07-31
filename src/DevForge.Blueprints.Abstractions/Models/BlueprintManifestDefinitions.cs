@@ -15,10 +15,10 @@ public sealed record BlueprintTrustAssignment(BlueprintTrust Trust);
 
 public enum BlueprintInputKind
 {
-    Text,
-    Boolean,
-    WholeNumber,
-    Choice,
+    Text = 1,
+    Boolean = 2,
+    WholeNumber = 3,
+    Choice = 4,
 }
 
 public sealed record ToolRequirement(

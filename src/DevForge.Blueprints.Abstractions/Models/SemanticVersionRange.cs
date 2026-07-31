@@ -90,15 +90,6 @@ public sealed record SemanticVersionRange
         return Expression;
     }
 
-    internal static SemanticVersionRange ParseValidated(string expression)
-    {
-        return TryParse(expression, out var range)
-            ? range
-            : throw new ArgumentException(
-                "The expression must be a supported semantic-version range.",
-                nameof(expression));
-    }
-
     internal static bool IsSemanticVersion(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))

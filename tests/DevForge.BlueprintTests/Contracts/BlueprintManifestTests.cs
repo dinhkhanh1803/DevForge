@@ -200,6 +200,34 @@ public sealed class BlueprintManifestTests
     }
 
     [Fact]
+    public void CreateRejectsMissingOrDefaultInputKind()
+    {
+        var result = Create(
+            ValidDraft() with
+            {
+                Inputs =
+                [
+                    new InputDefinition("framework", default, true),
+                ],
+            });
+
+        var issue = Assert.Single(result.Issues);
+        Assert.Equal("blueprint.input.kind.invalid", issue.Code);
+        Assert.Equal("inputs[0].kind", issue.Location);
+    }
+
+    [Fact]
+    public void InputKindDefinesOnlyTheApprovedNonzeroValues()
+    {
+        Assert.Equal(
+            ["Text", "Boolean", "WholeNumber", "Choice"],
+            Enum.GetNames<BlueprintInputKind>());
+        Assert.Equal(
+            [1, 2, 3, 4],
+            Enum.GetValues<BlueprintInputKind>().Select(value => (int)value));
+    }
+
+    [Fact]
     public void CreateAggregatesMalformedNestedDefinitionsInStableOrder()
     {
         var result = Create(
@@ -270,6 +298,25 @@ public sealed class BlueprintManifestTests
             });
 
         Assert.True(result.IsValid);
+    }
+
+    [Theory]
+    [InlineData("databasepassword")]
+    [InlineData("clientsecret")]
+    [InlineData("githubtoken")]
+    [InlineData("apitoken")]
+    [InlineData("privatekey")]
+    [InlineData("connectionstring")]
+    public void CreateRejectsConcatenatedSensitiveIdentifierSuffixes(string inputId)
+    {
+        var result = Create(
+            ValidDraft() with
+            {
+                Inputs = [new InputDefinition(inputId, BlueprintInputKind.Text, false)],
+            });
+
+        var issue = Assert.Single(result.Issues);
+        Assert.Equal("blueprint.input.id.secret-shaped", issue.Code);
     }
 
     [Theory]
