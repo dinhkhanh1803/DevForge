@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+using System.Runtime.InteropServices;
 using DevForge.Blueprints.Abstractions.Validation;
 
 namespace DevForge.BlueprintTests.Contracts;
@@ -31,8 +33,8 @@ public sealed class BlueprintValidationTests
     [Fact]
     public void ValidationResultRejectsNullIssuesAndEnumeratesOnce()
     {
-        IEnumerable<BlueprintValidationIssue?> nullIssues = [null];
-        var issues = new SingleEnumerationEnumerable<BlueprintValidationIssue?>(
+        IEnumerable<BlueprintValidationIssue> nullIssues = [null!];
+        var issues = new SingleEnumerationEnumerable<BlueprintValidationIssue>(
             [BlueprintValidationIssue.Create("code", "Message")]);
 
         Assert.Throws<ArgumentException>(() => BlueprintValidationResult.Failure<string>(nullIssues));
@@ -42,6 +44,17 @@ public sealed class BlueprintValidationTests
         Assert.Equal(1, issues.EnumerationCount);
     }
 
+    [Fact]
+    public void ValidationResultReusesAnImmutableIssueSnapshotWithoutCopying()
+    {
+        var issues = ImmutableArray.Create(BlueprintValidationIssue.Create("code", "Message"));
+
+        var result = BlueprintValidationResult.Failure<string>(issues);
+
+        Assert.Same(
+            ImmutableCollectionsMarshal.AsArray(issues),
+            ImmutableCollectionsMarshal.AsArray(result.Issues));
+    }
     private sealed class SingleEnumerationEnumerable<T>(IEnumerable<T> values) : IEnumerable<T>
     {
         public int EnumerationCount { get; private set; }

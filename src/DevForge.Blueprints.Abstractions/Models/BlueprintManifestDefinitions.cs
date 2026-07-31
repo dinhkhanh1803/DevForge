@@ -1,12 +1,17 @@
 namespace DevForge.Blueprints.Abstractions.Models;
 
-public enum BlueprintTrustLevel
+public enum BlueprintTrust
 {
-    BuiltIn,
-    TrustedLocal,
-    Untrusted,
-    Quarantined,
+    BuiltIn = 1,
+    TrustedLocal = 2,
+    Untrusted = 3,
+    Quarantined = 4,
 }
+
+/// <summary>
+/// Carries trust assigned by a catalog or loader boundary, independently of manifest content.
+/// </summary>
+public sealed record BlueprintTrustAssignment(BlueprintTrust Trust);
 
 public enum BlueprintInputKind
 {
@@ -45,7 +50,6 @@ public sealed record BlueprintManifestDraft(
     string? Id,
     string? Version,
     string? EngineVersionRange,
-    BlueprintTrustLevel Trust,
     IReadOnlyCollection<ToolRequirement?>? Tools,
     IReadOnlyCollection<InputDefinition?>? Inputs,
     IReadOnlyCollection<CompatibilityRule?>? CompatibilityRules,

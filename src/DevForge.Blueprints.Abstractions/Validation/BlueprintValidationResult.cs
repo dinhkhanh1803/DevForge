@@ -36,18 +36,17 @@ public static class BlueprintValidationResult
     }
 
     public static BlueprintValidationResult<T> Failure<T>(
-        IEnumerable<BlueprintValidationIssue?> issues)
+        IEnumerable<BlueprintValidationIssue> issues)
     {
         ArgumentNullException.ThrowIfNull(issues);
-        var candidateSnapshot = issues.ToImmutableArray();
-        if (candidateSnapshot.Any(issue => issue is null))
+        var snapshot = issues.ToImmutableArray();
+        if (snapshot.Any(issue => issue is null))
         {
             throw new ArgumentException(
                 "Blueprint validation issues cannot contain null values.",
                 nameof(issues));
         }
 
-        var snapshot = candidateSnapshot.Select(issue => issue!).ToImmutableArray();
         if (snapshot.IsEmpty)
         {
             throw new ArgumentException(

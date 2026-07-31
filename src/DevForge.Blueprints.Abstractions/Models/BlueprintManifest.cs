@@ -5,19 +5,9 @@ namespace DevForge.Blueprints.Abstractions.Models;
 
 public sealed class BlueprintManifest
 {
-    private static readonly string[] _secretFragments =
-    [
-        "apikey",
-        "connectionstring",
-        "credential",
-        "password",
-        "privatekey",
-        "secret",
-        "token",
-    ];
-
     private BlueprintManifest(
         BlueprintManifestDraft draft,
+        BlueprintTrustAssignment trustAssignment,
         ImmutableArray<ToolRequirement?> tools,
         ImmutableArray<InputDefinition?> inputs,
         ImmutableArray<CompatibilityRule?> compatibilityRules,
@@ -26,8 +16,8 @@ public sealed class BlueprintManifest
     {
         Id = draft.Id!.Trim();
         Version = draft.Version!.Trim();
-        EngineVersionRange = NormalizeVersionRange(draft.EngineVersionRange!);
-        Trust = draft.Trust;
+        EngineVersionRange = SemanticVersionRange.ParseValidated(draft.EngineVersionRange!).Expression;
+        Trust = trustAssignment.Trust;
         Tools = [.. tools.Select(NormalizeTool)];
         Inputs = [.. inputs.Select(NormalizeInput)];
         CompatibilityRules = [.. compatibilityRules.Select(NormalizeCompatibilityRule)];
@@ -41,7 +31,7 @@ public sealed class BlueprintManifest
 
     public string EngineVersionRange { get; }
 
-    public BlueprintTrustLevel Trust { get; }
+    public BlueprintTrust Trust { get; }
 
     public ImmutableArray<ToolRequirement> Tools { get; }
 
@@ -53,7 +43,9 @@ public sealed class BlueprintManifest
 
     public ImmutableArray<ValidatorDefinition> Validators { get; }
 
-    public static BlueprintValidationResult<BlueprintManifest> Create(BlueprintManifestDraft? draft)
+    public static BlueprintValidationResult<BlueprintManifest> Create(
+        BlueprintManifestDraft? draft,
+        BlueprintTrustAssignment? trustAssignment)
     {
         if (draft is null)
         {
@@ -73,6 +65,7 @@ public sealed class BlueprintManifest
         var issues = new List<BlueprintValidationIssue>();
 
         ValidateManifestIdentity(draft, issues);
+        ValidateTrustAssignment(trustAssignment, issues);
         ValidateTools(draft.Tools, tools, issues);
         ValidateInputs(draft.Inputs, inputs, issues);
         ValidateCompatibilityRules(
@@ -86,6 +79,7 @@ public sealed class BlueprintManifest
             ? BlueprintValidationResult.Success(
                 new BlueprintManifest(
                     draft,
+                    trustAssignment!,
                     tools,
                     inputs,
                     compatibilityRules,
@@ -98,7 +92,7 @@ public sealed class BlueprintManifest
         BlueprintManifestDraft draft,
         List<BlueprintValidationIssue> issues)
     {
-        if (!IsIdentifier(draft.Id))
+        if (!BlueprintIdentifierValidator.IsValid(draft.Id))
         {
             issues.Add(
                 new BlueprintValidationIssue(
@@ -107,7 +101,7 @@ public sealed class BlueprintManifest
                     "id"));
         }
 
-        if (!IsSemanticVersion(draft.Version))
+        if (!SemanticVersionRange.IsSemanticVersion(draft.Version))
         {
             issues.Add(
                 new BlueprintValidationIssue(
@@ -116,7 +110,7 @@ public sealed class BlueprintManifest
                     "version"));
         }
 
-        if (!IsVersionRange(draft.EngineVersionRange))
+        if (!SemanticVersionRange.TryParse(draft.EngineVersionRange, out _))
         {
             issues.Add(
                 new BlueprintValidationIssue(
@@ -125,16 +119,29 @@ public sealed class BlueprintManifest
                     "engineVersionRange"));
         }
 
-        if (!Enum.IsDefined(draft.Trust))
+    }
+
+    private static void ValidateTrustAssignment(
+        BlueprintTrustAssignment? trustAssignment,
+        List<BlueprintValidationIssue> issues)
+    {
+        if (trustAssignment is null)
+        {
+            issues.Add(
+                new BlueprintValidationIssue(
+                    "blueprint.trust-assignment.required",
+                    "A trust assignment from the catalog boundary is required.",
+                    "trustAssignment"));
+        }
+        else if (!Enum.IsDefined(trustAssignment.Trust))
         {
             issues.Add(
                 new BlueprintValidationIssue(
                     "blueprint.trust.invalid",
-                    "The blueprint trust level is not defined.",
-                    "trust"));
+                    "The assigned blueprint trust level is not defined.",
+                    "trustAssignment.trust"));
         }
     }
-
     private static void ValidateTools(
         IReadOnlyCollection<ToolRequirement?>? source,
         ImmutableArray<ToolRequirement?> tools,
@@ -163,7 +170,7 @@ public sealed class BlueprintManifest
                 continue;
             }
 
-            if (!IsIdentifier(tool.Id))
+            if (!BlueprintIdentifierValidator.IsValid(tool.Id))
             {
                 issues.Add(
                     new BlueprintValidationIssue(
@@ -172,7 +179,7 @@ public sealed class BlueprintManifest
                         $"tools[{index}].id"));
             }
 
-            if (!IsVersionRange(tool.VersionRange))
+            if (!SemanticVersionRange.TryParse(tool.VersionRange, out _))
             {
                 issues.Add(
                     new BlueprintValidationIssue(
@@ -213,7 +220,7 @@ public sealed class BlueprintManifest
             }
 
             var normalizedId = input.Id?.Trim();
-            if (!IsIdentifier(input.Id))
+            if (!BlueprintIdentifierValidator.IsValid(input.Id))
             {
                 issues.Add(
                     new BlueprintValidationIssue(
@@ -230,7 +237,7 @@ public sealed class BlueprintManifest
                         $"inputs[{index}].id"));
             }
 
-            if (IsSecretShaped(input.Id))
+            if (BlueprintPrivacyPolicy.IsSensitiveIdentifier(input.Id))
             {
                 issues.Add(
                     new BlueprintValidationIssue(
@@ -248,7 +255,8 @@ public sealed class BlueprintManifest
                         $"inputs[{index}].kind"));
             }
 
-            if (input.DefaultValue is not null && IsSecretShaped(input.DefaultValue))
+            if (input.DefaultValue is not null
+                && BlueprintPrivacyPolicy.ContainsSensitiveDefault(input.DefaultValue))
             {
                 issues.Add(
                     new BlueprintValidationIssue(
@@ -337,7 +345,7 @@ public sealed class BlueprintManifest
             }
 
             var normalizedId = step.Id?.Trim();
-            if (!IsIdentifier(step.Id))
+            if (!BlueprintIdentifierValidator.IsValid(step.Id))
             {
                 issues.Add(
                     new BlueprintValidationIssue(
@@ -399,7 +407,7 @@ public sealed class BlueprintManifest
                 continue;
             }
 
-            if (!IsIdentifier(validator.Id))
+            if (!BlueprintIdentifierValidator.IsValid(validator.Id))
             {
                 issues.Add(
                     new BlueprintValidationIssue(
@@ -439,7 +447,7 @@ public sealed class BlueprintManifest
                     "A handler identifier is required.",
                     location));
         }
-        else if (!IsIdentifier(handlerId))
+        else if (!BlueprintIdentifierValidator.IsValid(handlerId))
         {
             issues.Add(
                 new BlueprintValidationIssue(
@@ -453,7 +461,7 @@ public sealed class BlueprintManifest
     {
         return new ToolRequirement(
             tool!.Id.Trim(),
-            NormalizeVersionRange(tool.VersionRange),
+            SemanticVersionRange.ParseValidated(tool.VersionRange).Expression,
             tool.Required);
     }
 
@@ -487,196 +495,4 @@ public sealed class BlueprintManifest
             validator.Timeout);
     }
 
-    private static bool IsIdentifier(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return false;
-        }
-
-        var candidate = value.Trim();
-        if (!IsLowercaseLetter(candidate[0]) || !IsLowercaseLetterOrDigit(candidate[^1]))
-        {
-            return false;
-        }
-
-        var previousWasSeparator = false;
-        foreach (var character in candidate)
-        {
-            if (IsLowercaseLetterOrDigit(character))
-            {
-                previousWasSeparator = false;
-                continue;
-            }
-
-            if ((character != '.' && character != '-') || previousWasSeparator)
-            {
-                return false;
-            }
-
-            previousWasSeparator = true;
-        }
-
-        return true;
-    }
-
-    private static bool IsVersionRange(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return false;
-        }
-
-        var tokens = SplitRange(value);
-        var comparatorExpected = true;
-        foreach (var token in tokens)
-        {
-            if (token == "||")
-            {
-                if (comparatorExpected)
-                {
-                    return false;
-                }
-
-                comparatorExpected = true;
-                continue;
-            }
-
-            if (!TryGetComparatorVersion(token, out var version)
-                || !IsSemanticVersion(version))
-            {
-                return false;
-            }
-
-            comparatorExpected = false;
-        }
-
-        return !comparatorExpected;
-    }
-
-    private static bool TryGetComparatorVersion(string token, out string version)
-    {
-        if (token.StartsWith(">=", StringComparison.Ordinal)
-            || token.StartsWith("<=", StringComparison.Ordinal))
-        {
-            version = token[2..];
-        }
-        else if (token[0] is '>' or '<' or '=')
-        {
-            version = token[1..];
-        }
-        else
-        {
-            version = token;
-        }
-
-        return version.Length > 0;
-    }
-
-    private static bool IsSemanticVersion(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return false;
-        }
-
-        var candidate = value.Trim();
-        var buildParts = candidate.Split('+');
-        if (buildParts.Length > 2
-            || (buildParts.Length == 2 && !AreValidIdentifiers(buildParts[1], false)))
-        {
-            return false;
-        }
-
-        var coreAndPrerelease = buildParts[0];
-        var prereleaseSeparator = coreAndPrerelease.IndexOf('-', StringComparison.Ordinal);
-        var core = prereleaseSeparator < 0
-            ? coreAndPrerelease
-            : coreAndPrerelease[..prereleaseSeparator];
-        if (prereleaseSeparator >= 0
-            && !AreValidIdentifiers(coreAndPrerelease[(prereleaseSeparator + 1)..], true))
-        {
-            return false;
-        }
-
-        var coreParts = core.Split('.');
-        return coreParts.Length == 3 && coreParts.All(IsValidNumericIdentifier);
-    }
-
-    private static bool AreValidIdentifiers(string value, bool forbidNumericLeadingZero)
-    {
-        var identifiers = value.Split('.');
-        foreach (var identifier in identifiers)
-        {
-            if (identifier.Length == 0
-                || identifier.Any(
-                    character => !IsAsciiLetterOrDigit(character) && character != '-'))
-            {
-                return false;
-            }
-
-            if (forbidNumericLeadingZero
-                && identifier.All(IsAsciiDigit)
-                && !IsValidNumericIdentifier(identifier))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private static bool IsValidNumericIdentifier(string value)
-    {
-        return value.Length > 0
-            && value.All(IsAsciiDigit)
-            && (value.Length == 1 || value[0] != '0');
-    }
-
-    private static bool IsSecretShaped(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return false;
-        }
-
-        var normalized = string.Concat(
-            value.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant));
-        return _secretFragments.Any(
-            fragment => normalized.Contains(fragment, StringComparison.Ordinal));
-    }
-
-    private static string NormalizeVersionRange(string value)
-    {
-        return string.Join(' ', SplitRange(value));
-    }
-
-    private static string[] SplitRange(string value)
-    {
-        return value.Split(
-            (char[]?)null,
-            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-    }
-
-    private static bool IsLowercaseLetter(char value)
-    {
-        return value is >= 'a' and <= 'z';
-    }
-
-    private static bool IsLowercaseLetterOrDigit(char value)
-    {
-        return IsLowercaseLetter(value) || IsAsciiDigit(value);
-    }
-
-    private static bool IsAsciiLetterOrDigit(char value)
-    {
-        return value is >= 'a' and <= 'z'
-            || value is >= 'A' and <= 'Z'
-            || IsAsciiDigit(value);
-    }
-
-    private static bool IsAsciiDigit(char value)
-    {
-        return value is >= '0' and <= '9';
-    }
 }

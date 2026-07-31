@@ -8,7 +8,7 @@ public sealed class BlueprintManifestTests
     [Fact]
     public void CreateRejectsANullDraftWithoutThrowing()
     {
-        var result = BlueprintManifest.Create(null);
+        var result = Create(null);
 
         var issue = Assert.Single(result.Issues);
         Assert.Equal("blueprint.manifest.required", issue.Code);
@@ -39,12 +39,11 @@ public sealed class BlueprintManifestTests
             new("  build  ", "  validate-command  ", TimeSpan.FromMinutes(5)),
         };
 
-        var result = BlueprintManifest.Create(
+        var result = Create(
             new BlueprintManifestDraft(
                 "  desktop.csharp-wpf-tool  ",
                 "  1.2.3-beta.1+build.7  ",
                 "  >=1.0.0   <2.0.0  ",
-                BlueprintTrustLevel.BuiltIn,
                 tools,
                 inputs,
                 rules,
@@ -63,7 +62,7 @@ public sealed class BlueprintManifestTests
         Assert.Equal("desktop.csharp-wpf-tool", manifest.Id);
         Assert.Equal("1.2.3-beta.1+build.7", manifest.Version);
         Assert.Equal(">=1.0.0 <2.0.0", manifest.EngineVersionRange);
-        Assert.Equal(BlueprintTrustLevel.BuiltIn, manifest.Trust);
+        Assert.Equal(BlueprintTrust.BuiltIn, manifest.Trust);
         Assert.Equal(new ToolRequirement("dotnet", ">=10.0.0 <11.0.0"), Assert.Single(manifest.Tools));
         Assert.Equal(
             new InputDefinition("framework", BlueprintInputKind.Text, true, "net10.0"),
@@ -80,15 +79,14 @@ public sealed class BlueprintManifestTests
     }
 
     [Fact]
-    public void CreateAggregatesIdentityVersionEngineRangeAndTrustIssuesInStableOrder()
+    public void CreateAggregatesIdentityVersionAndEngineRangeIssuesInStableOrder()
     {
-        var result = BlueprintManifest.Create(
+        var result = Create(
             ValidDraft() with
             {
                 Id = "Invalid Id",
                 Version = "01.2",
                 EngineVersionRange = "latest",
-                Trust = (BlueprintTrustLevel)42,
             });
 
         Assert.False(result.IsValid);
@@ -97,11 +95,10 @@ public sealed class BlueprintManifestTests
                 "blueprint.id.invalid",
                 "blueprint.version.invalid",
                 "blueprint.engine-range.invalid",
-                "blueprint.trust.invalid",
             ],
             result.Issues.Select(issue => issue.Code));
         Assert.Equal(
-            ["id", "version", "engineVersionRange", "trust"],
+            ["id", "version", "engineVersionRange"],
             result.Issues.Select(issue => issue.Location));
     }
 
@@ -113,7 +110,7 @@ public sealed class BlueprintManifestTests
     [InlineData("v1.0.0")]
     public void CreateRejectsInvalidSemanticVersions(string version)
     {
-        var result = BlueprintManifest.Create(ValidDraft() with { Version = version });
+        var result = Create(ValidDraft() with { Version = version });
 
         var issue = Assert.Single(result.Issues);
         Assert.Equal("blueprint.version.invalid", issue.Code);
@@ -127,7 +124,7 @@ public sealed class BlueprintManifestTests
     [InlineData(">=1.0.0 nonsense")]
     public void CreateRejectsInvalidEngineRanges(string engineRange)
     {
-        var result = BlueprintManifest.Create(ValidDraft() with { EngineVersionRange = engineRange });
+        var result = Create(ValidDraft() with { EngineVersionRange = engineRange });
 
         var issue = Assert.Single(result.Issues);
         Assert.Equal("blueprint.engine-range.invalid", issue.Code);
@@ -136,7 +133,7 @@ public sealed class BlueprintManifestTests
     [Fact]
     public void CreateRejectsDuplicateInputAndStepIdentifiersAfterNormalization()
     {
-        var result = BlueprintManifest.Create(
+        var result = Create(
             ValidDraft() with
             {
                 Inputs =
@@ -163,7 +160,7 @@ public sealed class BlueprintManifestTests
     [Fact]
     public void CreateRejectsNonPositiveStepAndValidatorTimeouts()
     {
-        var result = BlueprintManifest.Create(
+        var result = Create(
             ValidDraft() with
             {
                 Steps =
@@ -188,7 +185,7 @@ public sealed class BlueprintManifestTests
     [Fact]
     public void CreateRejectsUndefinedInputKinds()
     {
-        var result = BlueprintManifest.Create(
+        var result = Create(
             ValidDraft() with
             {
                 Inputs =
@@ -205,7 +202,7 @@ public sealed class BlueprintManifestTests
     [Fact]
     public void CreateAggregatesMalformedNestedDefinitionsInStableOrder()
     {
-        var result = BlueprintManifest.Create(
+        var result = Create(
             ValidDraft() with
             {
                 Tools = [new ToolRequirement(null!, "latest")],
@@ -242,7 +239,7 @@ public sealed class BlueprintManifestTests
     public void CreateRejectsSecretShapedInputNamesAndDefaultsWithoutEchoingValues()
     {
         const string sensitiveDefault = "password=do-not-echo";
-        var result = BlueprintManifest.Create(
+        var result = Create(
             ValidDraft() with
             {
                 Inputs =
@@ -261,10 +258,94 @@ public sealed class BlueprintManifestTests
             issue => issue.Message.Contains(sensitiveDefault, StringComparison.Ordinal));
     }
 
+    [Theory]
+    [InlineData("tokenization")]
+    [InlineData("secretary")]
+    public void CreateAllowsBenignIdentifiersContainingSensitiveSubstrings(string inputId)
+    {
+        var result = Create(
+            ValidDraft() with
+            {
+                Inputs = [new InputDefinition(inputId, BlueprintInputKind.Text, false)],
+            });
+
+        Assert.True(result.IsValid);
+    }
+
+    [Theory]
+    [InlineData("tokenization strategy")]
+    [InlineData("secretary contact")]
+    [InlineData("passwordless authentication")]
+    public void CreateAllowsBenignDefaultsContainingSensitiveSubstrings(string defaultValue)
+    {
+        var result = Create(
+            ValidDraft() with
+            {
+                Inputs = [new InputDefinition("description", BlueprintInputKind.Text, false, defaultValue)],
+            });
+
+        Assert.True(result.IsValid);
+    }
+
+    [Theory]
+    [InlineData("p-a-s-s-w-o-r-d")]
+    [InlineData("s.e.c.r.e.t")]
+    public void CreateRejectsObfuscatedSensitiveIdentifiers(string inputId)
+    {
+        var result = Create(
+            ValidDraft() with
+            {
+                Inputs = [new InputDefinition(inputId, BlueprintInputKind.Text, false)],
+            });
+
+        Assert.Contains(result.Issues, issue => issue.Code == "blueprint.input.id.secret-shaped");
+    }
+
+    [Theory]
+    [InlineData("p.a.s.s.w.o.r.d = do-not-echo")]
+    [InlineData("s e c r e t: do-not-echo")]
+    public void CreateRejectsObfuscatedCredentialAssignments(string defaultValue)
+    {
+        var result = Create(
+            ValidDraft() with
+            {
+                Inputs = [new InputDefinition("configuration", BlueprintInputKind.Text, false, defaultValue)],
+            });
+
+        Assert.Contains(result.Issues, issue => issue.Code == "blueprint.input.default.secret-shaped");
+        Assert.DoesNotContain(result.Issues, issue => issue.Message.Contains(defaultValue, StringComparison.Ordinal));
+    }
+    public static TheoryData<string> SensitiveDefaults =>
+        new()
+        {
+            "password = do-not-echo",
+            "ghp_abcdefghijklmnopqrstuvwxyz0123456789",
+            "sk-proj-abcdefghijklmnopqrstuvwxyz0123456789",
+            "AKIAIOSFODNN7EXAMPLE",
+            "Authorization: Bearer abcdefghijklmnopqrstuvwxyz",
+            "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature",
+            "-----BEGIN PRIVATE KEY-----\nmaterial\n-----END PRIVATE KEY-----",
+            "PUBLIC_URL=https://example.test\nMODE=production",
+        };
+
+    [Theory]
+    [MemberData(nameof(SensitiveDefaults))]
+    public void CreateRejectsStrongSensitiveDefaultPatternsWithoutEchoingValues(string defaultValue)
+    {
+        var result = Create(
+            ValidDraft() with
+            {
+                Inputs = [new InputDefinition("configuration", BlueprintInputKind.Text, false, defaultValue)],
+            });
+
+        var issue = Assert.Single(result.Issues);
+        Assert.Equal("blueprint.input.default.secret-shaped", issue.Code);
+        Assert.DoesNotContain(defaultValue, issue.Message, StringComparison.Ordinal);
+    }
     [Fact]
     public void CreateAggregatesNullCollectionsAndNullEntriesWithoutThrowing()
     {
-        var nullCollections = BlueprintManifest.Create(
+        var nullCollections = Create(
             ValidDraft() with
             {
                 Tools = null,
@@ -284,7 +365,7 @@ public sealed class BlueprintManifestTests
             ],
             nullCollections.Issues.Select(issue => issue.Code));
 
-        var nullEntries = BlueprintManifest.Create(
+        var nullEntries = Create(
             ValidDraft() with
             {
                 Tools = [null],
@@ -318,7 +399,7 @@ public sealed class BlueprintManifestTests
         var validators = new SingleEnumerationCollection<ValidatorDefinition?>(
             [new("build", "validate-command", TimeSpan.FromMinutes(5))]);
 
-        var result = BlueprintManifest.Create(
+        var result = Create(
             ValidDraft() with
             {
                 Tools = tools,
@@ -345,13 +426,44 @@ public sealed class BlueprintManifestTests
     {
         Assert.Equal(
             ["BuiltIn", "TrustedLocal", "Untrusted", "Quarantined"],
-            Enum.GetNames<BlueprintTrustLevel>());
+            Enum.GetNames<BlueprintTrust>());
+        Assert.Equal([1, 2, 3, 4], Enum.GetValues<BlueprintTrust>().Select(value => (int)value));
     }
 
     [Fact]
+    public void DraftCannotAuthorTrustAndFactoryUsesTheTrustedAssignment()
+    {
+        Assert.DoesNotContain(
+            typeof(BlueprintManifestDraft).GetProperties(),
+            property => property.Name.Contains("Trust", StringComparison.Ordinal));
+
+        var result = BlueprintManifest.Create(
+            ValidDraft(),
+            new BlueprintTrustAssignment(BlueprintTrust.TrustedLocal));
+
+        Assert.True(result.IsValid);
+        Assert.Equal(BlueprintTrust.TrustedLocal, result.Value.Trust);
+    }
+
+    [Fact]
+    public void CreateRejectsMissingDefaultAndUndefinedTrustAssignments()
+    {
+        var missing = BlueprintManifest.Create(ValidDraft(), null);
+        var defaultTrust = BlueprintManifest.Create(
+            ValidDraft(),
+            new BlueprintTrustAssignment(default));
+        var undefined = BlueprintManifest.Create(
+            ValidDraft(),
+            new BlueprintTrustAssignment((BlueprintTrust)42));
+
+        Assert.Equal("blueprint.trust-assignment.required", Assert.Single(missing.Issues).Code);
+        Assert.Equal("blueprint.trust.invalid", Assert.Single(defaultTrust.Issues).Code);
+        Assert.Equal("blueprint.trust.invalid", Assert.Single(undefined.Issues).Code);
+    }
+    [Fact]
     public void FailedValidationResultDoesNotExposeAValue()
     {
-        var result = BlueprintManifest.Create(ValidDraft() with { Id = null });
+        var result = Create(ValidDraft() with { Id = null });
 
         Assert.Throws<InvalidOperationException>(() => result.Value);
     }
@@ -362,7 +474,6 @@ public sealed class BlueprintManifestTests
             "desktop.csharp-wpf-tool",
             "1.0.0",
             ">=1.0.0 <2.0.0",
-            BlueprintTrustLevel.BuiltIn,
             [new ToolRequirement("dotnet", ">=10.0.0 <11.0.0")],
             [new InputDefinition("framework", BlueprintInputKind.Text, true, "net10.0")],
             [new CompatibilityRule("os == 'windows'", "Windows is required.")],
@@ -370,6 +481,13 @@ public sealed class BlueprintManifestTests
             [new ValidatorDefinition("build", "validate-command", TimeSpan.FromMinutes(5))]);
     }
 
+    private static BlueprintValidationResult<BlueprintManifest> Create(
+        BlueprintManifestDraft? draft)
+    {
+        return BlueprintManifest.Create(
+            draft,
+            new BlueprintTrustAssignment(BlueprintTrust.BuiltIn));
+    }
     private sealed class SingleEnumerationCollection<T>(IReadOnlyCollection<T> values) : IReadOnlyCollection<T>
     {
         public int Count => values.Count;
