@@ -487,6 +487,15 @@ public sealed class ProjectRun
                     "status"));
         }
 
+        if (status is RunStatus.Planning or RunStatus.PreflightFailed && !attemptsSnapshot.IsEmpty)
+        {
+            issues.Add(
+                new ValidationIssue(
+                    "run.attempt-history.status.invalid",
+                    "Attempt history is not valid before execution begins.",
+                    "attempts"));
+        }
+
         if (status != RunStatus.Executing)
         {
             if (normalizedCurrentStepId is not null)

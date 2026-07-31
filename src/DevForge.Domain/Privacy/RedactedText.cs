@@ -14,11 +14,11 @@ namespace DevForge.Domain.Privacy;
 public sealed record RedactedText
 {
     private static readonly Regex _assignmentPattern = new(
-        @"(?i)(?<![a-z0-9_])(?:token|password|passwd|pwd|secret|credential|key|api[_-]?key|api[_-]?token|(?:auth|access|refresh|github)[_-]?token|(?:db|database)[_-]?password|openai[_-]?api[_-]?key|(?:aws[_-]?)?secret[_-]?access[_-]?key|connection[_-]?string)\s*[:=]",
+        @"(?i)(?<![a-z0-9_])(?:token|password|passwd|pwd|secret|credential|api[_-]?key|api[_-]?token|(?:auth|access|refresh|github)[_-]?token|(?:db|database)[_-]?password|openai[_-]?api[_-]?key|(?:aws[_-]?)?secret[_-]?access[_-]?key|connection[_-]?string)\s*[:=]",
         RegexOptions.CultureInvariant);
 
-    private static readonly Regex _environmentFilePattern = new(
-        @"(?i)(^|[\s/\\])\.env($|[.\s/\\])",
+    private static readonly Regex _environmentContentPattern = new(
+        @"(?i)(?:\.env(?:\s+file)?\s+(?:contents?|values?|dump)|(?:contents?|values?|dump)\s+(?:of|from)\s+\.env)",
         RegexOptions.CultureInvariant);
 
     private static readonly Regex _privateKeyPattern = new(
@@ -74,7 +74,7 @@ public sealed record RedactedText
 
         var trimmed = value.Trim();
         if (_assignmentPattern.IsMatch(trimmed)
-            || _environmentFilePattern.IsMatch(trimmed)
+            || _environmentContentPattern.IsMatch(trimmed)
             || _privateKeyPattern.IsMatch(trimmed)
             || _bearerPattern.IsMatch(trimmed)
             || _jwtPattern.IsMatch(trimmed)

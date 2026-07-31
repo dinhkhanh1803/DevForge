@@ -342,6 +342,39 @@ public sealed class ProjectRunTests
         Assert.Contains(result.Issues, issue => issue.Code == "run.current-step.status.invalid");
     }
 
+    [Theory]
+    [InlineData(RunStatus.Planning)]
+    [InlineData(RunStatus.PreflightFailed)]
+    public void RehydrateRejectsAttemptHistoryBeforeExecuting(RunStatus status)
+    {
+        var result = ProjectRun.Rehydrate(
+            "run-1",
+            "recipe-1",
+            status,
+            null,
+            [SucceededAttempt("build", 1)],
+            []);
+
+        Assert.False(result.IsValid);
+        Assert.Equal("run.attempt-history.status.invalid", Assert.Single(result.Issues).Code);
+    }
+
+    [Theory]
+    [InlineData(RunStatus.Planning)]
+    [InlineData(RunStatus.PreflightFailed)]
+    public void RehydrateAllowsErrorOnlyHistoryBeforeExecuting(RunStatus status)
+    {
+        var result = ProjectRun.Rehydrate(
+            "run-1",
+            "recipe-1",
+            status,
+            null,
+            [],
+            [SafeError()]);
+
+        Assert.True(result.IsValid);
+        Assert.Single(result.Value.Errors);
+    }
     [Fact]
     public void RehydrateRejectsRunningAttemptsOutsideExecuting()
     {

@@ -9,7 +9,7 @@ public sealed class PrivacyTests
     [InlineData("token=abc123")]
     [InlineData("db_password : hunter2")]
     [InlineData("Server=db;User Id=app;Password=secret;")]
-    [InlineData("copied from .env")]
+    [InlineData(".env contents: FEATURE_FLAG=true")]
     [InlineData("-----BEGIN PRIVATE KEY-----")]
     [InlineData("Authorization: Bearer abcdefghijklmnopqrstuvwxyz")]
     [InlineData("eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature123")]
@@ -38,6 +38,8 @@ public sealed class PrivacyTests
     [Theory]
     [InlineData("  [REDACTED]  ", "[REDACTED]")]
     [InlineData("monkey=value", "monkey=value")]
+    [InlineData("Foreign key: FK_ProjectRun", "Foreign key: FK_ProjectRun")]
+    [InlineData("The .env file was not read", "The .env file was not read")]
     public void TrustedRedactionBoundaryAcceptsSafeContentWithoutIdentifierFalsePositives(
         string value,
         string expected)
