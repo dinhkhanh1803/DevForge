@@ -1,0 +1,55 @@
+# Workspace-local tools and generated artifacts
+/.tools/
+/.artifacts/
+
+# Build output
+[Bb]in/
+[Oo]bj/
+[Aa]rtifacts/
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+coverage.*
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+*.nuget.props
+*.nuget.targets
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.VC.db
+*.VC.VC.opendb
+
+# JetBrains IDEs
+.idea/
+*.sln.iml
+
+# Visual Studio Code
+.vscode/
+
+# Test and analysis tooling
+.coverlet/
+BenchmarkDotNet.Artifacts/
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Microsoft Office owner and lock files
+~$*
+
+# Temporary and backup files
+*.tmp
+*.temp
+*.bak
+*.orig
+*~

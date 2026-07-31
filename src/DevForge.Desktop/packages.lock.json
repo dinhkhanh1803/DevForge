@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "dependencies": {
+    "net10.0-windows7.0": {
+      "devforge.application": {
+        "type": "Project",
+        "dependencies": {
+          "DevForge.Blueprints.Abstractions": "[1.0.0, )",
+          "DevForge.Domain": "[1.0.0, )"
+        }
+      },
+      "devforge.blueprints.abstractions": {
+        "type": "Project"
+      },
+      "devforge.domain": {
+        "type": "Project"
+      },
+      "devforge.infrastructure": {
+        "type": "Project",
+        "dependencies": {
+          "DevForge.Application": "[1.0.0, )",
+          "DevForge.Blueprints.Abstractions": "[1.0.0, )",
+          "DevForge.Domain": "[1.0.0, )"
+        }
+      }
+    }
+  }
+}

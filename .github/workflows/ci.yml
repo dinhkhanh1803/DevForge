@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_NOLOGO: 1
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
+
+      - name: Restore locked dependencies
+        run: dotnet restore DevForge.sln --locked-mode
+
+      - name: Verify formatting
+        run: dotnet format DevForge.sln --verify-no-changes --no-restore
+
+      - name: Build
+        run: dotnet build DevForge.sln --configuration Release --no-restore
+
+      - name: Test
+        shell: pwsh
+        run: |
+          $testProjects = @(
+            'tests/DevForge.UnitTests/DevForge.UnitTests.csproj'
+            'tests/DevForge.IntegrationTests/DevForge.IntegrationTests.csproj'
+            'tests/DevForge.BlueprintTests/DevForge.BlueprintTests.csproj'
+            'tests/DevForge.E2ETests/DevForge.E2ETests.csproj'
+          )
+
+          foreach ($testProject in $testProjects) {
+            $projectName = [System.IO.Path]::GetFileNameWithoutExtension($testProject)
+            $logger = 'trx;LogFileName=' + $projectName + '.trx'
+            $resultsDirectory = 'artifacts/test-results/' + $projectName
+            dotnet test $testProject `
+              --configuration Release `
+              --no-build `
+              --logger $logger `
+              --results-directory $resultsDirectory
+
+            if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+            }
+          }
+
+      - name: Upload test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-results
+          path: artifacts/test-results/**/*.trx
+          if-no-files-found: error
+          retention-days: 14
