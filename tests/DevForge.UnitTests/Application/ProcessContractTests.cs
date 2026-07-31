@@ -221,4 +221,4 @@ public sealed class ProcessContractTests
             WorkspaceRelativePath destination,
             CancellationToken cancellationToken) => throw new NotSupportedException();
     }
-}
+}

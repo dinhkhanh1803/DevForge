@@ -4,9 +4,9 @@ DevForge Studio is a planned native Windows project factory for team leaders and
 
 ## Current status
 
-Milestone M0 establishes the repository baseline only. The solution, compiler policy, central package management, architecture tests, and Windows CI exist. Product workflows, domain contracts, persistence, guarded file/process infrastructure, orchestration, GitHub automation, and production blueprints are intentionally not implemented yet.
+Milestone M1 is complete. The repository now includes immutable validated domain models, blueprint manifest contracts, and twelve security-shaped Application ports, with 305 focused tests covering domain, blueprint, architecture, request, process, file-system, privacy, and serialization boundaries. Infrastructure implementations, persistence, orchestration, Git/GitHub automation, production blueprints, and UI workflows remain assigned to later milestones.
 
-The CLI exits with a nonzero status in M0 because no commands are available. The WPF project is a minimal native shell, not a completed UI.
+The CLI still exits with a nonzero status because no commands are available yet. The WPF project is a minimal native shell, not a completed UI.
 
 ## Prerequisites
 
@@ -66,7 +66,7 @@ Executable architecture tests enforce the project graph, target frameworks, WPF 
 - No web shell, Electron, Tauri, Blazor Hybrid, or embedded browser.
 - No OpenAI, Gemini, other AI API, cloud backend, or outbound telemetry.
 - No arbitrary shell strings, Administrator requirement, or secret persistence.
-- No GitHub remote, push, force-push, or destructive target-directory behavior is part of M0.
+- No GitHub push, force-push, or destructive target-directory behavior is implemented in M1.
 
 See `docs/implementation-plan.md` for the milestone plan and `docs/implementation-status.md` for verified gate evidence.
 

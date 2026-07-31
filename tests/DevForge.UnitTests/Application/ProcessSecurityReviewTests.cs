@@ -239,6 +239,8 @@ public sealed class ProcessSecurityReviewTests
 
     private sealed class StubWorkspaceFileSystem : IWorkspaceFileSystem
     {
+        public WorkspaceRoot Root { get; } = WorkspaceRoot.Create("C:\\work").Value;
+
         public Task<bool> FileExistsAsync(WorkspaceRelativePath path, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
@@ -259,9 +261,20 @@ public sealed class ProcessSecurityReviewTests
         public Task DeleteFileAsync(WorkspaceRelativePath path, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
-        public Task MoveAsync(
+        public Task<ImmutableArray<WorkspaceRelativePath>> EnumerateFilesAsync(
+            WorkspaceRelativePath directory,
+            bool recursive,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task DeleteDirectoryAsync(
+            WorkspaceRelativePath path,
+            DirectoryCleanupIntent intent,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task MoveDirectoryAsync(
             WorkspaceRelativePath source,
             WorkspaceRelativePath destination,
+            WorkspaceMoveIntent intent,
             CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 }

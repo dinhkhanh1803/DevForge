@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using DevForge.Application.Contracts;
 using DevForge.Domain.Privacy;
 
@@ -25,7 +26,7 @@ public sealed class RequestContractTests
         var path = WorkspaceRelativePath.Create("src\\Program.cs").Value;
         var paths = new SingleUseEnumerable<WorkspaceRelativePath?>([path]);
 
-        var result = SecretScanRequest.Create(workspace, paths);
+        var result = SecretScanRequest.ExplicitPaths(workspace, paths);
 
         Assert.True(result.IsValid);
         Assert.Equal(1, paths.EnumerationCount);
@@ -47,7 +48,7 @@ public sealed class RequestContractTests
     public void InvalidRequestsReturnValidationIssuesWithoutThrowing()
     {
         Assert.False(TemplateRenderRequest.Create(null, null).IsValid);
-        Assert.False(SecretScanRequest.Create(null, null).IsValid);
+        Assert.False(SecretScanRequest.ExplicitPaths(null, null).IsValid);
         Assert.False(GitCommitRequest.Create(null, null).IsValid);
         Assert.False(GitHubPublishRequest.Create(null, null, isPrivate: true).IsValid);
         Assert.False(IdeLaunchRequest.Create(null, null).IsValid);
@@ -83,6 +84,8 @@ public sealed class RequestContractTests
 
     private sealed class StubWorkspaceFileSystem : IWorkspaceFileSystem
     {
+        public WorkspaceRoot Root { get; } = WorkspaceRoot.Create("C:\\work").Value;
+
         public Task<bool> FileExistsAsync(WorkspaceRelativePath path, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
@@ -103,9 +106,20 @@ public sealed class RequestContractTests
         public Task DeleteFileAsync(WorkspaceRelativePath path, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
-        public Task MoveAsync(
+        public Task<ImmutableArray<WorkspaceRelativePath>> EnumerateFilesAsync(
+            WorkspaceRelativePath directory,
+            bool recursive,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task DeleteDirectoryAsync(
+            WorkspaceRelativePath path,
+            DirectoryCleanupIntent intent,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task MoveDirectoryAsync(
             WorkspaceRelativePath source,
             WorkspaceRelativePath destination,
+            WorkspaceMoveIntent intent,
             CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 }

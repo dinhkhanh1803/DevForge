@@ -623,4 +623,4 @@ public interface IProcessRunner
         CommandSpec command,
         IProgress<ProcessOutputLine>? progress,
         CancellationToken cancellationToken);
-}
+}

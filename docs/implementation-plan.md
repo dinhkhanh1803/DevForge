@@ -1,6 +1,6 @@
 # Milestone M1 Domain & Contracts Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `subagent-driven-development` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use `subagent-driven-development` to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Establish the immutable domain vocabulary, blueprint manifest contracts, and secure application ports required by later DevForge milestones.
 
@@ -35,28 +35,28 @@ M1 excludes planner/rule/hash behavior, implementations of any application port,
 
 ### Task 1: Domain models
 
-- [ ] Write and run failing tests for validation aggregation, immutable snapshots, retry invariants, run status/transitions, and redacted errors.
-- [ ] Implement the minimum domain types needed to pass.
-- [ ] Run focused and complete unit suites and refactor only while green.
+- [x] Write and run failing tests for validation aggregation, immutable snapshots, retry invariants, run status/transitions, and redacted errors.
+- [x] Implement the minimum domain types needed to pass.
+- [x] Run focused and complete unit suites and refactor only while green.
 
 ### Task 2: Blueprint manifest contracts
 
-- [ ] Write and run failing tests for semantic versions, identifier uniqueness, positive timeouts, trust, and immutable snapshots.
-- [ ] Implement dependency-free blueprint models and validation.
-- [ ] Run blueprint and architecture tests and refactor only while green.
+- [x] Write and run failing tests for semantic versions, identifier uniqueness, positive timeouts, trust, and immutable snapshots.
+- [x] Implement dependency-free blueprint models and validation.
+- [x] Run blueprint and architecture tests and refactor only while green.
 
 ### Task 3: Application ports
 
-- [ ] Write and run failing tests for all twelve ports.
-- [ ] Prove separated executable/arguments, immutable redaction values, root-scoped file operations, and validated relative paths.
-- [ ] Implement interfaces and request/result records only.
-- [ ] Run focused and full tests and refactor only while green.
+- [x] Write and run failing tests for all twelve ports.
+- [x] Prove separated executable/arguments, immutable redaction values, root-scoped file operations, and validated relative paths.
+- [x] Implement interfaces and request/result records only.
+- [x] Run focused and full tests and refactor only while green.
 
 ### Task 4: Exit gate
 
-- [ ] Run format, locked restore, Release build, full tests, and focused M1 tests.
-- [ ] Require zero warnings/errors and no skipped M1 tests.
-- [ ] Update `docs/implementation-status.md`, `CHANGELOG.md`, and this checklist with exact evidence.
+- [x] Run format, locked restore, Release build, full tests, and focused M1 tests.
+- [x] Require zero warnings/errors and no skipped M1 tests.
+- [x] Update `docs/implementation-status.md`, `CHANGELOG.md`, and this checklist with exact evidence.
 
 ## Exit gate
 

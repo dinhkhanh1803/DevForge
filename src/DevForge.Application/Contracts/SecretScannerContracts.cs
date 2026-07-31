@@ -215,4 +215,4 @@ public interface ISecretScanner
     Task<SecretScanResult> ScanAsync(
         SecretScanRequest request,
         CancellationToken cancellationToken);
-}
+}

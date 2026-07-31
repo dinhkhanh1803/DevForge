@@ -288,4 +288,4 @@ public interface IFileSystem
     Task<IWorkspaceFileSystem> OpenWorkspaceAsync(
         WorkspaceRoot allowedRoot,
         CancellationToken cancellationToken);
-}
+}
