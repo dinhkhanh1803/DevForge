@@ -8,35 +8,46 @@ namespace DevForge.UnitTests.Application;
 public sealed class ProcessContractTests
 {
     [Fact]
-    public void CommandSpecSeparatesExecutableFromImmutableArgumentsAndRedactedValues()
+    public void CommandSpecSnapshotsImmutableArgumentsEnvironmentExitCodesAndNeedles()
     {
+        var sensitive = SensitiveProcessValue.Create("representative-sensitive-value").Value;
         var arguments = new List<string?> { "build", "--configuration", "Release" };
-        var environment = new List<KeyValuePair<string, RedactedText?>>
+        var environment = new List<KeyValuePair<string, ProcessEnvironmentValue?>>
         {
-            KeyValuePair.Create<string, RedactedText?>("DOTNET_NOLOGO", Redacted("1")),
+            KeyValuePair.Create<string, ProcessEnvironmentValue?>(
+                "CI",
+                ProcessEnvironmentValue.CreateSafe("true").Value),
+            KeyValuePair.Create<string, ProcessEnvironmentValue?>(
+                "GITHUB_TOKEN",
+                ProcessEnvironmentValue.CreateSensitive(sensitive).Value),
         };
         var allowedExitCodes = new List<int> { 0 };
-        var redactedValues = new List<RedactedText?> { Redacted("[REDACTED]") };
+        var needles = new List<SensitiveProcessValue?> { sensitive };
+        var workspace = new StubWorkspaceFileSystem();
+        var workingDirectory = WorkspaceRelativePath.Create("src").Value;
 
         var result = CommandSpec.Create(
-            "dotnet",
+            ExecutableIdentity.Create("dotnet").Value,
             arguments,
-            "C:\\work",
+            workspace,
+            workingDirectory,
             environment,
             TimeSpan.FromMinutes(5),
             allowedExitCodes,
-            redactedValues);
+            needles);
 
         Assert.True(result.IsValid);
         arguments[0] = "changed";
         environment.Clear();
         allowedExitCodes.Clear();
-        redactedValues.Clear();
-        Assert.Equal("dotnet", result.Value.FileName);
+        needles.Clear();
+        Assert.Equal(ExecutableTool.DotNet, result.Value.Executable.Tool);
         Assert.Equal(["build", "--configuration", "Release"], result.Value.ArgumentList.ToArray());
-        Assert.Equal("1", result.Value.EnvironmentVariables["DOTNET_NOLOGO"].Value);
+        Assert.Equal(ProcessValueSensitivity.Safe, result.Value.EnvironmentVariables["CI"].Sensitivity);
         Assert.Equal([0], result.Value.AllowedExitCodes.ToArray());
-        Assert.Equal("[REDACTED]", Assert.Single(result.Value.RedactedValues).Value);
+        Assert.Equal(sensitive, Assert.Single(result.Value.RedactionNeedles));
+        Assert.Same(workspace, result.Value.Workspace);
+        Assert.Equal(workingDirectory, result.Value.WorkingDirectory);
         Assert.IsType<ImmutableArray<string>>(result.Value.ArgumentList);
         Assert.Null(typeof(CommandSpec).GetProperty("CommandLine"));
         Assert.Null(typeof(CommandSpec).GetProperty("ShellCommand"));
@@ -46,35 +57,45 @@ public sealed class ProcessContractTests
     public void CommandSpecSnapshotsEverySequenceExactlyOnce()
     {
         var arguments = new SingleUseEnumerable<string?>(["build"]);
-        var environment = new SingleUseEnumerable<KeyValuePair<string, RedactedText?>>(
-            [KeyValuePair.Create<string, RedactedText?>("CI", Redacted("true"))]);
+        var environment = new SingleUseEnumerable<KeyValuePair<string, ProcessEnvironmentValue?>>(
+            [
+                KeyValuePair.Create<string, ProcessEnvironmentValue?>(
+                    "CI",
+                    ProcessEnvironmentValue.CreateSafe("true").Value),
+            ]);
         var allowedExitCodes = new SingleUseEnumerable<int>([0]);
-        var redactedValues = new SingleUseEnumerable<RedactedText?>([Redacted("[REDACTED]")]);
+        var needles = new SingleUseEnumerable<SensitiveProcessValue?>([]);
 
         var result = CommandSpec.Create(
-            "dotnet",
+            ExecutableIdentity.Create("dotnet").Value,
             arguments,
-            "C:\\work",
+            new StubWorkspaceFileSystem(),
+            WorkspaceRelativePath.Create("src").Value,
             environment,
             TimeSpan.FromMinutes(1),
             allowedExitCodes,
-            redactedValues);
+            needles);
 
         Assert.True(result.IsValid);
         Assert.Equal(1, arguments.EnumerationCount);
         Assert.Equal(1, environment.EnumerationCount);
         Assert.Equal(1, allowedExitCodes.EnumerationCount);
-        Assert.Equal(1, redactedValues.EnumerationCount);
+        Assert.Equal(1, needles.EnumerationCount);
     }
 
     [Fact]
     public void CommandSpecAggregatesUnsafeInputIssues()
     {
         var result = CommandSpec.Create(
-            "cmd.exe",
+            null,
             ["/c", null],
-            "relative",
-            [KeyValuePair.Create<string, RedactedText?>("api_token", null)],
+            null,
+            null,
+            [
+                KeyValuePair.Create<string, ProcessEnvironmentValue?>(
+                    "api_token",
+                    ProcessEnvironmentValue.CreateSafe("safe").Value),
+            ],
             TimeSpan.Zero,
             [],
             [null]);
@@ -82,14 +103,14 @@ public sealed class ProcessContractTests
         Assert.False(result.IsValid);
         Assert.Equal(
             [
-                "process.executable.shell-forbidden",
+                "process.executable.required",
                 "process.argument.required",
-                "process.working-directory.absolute",
-                "process.environment.name.secret-shaped",
-                "process.environment.value.required",
+                "process.workspace.required",
+                "process.working-directory.required",
+                "process.environment.sensitivity.required",
                 "process.timeout.invalid",
                 "process.allowed-exit-codes.required",
-                "process.redacted-value.required",
+                "process.redaction-needle.required",
             ],
             result.Issues.Select(issue => issue.Code));
     }
@@ -97,25 +118,35 @@ public sealed class ProcessContractTests
     [Fact]
     public void ProcessOutputAndRetainedResultAreRedactedAndBounded()
     {
-        var line = ProcessOutputLine.Create(ProcessOutputChannel.StandardOutput, Redacted("Build succeeded")).Value;
-        var result = ProcessResult.Create(0, timedOut: false, cancelled: false, [line]);
+        var line = ProcessOutputLine.Create(
+            ProcessOutputChannel.StandardOutput,
+            Redacted("Build succeeded")).Value;
+        var result = ProcessResult.Create(ProcessTerminationReason.Exited, 0, [line]);
 
         Assert.True(result.IsValid);
-        Assert.Equal(typeof(RedactedText), typeof(ProcessOutputLine).GetProperty(nameof(ProcessOutputLine.Text))?.PropertyType);
+        Assert.Equal(
+            typeof(RedactedText),
+            typeof(ProcessOutputLine).GetProperty(nameof(ProcessOutputLine.Text))?.PropertyType);
         Assert.DoesNotContain(
             typeof(ProcessResult).GetProperties(BindingFlags.Public | BindingFlags.Instance),
             property => property.Name is "Output" or "StandardOutput" or "StandardError");
 
-        var excessiveLines = Enumerable.Repeat(line, ProcessResult.MaxRetainedOutputLines + 1);
-        var excessive = ProcessResult.Create(0, timedOut: false, cancelled: false, excessiveLines);
-        Assert.False(excessive.IsValid);
-        Assert.Equal("process.output.too-large", Assert.Single(excessive.Issues).Code);
+        var excessiveLines = Enumerable.Repeat<ProcessOutputLine?>(
+            line,
+            ProcessResult.MaxRetainedOutputLines + 1);
+        var excessive = ProcessResult.Create(ProcessTerminationReason.Exited, 0, excessiveLines);
+        Assert.True(excessive.IsValid);
+        Assert.True(excessive.Value.IsOutputTruncated);
+        Assert.Equal(ProcessResult.MaxRetainedOutputLines, excessive.Value.RetainedLines.Length);
     }
 
     [Fact]
     public void ProcessEnumsReserveZeroForInvalidDefault()
     {
         Assert.False(Enum.IsDefined((ProcessOutputChannel)0));
+        Assert.False(Enum.IsDefined((ExecutableTool)0));
+        Assert.False(Enum.IsDefined((ProcessValueSensitivity)0));
+        Assert.False(Enum.IsDefined((ProcessTerminationReason)0));
     }
 
     private static RedactedText Redacted(string value)
@@ -145,4 +176,49 @@ public sealed class ProcessContractTests
             return GetEnumerator();
         }
     }
-}
+
+    private sealed class StubWorkspaceFileSystem : IWorkspaceFileSystem
+    {
+        public WorkspaceRoot Root { get; } = WorkspaceRoot.Create("C:\\work").Value;
+
+        public Task<ImmutableArray<WorkspaceRelativePath>> EnumerateFilesAsync(
+            WorkspaceRelativePath directory,
+            bool recursive,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task DeleteDirectoryAsync(
+            WorkspaceRelativePath path,
+            DirectoryCleanupIntent intent,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task MoveDirectoryAsync(
+            WorkspaceRelativePath source,
+            WorkspaceRelativePath destination,
+            WorkspaceMoveIntent intent,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> FileExistsAsync(WorkspaceRelativePath path, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<bool> DirectoryExistsAsync(WorkspaceRelativePath path, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task CreateDirectoryAsync(WorkspaceRelativePath path, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<Stream> OpenReadAsync(WorkspaceRelativePath path, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<Stream> OpenWriteAsync(
+            WorkspaceRelativePath path,
+            bool overwrite,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task DeleteFileAsync(WorkspaceRelativePath path, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task MoveAsync(
+            WorkspaceRelativePath source,
+            WorkspaceRelativePath destination,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+}

@@ -1,127 +1,246 @@
+using System.Collections.Immutable;
+using System.Security;
+using System.Text.RegularExpressions;
 using DevForge.Domain.Validation;
 
 namespace DevForge.Application.Contracts;
 
-public sealed record WorkspaceRoot
+public sealed class WorkspaceRoot : IEquatable<WorkspaceRoot>
 {
-    private WorkspaceRoot(string fullPath)
+    private static readonly Regex _driveRootPattern = new(
+        "^[A-Za-z]:\\\\",
+        RegexOptions.CultureInvariant);
+
+    private readonly string _canonicalPath;
+
+    private WorkspaceRoot(string canonicalPath)
     {
-        FullPath = fullPath;
+        _canonicalPath = canonicalPath;
     }
 
-    public string FullPath { get; }
+    internal string RevealForFileSystem()
+    {
+        return _canonicalPath;
+    }
 
     public static ValidationResult<WorkspaceRoot> Create(string? fullPath)
     {
-        if (string.IsNullOrWhiteSpace(fullPath) || !Path.IsPathFullyQualified(fullPath))
+        if (string.IsNullOrWhiteSpace(fullPath))
         {
-            return ValidationResult.Failure<WorkspaceRoot>(
-            [
-                new ValidationIssue(
-                    "workspace.root.absolute",
-                    "A workspace root must be an absolute path.",
-                    "fullPath"),
-            ]);
+            return Failure("workspace.root.required", "A workspace root is required.");
         }
 
-        return ValidationResult.Success(new WorkspaceRoot(Path.GetFullPath(fullPath)));
+        try
+        {
+            if (fullPath != fullPath.Trim()
+                || fullPath.Any(char.IsControl)
+                || IsDeviceOrUncPath(fullPath)
+                || !_driveRootPattern.IsMatch(fullPath)
+                || HasInvalidSegments(fullPath[3..]))
+            {
+                return Failure(
+                    "workspace.root.invalid",
+                    "The workspace root must be a canonical local Windows drive path.");
+            }
+
+            var canonicalPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(fullPath));
+            return ValidationResult.Success(new WorkspaceRoot(canonicalPath));
+        }
+        catch (Exception exception) when (
+            exception is ArgumentException
+                or NotSupportedException
+                or PathTooLongException
+                or SecurityException)
+        {
+            return Failure(
+                "workspace.root.invalid",
+                "The workspace root is not a valid local Windows path.");
+        }
+    }
+
+    public bool Equals(WorkspaceRoot? other)
+    {
+        return other is not null
+            && StringComparer.OrdinalIgnoreCase.Equals(_canonicalPath, other._canonicalPath);
+    }
+
+    public override bool Equals(object? obj)
+    {
+        return obj is WorkspaceRoot other && Equals(other);
+    }
+
+    public override int GetHashCode()
+    {
+        return StringComparer.OrdinalIgnoreCase.GetHashCode(_canonicalPath);
+    }
+
+    public override string ToString()
+    {
+        return "[WORKSPACE ROOT]";
+    }
+
+    private static ValidationResult<WorkspaceRoot> Failure(string code, string message)
+    {
+        return ValidationResult.Failure<WorkspaceRoot>(
+        [
+            new ValidationIssue(code, message, "fullPath"),
+        ]);
+    }
+
+    private static bool IsDeviceOrUncPath(string value)
+    {
+        return value.StartsWith(@"\\", StringComparison.Ordinal)
+            || value.StartsWith(@"\??\", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("GLOBALROOT", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool HasInvalidSegments(string value)
+    {
+        if (value.Length == 0)
+        {
+            return false;
+        }
+
+        var withoutTrailingSeparator = value.EndsWith('\\') ? value[..^1] : value;
+        var segments = withoutTrailingSeparator.Split('\\');
+        return segments.Any(IsInvalidWindowsSegment);
+    }
+
+    internal static bool IsInvalidWindowsSegment(string segment)
+    {
+        if (string.IsNullOrWhiteSpace(segment)
+            || segment != segment.Trim()
+            || segment.EndsWith('.')
+            || segment.Any(char.IsControl)
+            || segment.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            return true;
+        }
+
+        var baseName = segment.Split('.')[0];
+        return baseName.Equals("CON", StringComparison.OrdinalIgnoreCase)
+            || baseName.Equals("PRN", StringComparison.OrdinalIgnoreCase)
+            || baseName.Equals("AUX", StringComparison.OrdinalIgnoreCase)
+            || baseName.Equals("NUL", StringComparison.OrdinalIgnoreCase)
+            || IsNumberedDevice(baseName, "COM")
+            || IsNumberedDevice(baseName, "LPT");
+    }
+
+    private static bool IsNumberedDevice(string value, string prefix)
+    {
+        return value.Length == 4
+            && value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            && value[3] is >= '1' and <= '9';
     }
 }
 
-public sealed record WorkspaceRelativePath
+public sealed class WorkspaceRelativePath : IEquatable<WorkspaceRelativePath>
 {
-    private WorkspaceRelativePath(string value)
+    private readonly string _canonicalValue;
+
+    private WorkspaceRelativePath(string canonicalValue)
     {
-        Value = value;
+        _canonicalValue = canonicalValue;
     }
 
-    public string Value { get; }
+    public string Value => _canonicalValue;
+
+    internal string RevealForFileSystem()
+    {
+        return _canonicalValue;
+    }
 
     public static ValidationResult<WorkspaceRelativePath> Create(string? value)
     {
-        var issues = new List<ValidationIssue>();
         if (string.IsNullOrWhiteSpace(value))
         {
-            issues.Add(
-                new ValidationIssue(
-                    "workspace.path.required",
-                    "A workspace-relative path is required.",
-                    "value"));
+            return Failure("workspace.path.required", "A workspace-relative path is required.");
         }
-        else
+
+        try
         {
-            if (Path.IsPathRooted(value) || Path.IsPathFullyQualified(value))
+            if (value != value.Trim()
+                || value.Any(char.IsControl)
+                || value.Contains('/')
+                || value.StartsWith('\\')
+                || value.Contains(':')
+                || value.StartsWith(@"\\?\", StringComparison.Ordinal)
+                || value.StartsWith(@"\??\", StringComparison.OrdinalIgnoreCase))
             {
-                issues.Add(
-                    new ValidationIssue(
-                        "workspace.path.rooted",
-                        "A workspace path must be relative to its opened root.",
-                        "value"));
+                return Failure(
+                    "workspace.path.invalid",
+                    "A workspace path must use a canonical guarded relative Windows form.");
             }
 
-            if (value.Contains(Path.AltDirectorySeparatorChar, StringComparison.Ordinal))
+            var segments = value.Split('\\');
+            if (segments.Any(
+                segment => segment is "." or ".."
+                    || WorkspaceRoot.IsInvalidWindowsSegment(segment)))
             {
-                issues.Add(
-                    new ValidationIssue(
-                        "workspace.path.separator.invalid",
-                        "A workspace path must use the platform directory separator.",
-                        "value"));
+                return Failure(
+                    "workspace.path.segment.invalid",
+                    "A workspace path contains an invalid, traversal, or reserved segment.");
             }
 
-            var segments = value.Split(Path.DirectorySeparatorChar);
-            if (segments.Any(segment => segment.Length == 0))
-            {
-                issues.Add(
-                    new ValidationIssue(
-                        "workspace.path.segment.empty",
-                        "A workspace path cannot contain empty segments.",
-                        "value"));
-            }
-
-            if (segments.Any(segment => segment is "." or ".."))
-            {
-                issues.Add(
-                    new ValidationIssue(
-                        "workspace.path.traversal",
-                        "A workspace path cannot contain dot or parent segments.",
-                        "value"));
-            }
-
-            if (segments.Any(segment => string.IsNullOrWhiteSpace(segment) || segment != segment.Trim()))
-            {
-                issues.Add(
-                    new ValidationIssue(
-                        "workspace.path.segment.invalid",
-                        "Workspace path segments cannot be blank or padded with whitespace.",
-                        "value"));
-            }
-
-            var invalidFileNameCharacters = Path.GetInvalidFileNameChars();
-            if (segments.Any(segment => segment.IndexOfAny(invalidFileNameCharacters) >= 0))
-            {
-                issues.Add(
-                    new ValidationIssue(
-                        "workspace.path.character.invalid",
-                        "A workspace path contains an invalid character or alternate data stream.",
-                        "value"));
-            }
+            return ValidationResult.Success(new WorkspaceRelativePath(string.Join('\\', segments)));
         }
+        catch (Exception exception) when (
+            exception is ArgumentException
+                or NotSupportedException
+                or PathTooLongException)
+        {
+            return Failure("workspace.path.invalid", "The workspace-relative path is invalid.");
+        }
+    }
 
-        return issues.Count == 0
-            ? ValidationResult.Success(new WorkspaceRelativePath(value!))
-            : ValidationResult.Failure<WorkspaceRelativePath>(issues);
+    public bool Equals(WorkspaceRelativePath? other)
+    {
+        return other is not null
+            && StringComparer.OrdinalIgnoreCase.Equals(_canonicalValue, other._canonicalValue);
+    }
+
+    public override bool Equals(object? obj)
+    {
+        return obj is WorkspaceRelativePath other && Equals(other);
+    }
+
+    public override int GetHashCode()
+    {
+        return StringComparer.OrdinalIgnoreCase.GetHashCode(_canonicalValue);
+    }
+
+    public override string ToString()
+    {
+        return _canonicalValue;
+    }
+
+    private static ValidationResult<WorkspaceRelativePath> Failure(string code, string message)
+    {
+        return ValidationResult.Failure<WorkspaceRelativePath>(
+        [
+            new ValidationIssue(code, message, "value"),
+        ]);
     }
 }
 
-public interface IFileSystem
+public enum DirectoryCleanupIntent
 {
-    Task<IWorkspaceFileSystem> OpenWorkspaceAsync(
-        WorkspaceRoot allowedRoot,
-        CancellationToken cancellationToken);
+    RecursiveRunOwned = 1,
 }
 
+public enum WorkspaceMoveIntent
+{
+    AtomicNoOverwriteFinalize = 1,
+}
+
+/// <summary>
+/// Provides operations scoped to an opened root. Concrete M3 implementations must additionally enforce
+/// canonical handle containment and reject reparse-point, junction, and symbolic-link escapes.
+/// </summary>
 public interface IWorkspaceFileSystem
 {
+    WorkspaceRoot Root { get; }
+
     Task<bool> FileExistsAsync(
         WorkspaceRelativePath path,
         CancellationToken cancellationToken);
@@ -147,8 +266,26 @@ public interface IWorkspaceFileSystem
         WorkspaceRelativePath path,
         CancellationToken cancellationToken);
 
-    Task MoveAsync(
+    Task<ImmutableArray<WorkspaceRelativePath>> EnumerateFilesAsync(
+        WorkspaceRelativePath directory,
+        bool recursive,
+        CancellationToken cancellationToken);
+
+    Task DeleteDirectoryAsync(
+        WorkspaceRelativePath path,
+        DirectoryCleanupIntent intent,
+        CancellationToken cancellationToken);
+
+    Task MoveDirectoryAsync(
         WorkspaceRelativePath source,
         WorkspaceRelativePath destination,
+        WorkspaceMoveIntent intent,
         CancellationToken cancellationToken);
 }
+
+public interface IFileSystem
+{
+    Task<IWorkspaceFileSystem> OpenWorkspaceAsync(
+        WorkspaceRoot allowedRoot,
+        CancellationToken cancellationToken);
+}

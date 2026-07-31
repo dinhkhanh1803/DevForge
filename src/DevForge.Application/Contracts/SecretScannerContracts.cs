@@ -4,21 +4,46 @@ using DevForge.Domain.Validation;
 
 namespace DevForge.Application.Contracts;
 
+public enum SecretScanScope
+{
+    WholeWorkspace = 1,
+    ExplicitPaths = 2,
+}
+
 public sealed class SecretScanRequest
 {
     private SecretScanRequest(
         IWorkspaceFileSystem workspace,
+        SecretScanScope scope,
         ImmutableArray<WorkspaceRelativePath> paths)
     {
         Workspace = workspace;
+        Scope = scope;
         Paths = paths;
     }
 
     public IWorkspaceFileSystem Workspace { get; }
 
+    public SecretScanScope Scope { get; }
+
     public ImmutableArray<WorkspaceRelativePath> Paths { get; }
 
-    public static ValidationResult<SecretScanRequest> Create(
+    public static ValidationResult<SecretScanRequest> WholeWorkspace(
+        IWorkspaceFileSystem? workspace)
+    {
+        return workspace is null
+            ? ValidationResult.Failure<SecretScanRequest>(
+            [
+                new ValidationIssue(
+                    "secret-scan.workspace.required",
+                    "A scoped workspace is required for secret scanning.",
+                    "workspace"),
+            ])
+            : ValidationResult.Success(
+                new SecretScanRequest(workspace, SecretScanScope.WholeWorkspace, []));
+    }
+
+    public static ValidationResult<SecretScanRequest> ExplicitPaths(
         IWorkspaceFileSystem? workspace,
         IEnumerable<WorkspaceRelativePath?>? paths)
     {
@@ -38,7 +63,16 @@ public sealed class SecretScanRequest
             issues.Add(
                 new ValidationIssue(
                     "secret-scan.paths.required",
-                    "Scoped workspace paths are required for secret scanning.",
+                    "Explicit scoped workspace paths are required for secret scanning.",
+                    "paths"));
+        }
+
+        if (pathSnapshot.IsEmpty)
+        {
+            issues.Add(
+                new ValidationIssue(
+                    "secret-scan.paths.empty",
+                    "An explicit secret scan requires at least one path.",
                     "paths"));
         }
 
@@ -50,16 +84,30 @@ public sealed class SecretScanRequest
                     new ValidationIssue(
                         "secret-scan.path.required",
                         "Secret scan paths cannot contain null values.",
-                        $"paths[{index}]"));
+                        "paths[" + index + "]"));
             }
         }
 
-        return issues.Count == 0
-            ? ValidationResult.Success(
-                new SecretScanRequest(
-                    workspace!,
-                    [.. pathSnapshot.Select(path => path!)]))
-            : ValidationResult.Failure<SecretScanRequest>(issues);
+        if (issues.Count != 0)
+        {
+            return ValidationResult.Failure<SecretScanRequest>(issues);
+        }
+
+        var uniquePaths = ImmutableArray.CreateBuilder<WorkspaceRelativePath>();
+        var seen = new HashSet<WorkspaceRelativePath>();
+        foreach (var path in pathSnapshot)
+        {
+            if (seen.Add(path!))
+            {
+                uniquePaths.Add(path!);
+            }
+        }
+
+        return ValidationResult.Success(
+            new SecretScanRequest(
+                workspace!,
+                SecretScanScope.ExplicitPaths,
+                uniquePaths.ToImmutable()));
     }
 }
 
@@ -151,7 +199,7 @@ public sealed class SecretScanResult
                     new ValidationIssue(
                         "secret-scan.finding.required",
                         "Secret scan findings cannot contain null values.",
-                        $"findings[{index}]"));
+                        "findings[" + index + "]"));
             }
         }
 
@@ -167,4 +215,4 @@ public interface ISecretScanner
     Task<SecretScanResult> ScanAsync(
         SecretScanRequest request,
         CancellationToken cancellationToken);
-}
+}

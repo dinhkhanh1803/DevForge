@@ -4,21 +4,203 @@ using DevForge.Domain.Validation;
 
 namespace DevForge.Application.Contracts;
 
+public enum ExecutableTool
+{
+    DotNet = 1,
+    Git = 2,
+    GitHubCli = 3,
+    Node = 4,
+    Npm = 5,
+    Npx = 6,
+    Pnpm = 7,
+    Yarn = 8,
+    Bun = 9,
+    VisualStudioCode = 10,
+    VisualStudio = 11,
+    MsBuild = 12,
+}
+
+/// <summary>
+/// Identifies an executable selected from DevForge's trusted MVP tool allowlist.
+/// Future handlers map typed operations to one of these identities instead of accepting raw commands.
+/// </summary>
+public sealed record ExecutableIdentity
+{
+    private static readonly ImmutableDictionary<string, ExecutableTool> _knownTools =
+        new Dictionary<string, ExecutableTool>(StringComparer.Ordinal)
+        {
+            ["dotnet"] = ExecutableTool.DotNet,
+            ["git"] = ExecutableTool.Git,
+            ["gh"] = ExecutableTool.GitHubCli,
+            ["node"] = ExecutableTool.Node,
+            ["npm"] = ExecutableTool.Npm,
+            ["npx"] = ExecutableTool.Npx,
+            ["pnpm"] = ExecutableTool.Pnpm,
+            ["yarn"] = ExecutableTool.Yarn,
+            ["bun"] = ExecutableTool.Bun,
+            ["code"] = ExecutableTool.VisualStudioCode,
+            ["devenv"] = ExecutableTool.VisualStudio,
+            ["msbuild"] = ExecutableTool.MsBuild,
+        }.ToImmutableDictionary(StringComparer.Ordinal);
+
+    private ExecutableIdentity(ExecutableTool tool, string executableName)
+    {
+        Tool = tool;
+        ExecutableName = executableName;
+    }
+
+    public ExecutableTool Tool { get; }
+
+    internal string ExecutableName { get; }
+
+    public static ValidationResult<ExecutableIdentity> Create(string? trustedToolName)
+    {
+        if (string.IsNullOrWhiteSpace(trustedToolName)
+            || !_knownTools.TryGetValue(trustedToolName, out var tool))
+        {
+            return ValidationResult.Failure<ExecutableIdentity>(
+            [
+                new ValidationIssue(
+                    "process.executable.untrusted",
+                    "The executable is not a trusted DevForge tool identity.",
+                    "trustedToolName"),
+            ]);
+        }
+
+        return ValidationResult.Success(new ExecutableIdentity(tool, trustedToolName));
+    }
+
+    public override string ToString()
+    {
+        return ExecutableName;
+    }
+}
+
+public sealed class SensitiveProcessValue
+{
+    private const int MaxLength = 32_767;
+    private readonly string _content;
+
+    private SensitiveProcessValue(string content)
+    {
+        _content = content;
+    }
+
+    public static ValidationResult<SensitiveProcessValue> Create(string? content)
+    {
+        if (string.IsNullOrEmpty(content) || content.Length > MaxLength || content.Contains('\0'))
+        {
+            return ValidationResult.Failure<SensitiveProcessValue>(
+            [
+                new ValidationIssue(
+                    "process.sensitive-value.invalid",
+                    "A sensitive process value must be nonempty, bounded, and contain no null characters.",
+                    "content"),
+            ]);
+        }
+
+        return ValidationResult.Success(new SensitiveProcessValue(content));
+    }
+
+    internal string RevealForProcessStart()
+    {
+        return _content;
+    }
+
+    public override string ToString()
+    {
+        return "[REDACTED]";
+    }
+}
+
+public enum ProcessValueSensitivity
+{
+    Safe = 1,
+    Sensitive = 2,
+}
+
+public sealed class ProcessEnvironmentValue
+{
+    private const int MaxLength = 32_767;
+    private readonly string? _safeContent;
+    private readonly SensitiveProcessValue? _sensitiveContent;
+
+    private ProcessEnvironmentValue(string safeContent)
+    {
+        Sensitivity = ProcessValueSensitivity.Safe;
+        _safeContent = safeContent;
+    }
+
+    private ProcessEnvironmentValue(SensitiveProcessValue sensitiveContent)
+    {
+        Sensitivity = ProcessValueSensitivity.Sensitive;
+        _sensitiveContent = sensitiveContent;
+    }
+
+    public ProcessValueSensitivity Sensitivity { get; }
+
+    public static ValidationResult<ProcessEnvironmentValue> CreateSafe(string? content)
+    {
+        if (content is null || content.Length > MaxLength || content.Contains('\0'))
+        {
+            return ValidationResult.Failure<ProcessEnvironmentValue>(
+            [
+                new ValidationIssue(
+                    "process.environment.safe-value.invalid",
+                    "A safe environment value must be bounded and contain no null characters.",
+                    "content"),
+            ]);
+        }
+
+        return ValidationResult.Success(new ProcessEnvironmentValue(content));
+    }
+
+    public static ValidationResult<ProcessEnvironmentValue> CreateSensitive(
+        SensitiveProcessValue? content)
+    {
+        return content is null
+            ? ValidationResult.Failure<ProcessEnvironmentValue>(
+            [
+                new ValidationIssue(
+                    "process.environment.sensitive-value.required",
+                    "A sensitive environment value is required.",
+                    "content"),
+            ])
+            : ValidationResult.Success(new ProcessEnvironmentValue(content));
+    }
+
+    internal string RevealForProcessStart()
+    {
+        return Sensitivity == ProcessValueSensitivity.Safe
+            ? _safeContent!
+            : _sensitiveContent!.RevealForProcessStart();
+    }
+
+    internal SensitiveProcessValue? SensitiveContent => _sensitiveContent;
+
+    public override string ToString()
+    {
+        return Sensitivity == ProcessValueSensitivity.Sensitive ? "[REDACTED]" : "[SAFE]";
+    }
+}
+
 public enum ProcessOutputChannel
 {
     StandardOutput = 1,
     StandardError = 2,
 }
 
-public sealed class ProcessOutputLine
+public sealed record ProcessOutputLine
 {
+    public const int MaxTextLength = 4_096;
+
     private ProcessOutputLine(ProcessOutputChannel channel, RedactedText text)
     {
-        Stream = channel;
+        Channel = channel;
         Text = text;
     }
 
-    public ProcessOutputChannel Stream { get; }
+    public ProcessOutputChannel Channel { get; }
 
     public RedactedText Text { get; }
 
@@ -44,6 +226,14 @@ public sealed class ProcessOutputLine
                     "Redacted process output text is required.",
                     "text"));
         }
+        else if (text.Value.Length > MaxTextLength)
+        {
+            issues.Add(
+                new ValidationIssue(
+                    "process.output.text.too-long",
+                    "Process output lines exceed the retained line limit.",
+                    "text"));
+        }
 
         return issues.Count == 0
             ? ValidationResult.Success(new ProcessOutputLine(channel, text!))
@@ -53,103 +243,138 @@ public sealed class ProcessOutputLine
 
 public sealed class CommandSpec
 {
-    private static readonly ImmutableHashSet<string> _forbiddenShellExecutables =
-        ImmutableHashSet.Create(
-            StringComparer.OrdinalIgnoreCase,
-            "cmd",
-            "cmd.exe",
-            "powershell",
-            "powershell.exe",
-            "pwsh",
-            "pwsh.exe");
+    private static readonly ImmutableDictionary<ExecutableTool, ImmutableHashSet<string>> _forbiddenRawModes =
+        new Dictionary<ExecutableTool, ImmutableHashSet<string>>
+        {
+            [ExecutableTool.Node] = ImmutableHashSet.Create(
+                StringComparer.OrdinalIgnoreCase,
+                "-e",
+                "--eval",
+                "-p",
+                "--print"),
+            [ExecutableTool.DotNet] = ImmutableHashSet.Create(
+                StringComparer.OrdinalIgnoreCase,
+                "exec"),
+            [ExecutableTool.Npx] = ImmutableHashSet.Create(
+                StringComparer.OrdinalIgnoreCase,
+                "-c",
+                "--call"),
+        }.ToImmutableDictionary();
 
     private CommandSpec(
-        string fileName,
+        ExecutableIdentity executable,
         ImmutableArray<string> argumentList,
-        string workingDirectory,
-        ImmutableDictionary<string, RedactedText> environmentVariables,
+        IWorkspaceFileSystem workspace,
+        WorkspaceRelativePath workingDirectory,
+        ImmutableDictionary<string, ProcessEnvironmentValue> environmentVariables,
         TimeSpan timeout,
         ImmutableHashSet<int> allowedExitCodes,
-        ImmutableArray<RedactedText> redactedValues)
+        ImmutableArray<SensitiveProcessValue> redactionNeedles)
     {
-        FileName = fileName;
+        Executable = executable;
         ArgumentList = argumentList;
+        Workspace = workspace;
         WorkingDirectory = workingDirectory;
         EnvironmentVariables = environmentVariables;
         Timeout = timeout;
         AllowedExitCodes = allowedExitCodes;
-        RedactedValues = redactedValues;
+        RedactionNeedles = redactionNeedles;
     }
 
-    public string FileName { get; }
+    public ExecutableIdentity Executable { get; }
 
     public ImmutableArray<string> ArgumentList { get; }
 
-    public string WorkingDirectory { get; }
+    public IWorkspaceFileSystem Workspace { get; }
 
-    public ImmutableDictionary<string, RedactedText> EnvironmentVariables { get; }
+    public WorkspaceRelativePath WorkingDirectory { get; }
+
+    public ImmutableDictionary<string, ProcessEnvironmentValue> EnvironmentVariables { get; }
 
     public TimeSpan Timeout { get; }
 
     public ImmutableHashSet<int> AllowedExitCodes { get; }
 
-    public ImmutableArray<RedactedText> RedactedValues { get; }
+    public ImmutableArray<SensitiveProcessValue> RedactionNeedles { get; }
 
     public static ValidationResult<CommandSpec> Create(
-        string? fileName,
+        ExecutableIdentity? executable,
         IEnumerable<string?>? argumentList,
-        string? workingDirectory,
-        IEnumerable<KeyValuePair<string, RedactedText?>>? environmentVariables,
+        IWorkspaceFileSystem? workspace,
+        WorkspaceRelativePath? workingDirectory,
+        IEnumerable<KeyValuePair<string, ProcessEnvironmentValue?>>? environmentVariables,
         TimeSpan timeout,
         IEnumerable<int>? allowedExitCodes,
-        IEnumerable<RedactedText?>? redactedValues)
+        IEnumerable<SensitiveProcessValue?>? redactionNeedles)
     {
         var argumentSnapshot = argumentList?.ToImmutableArray() ?? [];
         var environmentSnapshot = environmentVariables?.ToImmutableArray() ?? [];
         var exitCodeSnapshot = allowedExitCodes?.ToImmutableArray() ?? [];
-        var redactedValueSnapshot = redactedValues?.ToImmutableArray() ?? [];
+        var needleSnapshot = redactionNeedles?.ToImmutableArray() ?? [];
         var issues = new List<ValidationIssue>();
 
-        if (string.IsNullOrWhiteSpace(fileName))
+        if (executable is null)
         {
             issues.Add(
                 new ValidationIssue(
                     "process.executable.required",
-                    "A process executable is required.",
-                    "fileName"));
-        }
-        else if (_forbiddenShellExecutables.Contains(Path.GetFileName(fileName.Trim())))
-        {
-            issues.Add(
-                new ValidationIssue(
-                    "process.executable.shell-forbidden",
-                    "Command shells cannot be used as process executables.",
-                    "fileName"));
+                    "A trusted executable identity is required.",
+                    "executable"));
         }
 
         for (var index = 0; index < argumentSnapshot.Length; index++)
         {
-            if (argumentSnapshot[index] is null)
+            var argument = argumentSnapshot[index];
+            if (argument is null)
             {
                 issues.Add(
                     new ValidationIssue(
                         "process.argument.required",
                         "Process arguments cannot contain null values.",
-                        $"argumentList[{index}]"));
+                        "argumentList[" + index + "]"));
+            }
+            else if (!RedactedText.FromTrustedRedaction(argument).IsValid)
+            {
+                issues.Add(
+                    new ValidationIssue(
+                        "process.argument.secret-shaped",
+                        "Process arguments cannot carry secret-shaped values.",
+                        "argumentList[" + index + "]"));
             }
         }
 
-        if (string.IsNullOrWhiteSpace(workingDirectory)
-            || !Path.IsPathFullyQualified(workingDirectory))
+        if (executable is not null
+            && argumentSnapshot.Length > 0
+            && argumentSnapshot[0] is not null
+            && _forbiddenRawModes.TryGetValue(executable.Tool, out var forbiddenModes)
+            && forbiddenModes.Contains(argumentSnapshot[0]!))
         {
             issues.Add(
                 new ValidationIssue(
-                    "process.working-directory.absolute",
-                    "The process working directory must be absolute.",
+                    "process.argument.raw-mode-forbidden",
+                    "The executable cannot be invoked in a raw command or evaluation mode.",
+                    "argumentList[0]"));
+        }
+
+        if (workspace is null)
+        {
+            issues.Add(
+                new ValidationIssue(
+                    "process.workspace.required",
+                    "A scoped workspace is required.",
+                    "workspace"));
+        }
+
+        if (workingDirectory is null)
+        {
+            issues.Add(
+                new ValidationIssue(
+                    "process.working-directory.required",
+                    "A guarded workspace-relative working directory is required.",
                     "workingDirectory"));
         }
 
-        var environmentNames = new HashSet<string>(StringComparer.Ordinal);
+        var environmentNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         for (var index = 0; index < environmentSnapshot.Length; index++)
         {
             var variable = environmentSnapshot[index];
@@ -159,7 +384,7 @@ public sealed class CommandSpec
                     new ValidationIssue(
                         "process.environment.name.required",
                         "An environment variable name is required.",
-                        $"environmentVariables[{index}].name"));
+                        "environmentVariables[" + index + "].name"));
             }
             else
             {
@@ -170,15 +395,16 @@ public sealed class CommandSpec
                         new ValidationIssue(
                             "process.environment.name.duplicate",
                             "Environment variable names must be unique.",
-                            $"environmentVariables[{index}].name"));
+                            "environmentVariables[" + index + "].name"));
                 }
-                else if (RedactedText.IsSecretShapedKey(normalizedName))
+                else if (RedactedText.IsSecretShapedKey(normalizedName)
+                    && variable.Value?.Sensitivity != ProcessValueSensitivity.Sensitive)
                 {
                     issues.Add(
                         new ValidationIssue(
-                            "process.environment.name.secret-shaped",
-                            "Environment variable names cannot describe secrets.",
-                            $"environmentVariables[{index}].name"));
+                            "process.environment.sensitivity.required",
+                            "Secret-shaped environment variables require an ephemeral sensitive value.",
+                            "environmentVariables[" + index + "].value"));
                 }
             }
 
@@ -187,8 +413,8 @@ public sealed class CommandSpec
                 issues.Add(
                     new ValidationIssue(
                         "process.environment.value.required",
-                        "A redacted environment variable value is required.",
-                        $"environmentVariables[{index}].value"));
+                        "An environment variable value is required.",
+                        "environmentVariables[" + index + "].value"));
             }
         }
 
@@ -210,16 +436,30 @@ public sealed class CommandSpec
                     "allowedExitCodes"));
         }
 
-        for (var index = 0; index < redactedValueSnapshot.Length; index++)
+        for (var index = 0; index < needleSnapshot.Length; index++)
         {
-            if (redactedValueSnapshot[index] is null)
+            if (needleSnapshot[index] is null)
             {
                 issues.Add(
                     new ValidationIssue(
-                        "process.redacted-value.required",
-                        "Redacted process values cannot contain null values.",
-                        $"redactedValues[{index}]"));
+                        "process.redaction-needle.required",
+                        "Redaction needles cannot contain null values.",
+                        "redactionNeedles[" + index + "]"));
             }
+        }
+
+        var sensitiveEnvironmentValues = environmentSnapshot
+            .Where(item => item.Value?.Sensitivity == ProcessValueSensitivity.Sensitive)
+            .Select(item => item.Value!.SensitiveContent!)
+            .ToImmutableArray();
+        if (sensitiveEnvironmentValues.Any(
+            sensitive => !needleSnapshot.Any(needle => ReferenceEquals(needle, sensitive))))
+        {
+            issues.Add(
+                new ValidationIssue(
+                    "process.redaction-needle.missing",
+                    "Every sensitive environment value must also be supplied as a redaction needle.",
+                    "redactionNeedles"));
         }
 
         if (issues.Count != 0)
@@ -231,48 +471,91 @@ public sealed class CommandSpec
             variable => KeyValuePair.Create(variable.Key.Trim(), variable.Value!));
         return ValidationResult.Success(
             new CommandSpec(
-                fileName!.Trim(),
+                executable!,
                 [.. argumentSnapshot.Select(argument => argument!)],
-                Path.GetFullPath(workingDirectory!),
-                normalizedEnvironment.ToImmutableDictionary(StringComparer.Ordinal),
+                workspace!,
+                workingDirectory!,
+                normalizedEnvironment.ToImmutableDictionary(StringComparer.OrdinalIgnoreCase),
                 timeout,
                 exitCodeSnapshot.ToImmutableHashSet(),
-                [.. redactedValueSnapshot.Select(value => value!)]));
+                [.. needleSnapshot.Select(needle => needle!)]));
     }
+
+    public override string ToString()
+    {
+        return "[COMMAND:" + Executable + "]";
+    }
+}
+
+public enum ProcessTerminationReason
+{
+    Exited = 1,
+    TimedOut = 2,
+    Cancelled = 3,
 }
 
 public sealed class ProcessResult
 {
     public const int MaxRetainedOutputLines = 200;
+    public const int MaxRetainedOutputCharacters = 65_536;
 
     private ProcessResult(
+        ProcessTerminationReason terminationReason,
         int? exitCode,
-        bool timedOut,
-        bool cancelled,
-        ImmutableArray<ProcessOutputLine> retainedLines)
+        ImmutableArray<ProcessOutputLine> retainedLines,
+        int retainedCharacterCount,
+        bool isOutputTruncated)
     {
+        TerminationReason = terminationReason;
         ExitCode = exitCode;
-        TimedOut = timedOut;
-        Cancelled = cancelled;
         RetainedLines = retainedLines;
+        RetainedCharacterCount = retainedCharacterCount;
+        IsOutputTruncated = isOutputTruncated;
     }
+
+    public ProcessTerminationReason TerminationReason { get; }
 
     public int? ExitCode { get; }
 
-    public bool TimedOut { get; }
-
-    public bool Cancelled { get; }
-
     public ImmutableArray<ProcessOutputLine> RetainedLines { get; }
 
+    public int RetainedCharacterCount { get; }
+
+    public bool IsOutputTruncated { get; }
+
     public static ValidationResult<ProcessResult> Create(
+        ProcessTerminationReason terminationReason,
         int? exitCode,
-        bool timedOut,
-        bool cancelled,
         IEnumerable<ProcessOutputLine?>? retainedLines)
     {
-        var lineSnapshot = retainedLines?.ToImmutableArray() ?? [];
         var issues = new List<ValidationIssue>();
+        if (!Enum.IsDefined(terminationReason))
+        {
+            issues.Add(
+                new ValidationIssue(
+                    "process.termination-reason.invalid",
+                    "The process termination reason is not defined.",
+                    "terminationReason"));
+        }
+
+        if (terminationReason == ProcessTerminationReason.Exited && exitCode is null)
+        {
+            issues.Add(
+                new ValidationIssue(
+                    "process.exit-code.required",
+                    "An exited process requires an exit code.",
+                    "exitCode"));
+        }
+        else if (terminationReason is ProcessTerminationReason.TimedOut or ProcessTerminationReason.Cancelled
+            && exitCode is not null)
+        {
+            issues.Add(
+                new ValidationIssue(
+                    "process.exit-code.unexpected",
+                    "A timed out or cancelled process cannot carry an exit code.",
+                    "exitCode"));
+        }
+
         if (retainedLines is null)
         {
             issues.Add(
@@ -282,43 +565,54 @@ public sealed class ProcessResult
                     "retainedLines"));
         }
 
-        if (lineSnapshot.Length > MaxRetainedOutputLines)
+        if (issues.Count != 0)
         {
-            issues.Add(
-                new ValidationIssue(
-                    "process.output.too-large",
-                    $"No more than {MaxRetainedOutputLines} process output lines may be retained.",
-                    "retainedLines"));
+            return ValidationResult.Failure<ProcessResult>(issues);
         }
 
-        for (var index = 0; index < lineSnapshot.Length; index++)
+        var lines = ImmutableArray.CreateBuilder<ProcessOutputLine>();
+        var retainedCharacterCount = 0;
+        var isTruncated = false;
+        var observedLineCount = 0;
+        using var enumerator = retainedLines!.GetEnumerator();
+        while (observedLineCount <= MaxRetainedOutputLines && enumerator.MoveNext())
         {
-            if (lineSnapshot[index] is null)
+            observedLineCount++;
+            if (observedLineCount > MaxRetainedOutputLines)
+            {
+                isTruncated = true;
+                break;
+            }
+
+            var line = enumerator.Current;
+            if (line is null)
             {
                 issues.Add(
                     new ValidationIssue(
                         "process.output.line.required",
                         "Retained process output cannot contain null lines.",
-                        $"retainedLines[{index}]"));
+                        "retainedLines[" + (observedLineCount - 1) + "]"));
+                continue;
             }
-        }
 
-        if (timedOut && cancelled)
-        {
-            issues.Add(
-                new ValidationIssue(
-                    "process.result.completion.invalid",
-                    "A process result cannot be both timed out and cancelled.",
-                    "timedOut"));
+            if (retainedCharacterCount + line.Text.Value.Length > MaxRetainedOutputCharacters)
+            {
+                isTruncated = true;
+                break;
+            }
+
+            lines.Add(line);
+            retainedCharacterCount += line.Text.Value.Length;
         }
 
         return issues.Count == 0
             ? ValidationResult.Success(
                 new ProcessResult(
+                    terminationReason,
                     exitCode,
-                    timedOut,
-                    cancelled,
-                    [.. lineSnapshot.Select(line => line!)]))
+                    lines.ToImmutable(),
+                    retainedCharacterCount,
+                    isTruncated))
             : ValidationResult.Failure<ProcessResult>(issues);
     }
 }
@@ -329,4 +623,4 @@ public interface IProcessRunner
         CommandSpec command,
         IProgress<ProcessOutputLine>? progress,
         CancellationToken cancellationToken);
-}
+}
