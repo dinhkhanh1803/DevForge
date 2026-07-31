@@ -4,12 +4,12 @@ using DevForge.Domain.Validation;
 namespace DevForge.Domain.Projects;
 
 public sealed record ProjectRecipeDraft(
-    string Name,
-    string TargetPath,
-    string BlueprintId,
-    string BlueprintVersion,
-    IReadOnlyDictionary<string, string> Inputs,
-    IReadOnlyCollection<string> Features,
+    string? Name,
+    string? TargetPath,
+    string? BlueprintId,
+    string? BlueprintVersion,
+    IReadOnlyDictionary<string, string?>? Inputs,
+    IReadOnlyCollection<string?>? Features,
     TeamProfile? TeamProfile = null,
     GitOptions? Git = null,
     CompletionOptions? Completion = null);
@@ -29,14 +29,17 @@ public sealed class ProjectRecipe
 
     private ProjectRecipe(ProjectRecipeDraft draft)
     {
-        Name = draft.Name.Trim();
-        TargetPath = draft.TargetPath;
-        BlueprintId = draft.BlueprintId.Trim();
-        BlueprintVersion = draft.BlueprintVersion.Trim();
-        Inputs = draft.Inputs.ToImmutableDictionary(StringComparer.Ordinal);
-        Features = [.. draft.Features];
+        Name = draft.Name!.Trim();
+        TargetPath = draft.TargetPath!;
+        BlueprintId = draft.BlueprintId!.Trim();
+        BlueprintVersion = draft.BlueprintVersion!.Trim();
+        Inputs = draft.Inputs!.ToImmutableDictionary(
+            input => input.Key,
+            input => input.Value!,
+            StringComparer.Ordinal);
+        Features = [.. draft.Features!.Select(feature => feature!)];
         TeamProfile = draft.TeamProfile;
-        Git = draft.Git ?? new GitOptions();
+        Git = draft.Git ?? GitOptions.Create().Value;
         Completion = draft.Completion ?? new CompletionOptions();
     }
 
@@ -58,9 +61,15 @@ public sealed class ProjectRecipe
 
     public CompletionOptions Completion { get; }
 
-    public static ValidationResult<ProjectRecipe> Create(ProjectRecipeDraft draft)
+    public static ValidationResult<ProjectRecipe> Create(ProjectRecipeDraft? draft)
     {
-        ArgumentNullException.ThrowIfNull(draft);
+        if (draft is null)
+        {
+            return ValidationResult.Failure<ProjectRecipe>(
+            [
+                new ValidationIssue("project.draft.required", "A project recipe draft is required."),
+            ]);
+        }
 
         var issues = new List<ValidationIssue>();
         AddRequiredIssue(issues, draft.Name, "project.name.required", "Project name is required.", "name");
@@ -87,15 +96,61 @@ public sealed class ProjectRecipe
             "Blueprint version is required.",
             "blueprintVersion");
 
-        foreach (var inputName in draft.Inputs.Keys)
+        if (draft.Inputs is null)
         {
-            if (IsSecretShaped(inputName))
+            issues.Add(new ValidationIssue("project.inputs.required", "Recipe inputs are required.", "inputs"));
+        }
+        else
+        {
+            foreach (var input in draft.Inputs)
             {
-                issues.Add(
-                    new ValidationIssue(
-                        "project.input.secret-name",
-                        "Recipe input names must not describe secrets.",
-                        $"inputs.{inputName}"));
+                if (string.IsNullOrWhiteSpace(input.Key))
+                {
+                    issues.Add(
+                        new ValidationIssue(
+                            "project.input.name.required",
+                            "A recipe input name is required.",
+                            "inputs"));
+                }
+                else if (IsSecretShaped(input.Key))
+                {
+                    issues.Add(
+                        new ValidationIssue(
+                            "project.input.secret-name",
+                            "Recipe input names must not describe secrets.",
+                            $"inputs.{input.Key}"));
+                }
+
+                if (input.Value is null)
+                {
+                    issues.Add(
+                        new ValidationIssue(
+                            "project.input.value.required",
+                            "A recipe input value is required.",
+                            string.IsNullOrWhiteSpace(input.Key) ? "inputs" : $"inputs.{input.Key}"));
+                }
+            }
+        }
+
+        if (draft.Features is null)
+        {
+            issues.Add(new ValidationIssue("project.features.required", "Recipe features are required.", "features"));
+        }
+        else
+        {
+            var index = 0;
+            foreach (var feature in draft.Features)
+            {
+                if (string.IsNullOrWhiteSpace(feature))
+                {
+                    issues.Add(
+                        new ValidationIssue(
+                            "project.feature.invalid",
+                            "Recipe features cannot contain blank values.",
+                            $"features[{index}]"));
+                }
+
+                index++;
             }
         }
 
@@ -106,7 +161,7 @@ public sealed class ProjectRecipe
 
     private static void AddRequiredIssue(
         List<ValidationIssue> issues,
-        string value,
+        string? value,
         string code,
         string message,
         string location)

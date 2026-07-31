@@ -60,6 +60,35 @@ public sealed class ProjectRunTests
         Assert.False(restarted.IsValid);
     }
 
+    [Theory]
+    [InlineData(RunStatus.Draft)]
+    [InlineData(RunStatus.Planning)]
+    [InlineData(RunStatus.Executing)]
+    [InlineData(RunStatus.LocalReady)]
+    [InlineData(RunStatus.PublishPending)]
+    public void ActiveStatesAllowCancellationAndFailure(RunStatus activeStatus)
+    {
+        var run = ReachStatus(activeStatus);
+
+        Assert.True(run.TransitionTo(RunStatus.Cancelled).IsValid);
+        Assert.True(run.TransitionTo(RunStatus.Failed).IsValid);
+    }
+
+    [Theory]
+    [InlineData(RunStatus.PreflightFailed)]
+    [InlineData(RunStatus.ValidationFailed)]
+    [InlineData(RunStatus.Completed)]
+    [InlineData(RunStatus.Cancelled)]
+    [InlineData(RunStatus.Failed)]
+    public void TerminalStatesRejectEveryTransition(RunStatus terminalStatus)
+    {
+        var run = ReachStatus(terminalStatus);
+
+        Assert.All(
+            Enum.GetValues<RunStatus>(),
+            next => Assert.False(run.TransitionTo(next).IsValid));
+    }
+
     [Fact]
     public void RunSnapshotsAttemptsAndErrors()
     {
@@ -69,7 +98,7 @@ public sealed class ProjectRunTests
         };
         var errors = new List<DevForgeError>
         {
-            new(
+            DevForgeError.Create(
                 "build.failed",
                 "Build failed.",
                 "Compiler returned a redacted error.",
@@ -77,7 +106,7 @@ public sealed class ProjectRunTests
                 "build",
                 true,
                 ["Run the build again."],
-                new Dictionary<string, string>()),
+                new Dictionary<string, string>()).Value,
         };
 
         var run = ProjectRun.Create("run-1", "recipe-1", attempts, errors);
@@ -86,5 +115,31 @@ public sealed class ProjectRunTests
 
         Assert.Single(run.Attempts);
         Assert.Single(run.Errors);
+    }
+
+    private static ProjectRun ReachStatus(RunStatus status)
+    {
+        var run = ProjectRun.Create("run-1", "recipe-1");
+        RunStatus[] path = status switch
+        {
+            RunStatus.Draft => [],
+            RunStatus.Planning => [RunStatus.Planning],
+            RunStatus.PreflightFailed => [RunStatus.Planning, RunStatus.PreflightFailed],
+            RunStatus.Executing => [RunStatus.Planning, RunStatus.Executing],
+            RunStatus.ValidationFailed => [RunStatus.Planning, RunStatus.Executing, RunStatus.ValidationFailed],
+            RunStatus.LocalReady => [RunStatus.Planning, RunStatus.Executing, RunStatus.LocalReady],
+            RunStatus.PublishPending => [RunStatus.Planning, RunStatus.Executing, RunStatus.LocalReady, RunStatus.PublishPending],
+            RunStatus.Completed => [RunStatus.Planning, RunStatus.Executing, RunStatus.LocalReady, RunStatus.Completed],
+            RunStatus.Cancelled => [RunStatus.Cancelled],
+            RunStatus.Failed => [RunStatus.Failed],
+            _ => throw new ArgumentOutOfRangeException(nameof(status)),
+        };
+
+        foreach (var next in path)
+        {
+            run = run.TransitionTo(next).Value;
+        }
+
+        return run;
     }
 }

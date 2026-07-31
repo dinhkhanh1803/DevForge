@@ -61,9 +61,10 @@ public sealed class ProjectRun
             [
                 RunStatus.PublishPending,
                 RunStatus.Completed,
+                RunStatus.Cancelled,
                 RunStatus.Failed,
             ],
-            [RunStatus.PublishPending] = [RunStatus.Completed, RunStatus.Failed],
+            [RunStatus.PublishPending] = [RunStatus.Completed, RunStatus.Cancelled, RunStatus.Failed],
             [RunStatus.Completed] = [],
             [RunStatus.Cancelled] = [],
             [RunStatus.Failed] = [],

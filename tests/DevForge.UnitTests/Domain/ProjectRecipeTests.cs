@@ -13,7 +13,7 @@ public sealed class ProjectRecipeTests
                 "relative",
                 " ",
                 " ",
-                new Dictionary<string, string>(),
+                new Dictionary<string, string?>(),
                 []));
 
         Assert.False(result.IsValid);
@@ -25,7 +25,7 @@ public sealed class ProjectRecipeTests
     [Fact]
     public void CreateRejectsSecretShapedInputNames()
     {
-        var inputs = new Dictionary<string, string>
+        var inputs = new Dictionary<string, string?>
         {
             ["api_token"] = "redacted",
             ["databasePassword"] = "redacted",
@@ -40,10 +40,57 @@ public sealed class ProjectRecipeTests
     }
 
     [Fact]
+    public void CreateAggregatesNullBoundaryCollectionsWithoutThrowing()
+    {
+        var result = ProjectRecipe.Create(
+            new ProjectRecipeDraft(null, null, null, null, null, null));
+
+        Assert.False(result.IsValid);
+        Assert.Equal(
+            [
+                "project.name.required",
+                "project.target.absolute",
+                "blueprint.id.required",
+                "blueprint.version.required",
+                "project.inputs.required",
+                "project.features.required",
+            ],
+            result.Issues.Select(issue => issue.Code));
+    }
+
+    [Fact]
+    public void CreateAggregatesMalformedInputAndFeatureEntries()
+    {
+        var inputs = new Dictionary<string, string?>
+        {
+            [""] = "value",
+            ["framework"] = null,
+            ["api_token"] = "redacted",
+        };
+        var features = new string?[] { "", null };
+
+        var result = ProjectRecipe.Create(ValidDraft(inputs) with { Features = features });
+
+        Assert.False(result.IsValid);
+        Assert.Equal(
+            [
+                "project.input.name.required",
+                "project.input.value.required",
+                "project.input.secret-name",
+                "project.feature.invalid",
+                "project.feature.invalid",
+            ],
+            result.Issues.Select(issue => issue.Code));
+        Assert.Equal(
+            ["inputs", "inputs.framework", "inputs.api_token", "features[0]", "features[1]"],
+            result.Issues.Select(issue => issue.Location));
+    }
+
+    [Fact]
     public void CreateTrimsIdentityAndSnapshotsInputsAndFeatures()
     {
-        var inputs = new Dictionary<string, string> { ["framework"] = "net10.0" };
-        var features = new List<string> { "tests" };
+        var inputs = new Dictionary<string, string?> { ["framework"] = "net10.0" };
+        var features = new List<string?> { "tests" };
         var result = ProjectRecipe.Create(
             ValidDraft(inputs) with
             {
@@ -72,17 +119,17 @@ public sealed class ProjectRecipeTests
         Assert.Throws<InvalidOperationException>(() => result.Value);
     }
 
-    private static ProjectRecipeDraft ValidDraft(IReadOnlyDictionary<string, string>? inputs = null)
+    private static ProjectRecipeDraft ValidDraft(IReadOnlyDictionary<string, string?>? inputs = null)
     {
         return new ProjectRecipeDraft(
             "Sample",
             Path.GetFullPath("generated-project"),
             "desktop.csharp-wpf-tool",
             "1.0.0",
-            inputs ?? new Dictionary<string, string>(),
+            inputs ?? new Dictionary<string, string?>(),
             ["tests"],
-            TeamProfile.Create("team.standard", "Team Standard", new Dictionary<string, string>()),
-            new GitOptions(),
+            TeamProfile.Create("team.standard", "Team Standard", new Dictionary<string, string?>()).Value,
+            GitOptions.Create().Value,
             new CompletionOptions());
     }
 }

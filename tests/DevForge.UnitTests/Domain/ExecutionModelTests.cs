@@ -27,14 +27,43 @@ public sealed class ExecutionModelTests
                 "validate-command",
                 stepInputs,
                 TimeSpan.FromMinutes(5),
-                RetryPolicy.None),
+                RetryPolicy.None).Value,
         };
 
-        var plan = new ExecutionPlan("plan-1", steps);
+        var plan = ExecutionPlan.Create("plan-1", steps).Value;
         stepInputs["configuration"] = "Debug";
         steps.Clear();
 
         Assert.Single(plan.Steps);
         Assert.Equal("Release", plan.Steps[0].Inputs["configuration"]);
+    }
+
+    [Fact]
+    public void ExecutionStepCreateAggregatesExpectedInputIssues()
+    {
+        var result = ExecutionStep.Create(null, null, null, null, TimeSpan.Zero, null);
+
+        Assert.False(result.IsValid);
+        Assert.Equal(
+            [
+                "step.id.required",
+                "step.name.required",
+                "step.handler.required",
+                "step.inputs.required",
+                "step.timeout.invalid",
+                "step.retry-policy.required",
+            ],
+            result.Issues.Select(issue => issue.Code));
+    }
+
+    [Fact]
+    public void ExecutionPlanCreateAggregatesExpectedInputIssues()
+    {
+        var result = ExecutionPlan.Create(" ", null);
+
+        Assert.False(result.IsValid);
+        Assert.Equal(
+            ["plan.id.required", "plan.steps.required"],
+            result.Issues.Select(issue => issue.Code));
     }
 }
