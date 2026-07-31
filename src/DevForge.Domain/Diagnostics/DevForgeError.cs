@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using DevForge.Domain.Privacy;
 using DevForge.Domain.Validation;
 
 namespace DevForge.Domain.Diagnostics;
@@ -8,12 +9,12 @@ public sealed class DevForgeError
     private DevForgeError(
         string code,
         string summary,
-        string technicalDetail,
+        SanitizedText technicalDetail,
         string phase,
         string? stepId,
         bool isRetryable,
         IEnumerable<string> suggestedActions,
-        IEnumerable<KeyValuePair<string, string>> redactedContext)
+        IEnumerable<KeyValuePair<string, SanitizedText>> redactedContext)
     {
         Code = code;
         Summary = summary;
@@ -29,7 +30,7 @@ public sealed class DevForgeError
 
     public string Summary { get; }
 
-    public string TechnicalDetail { get; }
+    public SanitizedText TechnicalDetail { get; }
 
     public string Phase { get; }
 
@@ -39,28 +40,30 @@ public sealed class DevForgeError
 
     public ImmutableArray<string> SuggestedActions { get; }
 
-    public ImmutableDictionary<string, string> RedactedContext { get; }
+    public ImmutableDictionary<string, SanitizedText> RedactedContext { get; }
 
 
     public static ValidationResult<DevForgeError> Create(
         string? code,
         string? summary,
-        string? technicalDetail,
+        SanitizedText? technicalDetail,
         string? phase,
         string? stepId,
         bool isRetryable,
         IEnumerable<string?>? suggestedActions,
-        IEnumerable<KeyValuePair<string, string>>? redactedContext)
+        IEnumerable<KeyValuePair<string, SanitizedText>>? redactedContext)
     {
         var issues = new List<ValidationIssue>();
         AddRequiredIssue(issues, code, "error.code.required", "Error code is required.", "code");
         AddRequiredIssue(issues, summary, "error.summary.required", "Error summary is required.", "summary");
-        AddRequiredIssue(
-            issues,
-            technicalDetail,
-            "error.technical-detail.required",
-            "Error technical detail is required.",
-            "technicalDetail");
+        if (technicalDetail is null)
+        {
+            issues.Add(
+                new ValidationIssue(
+                    "error.technical-detail.required",
+                    "Error technical detail is required.",
+                    "technicalDetail"));
+        }
         AddRequiredIssue(issues, phase, "error.phase.required", "Error phase is required.", "phase");
 
         var actionsSnapshot = suggestedActions?.ToImmutableArray() ?? [];
@@ -106,13 +109,25 @@ public sealed class DevForgeError
                             "A redacted context key is required.",
                             $"redactedContext[{index}].key"));
                 }
-                else if (!contextKeys.Add(item.Key))
+                else
                 {
-                    issues.Add(
-                        new ValidationIssue(
-                            "error.context.key.duplicate",
-                            "Redacted context keys must be unique.",
-                            $"redactedContext[{index}].key"));
+                    var normalizedKey = item.Key.Trim();
+                    if (!contextKeys.Add(normalizedKey))
+                    {
+                        issues.Add(
+                            new ValidationIssue(
+                                "error.context.key.duplicate",
+                                "Redacted context keys must be unique.",
+                                $"redactedContext[{index}].key"));
+                    }
+                    else if (SanitizedText.IsSecretShapedKey(normalizedKey))
+                    {
+                        issues.Add(
+                            new ValidationIssue(
+                                "error.context.key.secret-shaped",
+                                "Redacted context keys cannot describe secrets.",
+                                $"redactedContext[{index}].key"));
+                    }
                 }
 
                 if (item.Value is null)
@@ -126,6 +141,9 @@ public sealed class DevForgeError
             }
         }
 
+        var normalizedContext = contextSnapshot.Select(
+            item => KeyValuePair.Create(item.Key.Trim(), item.Value));
+
         return issues.Count == 0
             ? ValidationResult.Success(
                 new DevForgeError(
@@ -136,7 +154,7 @@ public sealed class DevForgeError
                     string.IsNullOrWhiteSpace(stepId) ? null : stepId.Trim(),
                     isRetryable,
                     actionsSnapshot.Select(action => action!),
-                    contextSnapshot))
+                    normalizedContext))
             : ValidationResult.Failure<DevForgeError>(issues);
     }
 

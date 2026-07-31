@@ -34,10 +34,16 @@ public static class ValidationResult
         return new ValidationResult<T>(value);
     }
 
-    public static ValidationResult<T> Failure<T>(IEnumerable<ValidationIssue> issues)
+    public static ValidationResult<T> Failure<T>(IEnumerable<ValidationIssue?> issues)
     {
         ArgumentNullException.ThrowIfNull(issues);
-        var snapshot = issues.ToImmutableArray();
+        var candidateSnapshot = issues.ToImmutableArray();
+        if (candidateSnapshot.Any(issue => issue is null))
+        {
+            throw new ArgumentException("Validation issues cannot contain null values.", nameof(issues));
+        }
+
+        var snapshot = candidateSnapshot.Select(issue => issue!).ToImmutableArray();
         if (snapshot.IsEmpty)
         {
             throw new ArgumentException("A failed validation result requires at least one issue.", nameof(issues));

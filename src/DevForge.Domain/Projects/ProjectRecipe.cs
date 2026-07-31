@@ -27,20 +27,23 @@ public sealed class ProjectRecipe
         "token",
     ];
 
-    private ProjectRecipe(ProjectRecipeDraft draft)
+    private ProjectRecipe(
+        ProjectRecipeDraft draft,
+        ImmutableArray<KeyValuePair<string, string?>> inputs,
+        ImmutableArray<string?> features)
     {
         Name = draft.Name!.Trim();
         TargetPath = draft.TargetPath!;
         BlueprintId = draft.BlueprintId!.Trim();
         BlueprintVersion = draft.BlueprintVersion!.Trim();
-        Inputs = draft.Inputs!.ToImmutableDictionary(
+        Inputs = inputs.ToImmutableDictionary(
             input => input.Key,
             input => input.Value!,
             StringComparer.Ordinal);
-        Features = [.. draft.Features!.Select(feature => feature!)];
+        Features = [.. features.Select(feature => feature!)];
         TeamProfile = draft.TeamProfile;
         Git = draft.Git ?? GitOptions.Create().Value;
-        Completion = draft.Completion ?? new CompletionOptions();
+        Completion = draft.Completion ?? CompletionOptions.Create().Value;
     }
 
     public string Name { get; }
@@ -73,6 +76,9 @@ public sealed class ProjectRecipe
 
         var issues = new List<ValidationIssue>();
         AddRequiredIssue(issues, draft.Name, "project.name.required", "Project name is required.", "name");
+        var inputsSnapshot = draft.Inputs?.ToImmutableArray() ?? [];
+        var featuresSnapshot = draft.Features?.ToImmutableArray() ?? [];
+
 
         if (string.IsNullOrWhiteSpace(draft.TargetPath) || !Path.IsPathFullyQualified(draft.TargetPath))
         {
@@ -102,7 +108,7 @@ public sealed class ProjectRecipe
         }
         else
         {
-            foreach (var input in draft.Inputs)
+            foreach (var input in inputsSnapshot)
             {
                 if (string.IsNullOrWhiteSpace(input.Key))
                 {
@@ -139,7 +145,7 @@ public sealed class ProjectRecipe
         else
         {
             var index = 0;
-            foreach (var feature in draft.Features)
+            foreach (var feature in featuresSnapshot)
             {
                 if (string.IsNullOrWhiteSpace(feature))
                 {
@@ -155,7 +161,7 @@ public sealed class ProjectRecipe
         }
 
         return issues.Count == 0
-            ? ValidationResult.Success(new ProjectRecipe(draft))
+            ? ValidationResult.Success(new ProjectRecipe(draft, inputsSnapshot, featuresSnapshot))
             : ValidationResult.Failure<ProjectRecipe>(issues);
     }
 

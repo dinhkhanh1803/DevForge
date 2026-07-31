@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using DevForge.Domain.Diagnostics;
+using DevForge.Domain.Privacy;
 using DevForge.Domain.Validation;
 
 namespace DevForge.Domain.Reports;
@@ -15,7 +16,7 @@ public sealed record ValidationCheck(
     string Id,
     ValidationCheckStatus Status,
     string Summary,
-    string? Detail);
+    SanitizedText? Detail);
 
 public sealed class GenerationReport
 {
@@ -67,6 +68,7 @@ public sealed class GenerationReport
         }
         else
         {
+            var validationIds = new HashSet<string>(StringComparer.Ordinal);
             for (var index = 0; index < validationsSnapshot.Length; index++)
             {
                 var validation = validationsSnapshot[index];
@@ -77,6 +79,27 @@ public sealed class GenerationReport
                             "report.validation.id.required",
                             "A report validation identifier is required.",
                             $"validations[{index}].id"));
+                }
+                else
+                {
+                    var normalizedId = validation.Id.Trim();
+                    if (!validationIds.Add(normalizedId))
+                    {
+                        issues.Add(
+                            new ValidationIssue(
+                                "report.validation.id.duplicate",
+                                "Report validation identifiers must be unique.",
+                                $"validations[{index}].id"));
+                    }
+                }
+
+                if (validation is not null && !Enum.IsDefined(validation.Status))
+                {
+                    issues.Add(
+                        new ValidationIssue(
+                            "report.validation.status.invalid",
+                            "The validation status is not defined.",
+                            $"validations[{index}].status"));
                 }
 
                 if (validation is not null && string.IsNullOrWhiteSpace(validation.Summary))
@@ -134,12 +157,19 @@ public sealed class GenerationReport
             }
         }
 
+        var normalizedValidations = validationsSnapshot.Select(
+            validation => new ValidationCheck(
+                validation!.Id.Trim(),
+                validation.Status,
+                validation.Summary.Trim(),
+                validation.Detail));
+
         return issues.Count == 0
             ? ValidationResult.Success(
                 new GenerationReport(
                     runId!.Trim(),
                     generatedAt,
-                    validationsSnapshot.Select(validation => validation!),
+                    normalizedValidations,
                     errorsSnapshot.Select(error => error!),
                     artifactsSnapshot.Select(artifact => artifact!)))
             : ValidationResult.Failure<GenerationReport>(issues);

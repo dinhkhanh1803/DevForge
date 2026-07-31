@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using DevForge.Domain.Privacy;
 using DevForge.Domain.Validation;
 
 namespace DevForge.Domain.Environment;
@@ -13,7 +14,7 @@ public sealed class EnvironmentSnapshot
     private EnvironmentSnapshot(
         DateTimeOffset capturedAt,
         IEnumerable<EnvironmentTool> tools,
-        IEnumerable<KeyValuePair<string, string>> properties)
+        IEnumerable<KeyValuePair<string, SanitizedText>> properties)
     {
         CapturedAt = capturedAt;
         Tools = [.. tools];
@@ -24,12 +25,12 @@ public sealed class EnvironmentSnapshot
 
     public ImmutableArray<EnvironmentTool> Tools { get; }
 
-    public ImmutableDictionary<string, string> Properties { get; }
+    public ImmutableDictionary<string, SanitizedText> Properties { get; }
 
     public static ValidationResult<EnvironmentSnapshot> Create(
         DateTimeOffset capturedAt,
         IEnumerable<EnvironmentTool?>? tools,
-        IEnumerable<KeyValuePair<string, string>>? properties)
+        IEnumerable<KeyValuePair<string, SanitizedText>>? properties)
     {
         var issues = new List<ValidationIssue>();
         var toolsSnapshot = tools?.ToImmutableArray() ?? [];
@@ -55,7 +56,8 @@ public sealed class EnvironmentSnapshot
                             "An environment tool name is required.",
                             $"tools[{index}].name"));
                 }
-                else if (!toolNames.Add(tool.Name))
+                var normalizedName = tool?.Name?.Trim();
+                if (normalizedName is not null && !toolNames.Add(normalizedName))
                 {
                     issues.Add(
                         new ValidationIssue(
@@ -89,12 +91,22 @@ public sealed class EnvironmentSnapshot
                             "An environment property name is required.",
                             $"properties[{index}].name"));
                 }
-                else if (!propertyNames.Add(property.Key))
+                var normalizedName = property.Key?.Trim();
+                if (normalizedName is not null && !propertyNames.Add(normalizedName))
                 {
                     issues.Add(
                         new ValidationIssue(
                             "environment.property.name.duplicate",
                             "Environment property names must be unique.",
+                            $"properties[{index}].name"));
+                }
+
+                else if (SanitizedText.IsSecretShapedKey(normalizedName))
+                {
+                    issues.Add(
+                        new ValidationIssue(
+                            "environment.property.name.secret-shaped",
+                            "Environment property names cannot describe secrets.",
                             $"properties[{index}].name"));
                 }
 
@@ -109,12 +121,17 @@ public sealed class EnvironmentSnapshot
             }
         }
 
+        var normalizedTools = toolsSnapshot.Select(
+            tool => new EnvironmentTool(tool!.Name.Trim(), tool.Version?.Trim(), tool.IsAvailable));
+        var normalizedProperties = propertiesSnapshot.Select(
+            property => KeyValuePair.Create(property.Key.Trim(), property.Value));
+
         return issues.Count == 0
             ? ValidationResult.Success(
                 new EnvironmentSnapshot(
                     capturedAt,
-                    toolsSnapshot.Select(tool => tool!),
-                    propertiesSnapshot))
+                    normalizedTools,
+                    normalizedProperties))
             : ValidationResult.Failure<EnvironmentSnapshot>(issues);
     }
 }

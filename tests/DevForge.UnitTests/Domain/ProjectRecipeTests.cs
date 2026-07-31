@@ -107,8 +107,23 @@ public sealed class ProjectRecipeTests
         Assert.Equal("Sample", result.Value.Name);
         Assert.Equal("desktop.csharp-wpf-tool", result.Value.BlueprintId);
         Assert.Equal("1.0.0", result.Value.BlueprintVersion);
+
         Assert.Equal("net10.0", result.Value.Inputs["framework"]);
         Assert.Equal(["tests"], result.Value.Features.ToArray());
+    }
+    [Fact]
+    public void CreateEnumeratesBoundaryCollectionsExactlyOnce()
+    {
+        var inputs = new SingleEnumerationDictionary(
+            new Dictionary<string, string?> { ["framework"] = "net10.0" });
+        var features = new SingleEnumerationCollection<string?>(["tests"]);
+
+        var result = ProjectRecipe.Create(ValidDraft(inputs) with { Features = features });
+
+        Assert.True(result.IsValid);
+        Assert.Equal(1, inputs.EnumerationCount);
+        Assert.Equal(1, features.EnumerationCount);
+        Assert.Equal("net10.0", result.Value.Inputs["framework"]);
     }
 
     [Fact]
@@ -130,6 +145,69 @@ public sealed class ProjectRecipeTests
             ["tests"],
             TeamProfile.Create("team.standard", "Team Standard", new Dictionary<string, string?>()).Value,
             GitOptions.Create().Value,
-            new CompletionOptions());
+            CompletionOptions.Create().Value);
+    }
+
+    private sealed class SingleEnumerationCollection<T>(IReadOnlyCollection<T> values) : IReadOnlyCollection<T>
+    {
+        public int Count => values.Count;
+
+        public int EnumerationCount { get; private set; }
+
+        public IEnumerator<T> GetEnumerator()
+        {
+            EnumerationCount++;
+            if (EnumerationCount > 1)
+            {
+                throw new InvalidOperationException("Collection was enumerated more than once.");
+            }
+
+            return values.GetEnumerator();
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+    }
+
+    private sealed class SingleEnumerationDictionary(IReadOnlyDictionary<string, string?> values)
+        : IReadOnlyDictionary<string, string?>
+    {
+        public string? this[string key] => values[key];
+
+        public IEnumerable<string> Keys => values.Keys;
+
+        public IEnumerable<string?> Values => values.Values;
+
+        public int Count => values.Count;
+
+        public int EnumerationCount { get; private set; }
+
+        public bool ContainsKey(string key)
+        {
+            return values.ContainsKey(key);
+        }
+
+        public IEnumerator<KeyValuePair<string, string?>> GetEnumerator()
+        {
+            EnumerationCount++;
+            if (EnumerationCount > 1)
+            {
+                throw new InvalidOperationException("Dictionary was enumerated more than once.");
+            }
+
+            return values.GetEnumerator();
+        }
+
+        public bool TryGetValue(string key, out string? value)
+        {
+            return values.TryGetValue(key, out value);
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
     }
 }

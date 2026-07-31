@@ -60,7 +60,8 @@ public sealed class TeamProfile
                             "A team standard name is required.",
                             $"standards[{index}].name"));
                 }
-                else if (!names.Add(standard.Key))
+                var normalizedName = standard.Key?.Trim();
+                if (normalizedName is not null && !names.Add(normalizedName))
                 {
                     issues.Add(
                         new ValidationIssue(
@@ -81,7 +82,11 @@ public sealed class TeamProfile
         }
 
         return issues.Count == 0
-            ? ValidationResult.Success(new TeamProfile(id!.Trim(), name!.Trim(), standardsSnapshot))
+            ? ValidationResult.Success(
+                new TeamProfile(
+                    id!.Trim(),
+                    name!.Trim(),
+                    standardsSnapshot.Select(standard => KeyValuePair.Create(standard.Key.Trim(), standard.Value?.Trim()))))
             : ValidationResult.Failure<TeamProfile>(issues);
     }
 }
@@ -127,39 +132,106 @@ public sealed class GitOptions
         bool publishToGitHub = false,
         bool isPrivate = true)
     {
+        var issues = new List<ValidationIssue>();
         if (string.IsNullOrWhiteSpace(primaryBranch))
         {
-            return ValidationResult.Failure<GitOptions>(
-            [
-                new ValidationIssue(
+            issues.Add(new ValidationIssue(
                     "git.primary-branch.required",
                     "The primary branch is required.",
-                    "primaryBranch"),
+                    "primaryBranch"));
+        }
+        else if (!string.Equals(primaryBranch.Trim(), "main", StringComparison.Ordinal))
+        {
+            issues.Add(new ValidationIssue(
+                    "git.primary-branch.unsupported",
+                    "The MVP primary branch must be main.",
+                    "primaryBranch"));
+        }
+
+        if (!initializeRepository && useDevelopBranch)
+        {
+            issues.Add(
+                new ValidationIssue(
+                    "git.develop.requires-initialization",
+                    "The develop branch requires repository initialization.",
+                    "useDevelopBranch"));
+        }
+
+        if (!initializeRepository && publishToGitHub)
+        {
+            issues.Add(
+                new ValidationIssue(
+                    "git.publish.requires-initialization",
+                    "GitHub publishing requires repository initialization.",
+                    "publishToGitHub"));
+        }
+
+        return issues.Count == 0
+            ? ValidationResult.Success(
+                new GitOptions(
+                    initializeRepository,
+                    useDevelopBranch,
+                    publishToGitHub,
+                    isPrivate))
+            : ValidationResult.Failure<GitOptions>(issues);
+    }
+}
+
+public sealed class CompletionOptions
+{
+    private CompletionOptions(
+        bool writeGenerationReport,
+        bool writeHandoffDocument,
+        bool openIde,
+        string? ideId)
+    {
+        WriteGenerationReport = writeGenerationReport;
+        WriteHandoffDocument = writeHandoffDocument;
+        OpenIde = openIde;
+        IdeId = ideId;
+    }
+
+    public bool WriteGenerationReport { get; }
+
+    public bool WriteHandoffDocument { get; }
+
+    public bool OpenIde { get; }
+
+    public string? IdeId { get; }
+
+    public static ValidationResult<CompletionOptions> Create(
+        bool writeGenerationReport = true,
+        bool writeHandoffDocument = true,
+        bool openIde = false,
+        string? ideId = null)
+    {
+        if (openIde && string.IsNullOrWhiteSpace(ideId))
+        {
+            return ValidationResult.Failure<CompletionOptions>(
+            [
+                new ValidationIssue(
+                    "completion.ide.required",
+                    "An IDE identifier is required when opening an IDE.",
+                    "ideId"),
             ]);
         }
 
-        if (!string.Equals(primaryBranch.Trim(), "main", StringComparison.Ordinal))
+        if (!openIde && ideId is not null)
         {
-            return ValidationResult.Failure<GitOptions>(
+            return ValidationResult.Failure<CompletionOptions>(
             [
                 new ValidationIssue(
-                    "git.primary-branch.unsupported",
-                    "The MVP primary branch must be main.",
-                    "primaryBranch"),
+                    "completion.ide.unexpected",
+                    "An IDE identifier cannot be selected when IDE launch is disabled.",
+                    "ideId"),
             ]);
         }
 
         return ValidationResult.Success(
-            new GitOptions(
-                initializeRepository,
-                useDevelopBranch,
-                publishToGitHub,
-                isPrivate));
+            new CompletionOptions(
+                writeGenerationReport,
+                writeHandoffDocument,
+                openIde,
+                ideId?.Trim()));
     }
 }
-
-public sealed record CompletionOptions(
-    bool WriteGenerationReport = true,
-    bool WriteHandoffDocument = true,
-    bool OpenIde = false,
-    string? IdeId = null);
