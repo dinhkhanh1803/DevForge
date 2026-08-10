@@ -1,6 +1,7 @@
 # Workspace-local tools and generated artifacts
 /.tools/
 /.artifacts/
+/.worktrees/
 
 # Build output
 [Bb]in/
