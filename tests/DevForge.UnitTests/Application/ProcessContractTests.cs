@@ -141,6 +141,24 @@ public sealed class ProcessContractTests
     }
 
     [Fact]
+    public void ProcessResultPreservesUpstreamTruncationSignal()
+    {
+        var line = ProcessOutputLine.Create(
+            ProcessOutputChannel.StandardOutput,
+            Redacted("bounded output")).Value;
+
+        var result = ProcessResult.Create(
+            ProcessTerminationReason.Exited,
+            0,
+            [line],
+            wasOutputTruncated: true);
+
+        Assert.True(result.IsValid);
+        Assert.True(result.Value.IsOutputTruncated);
+        Assert.Equal(line, Assert.Single(result.Value.RetainedLines));
+    }
+
+    [Fact]
     public void ProcessEnumsReserveZeroForInvalidDefault()
     {
         Assert.False(Enum.IsDefined((ProcessOutputChannel)0));

@@ -158,7 +158,7 @@ git commit -m "feat(infrastructure): add guarded workspace filesystem"
 - Test: `tests/DevForge.IntegrationTests/Infrastructure/Processes/ProcessOutputRedactorTests.cs`
 - Test: `tests/DevForge.IntegrationTests/Infrastructure/Processes/BoundedProcessOutputTests.cs`
 
-- [ ] **Step 1: Write failing redaction/limit tests**
+- [x] **Step 1: Write failing redaction/limit tests**
 
 Cover explicit sensitive needles, overlapping needles, private keys, bearer/JWT, GitHub/OpenAI/AWS shapes, connection-string assignments, `.env` content, harmless `Foreign key`/`.env file` text, 4,096-character lines, 200 retained lines, 65,536 retained characters, and immutable output.
 
@@ -175,23 +175,23 @@ public void Observe_RedactsBeforeProgressAndRetention()
 }
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
-Expected: compile failure for the missing output components.
+Observed: compile failure `CS0234` for the missing `DevForge.Infrastructure.Processes` namespace. A later runtime RED proved `ProcessResult` could not preserve an upstream truncation signal, and a concurrency RED reproduced `IndexOutOfRangeException` from simultaneous stdout/stderr observation.
 
-- [ ] **Step 3: Implement redaction before observation**
+- [x] **Step 3: Implement redaction before observation**
 
-`ProcessOutputRedactor.Redact` replaces exact needles without converting them to loggable strings and applies shared credential-shape defenses. `BoundedProcessOutput.Observe` truncates a physical line before creating `RedactedText`, reports only the redacted `ProcessOutputLine`, and continues counting discarded input without retaining it.
+`ProcessOutputRedactor.TryRedact` replaces exact needles without converting them to loggable strings and applies shared credential-shape defenses. `BoundedProcessOutput.Observe` redacts before truncating a physical line, serializes concurrent stream observation, reports only the redacted `ProcessOutputLine`, and continues draining discarded input without retaining it. `ProcessResult.Create` now accepts the proven explicit upstream truncation signal.
 
-- [ ] **Step 4: Run GREEN and commit**
+- [x] **Step 4: Run GREEN and commit**
 
 ```powershell
-.\.tools\dotnet\dotnet.exe test tests\DevForge.UnitTests\DevForge.UnitTests.csproj --configuration Release --filter FullyQualifiedName~Infrastructure.Processes
-git add src/DevForge.Infrastructure/Processes/ProcessOutputRedactor.cs src/DevForge.Infrastructure/Processes/BoundedProcessOutput.cs tests/DevForge.UnitTests/Infrastructure/Processes
+.\.tools\dotnet\dotnet.exe test tests\DevForge.IntegrationTests\DevForge.IntegrationTests.csproj --configuration Release --filter FullyQualifiedName~ProcessOutputRedactionTests
+git add src/DevForge.Application/Contracts/ProcessContracts.cs src/DevForge.Infrastructure/Processes src/DevForge.Infrastructure/Properties tests/DevForge.UnitTests/Application/ProcessContractTests.cs tests/DevForge.IntegrationTests/Infrastructure/Processes
 git commit -m "feat(infrastructure): bound and redact process output"
 ```
 
-Expected: focused tests PASS and no test output contains a credential fixture.
+Observed: Application truncation regression 1/1 and Infrastructure redaction/bounds/concurrency tests 11/11 PASS; no returned/progress line contains a credential fixture.
 
 ## Task 4: Implement safe process execution
 

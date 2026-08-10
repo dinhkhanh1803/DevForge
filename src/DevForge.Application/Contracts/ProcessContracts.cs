@@ -526,7 +526,8 @@ public sealed class ProcessResult
     public static ValidationResult<ProcessResult> Create(
         ProcessTerminationReason terminationReason,
         int? exitCode,
-        IEnumerable<ProcessOutputLine?>? retainedLines)
+        IEnumerable<ProcessOutputLine?>? retainedLines,
+        bool wasOutputTruncated = false)
     {
         var issues = new List<ValidationIssue>();
         if (!Enum.IsDefined(terminationReason))
@@ -572,7 +573,7 @@ public sealed class ProcessResult
 
         var lines = ImmutableArray.CreateBuilder<ProcessOutputLine>();
         var retainedCharacterCount = 0;
-        var isTruncated = false;
+        var isTruncated = wasOutputTruncated;
         var observedLineCount = 0;
         using var enumerator = retainedLines!.GetEnumerator();
         while (observedLineCount <= MaxRetainedOutputLines && enumerator.MoveNext())
