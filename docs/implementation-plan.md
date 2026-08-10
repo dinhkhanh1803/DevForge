@@ -36,7 +36,7 @@ M3 excludes blueprint catalog/planner work, orchestration, WPF composition/UI, p
 - [ ] Implement canonical, reparse-safe guarded workspace operations.
 - [x] Implement redacted bounded output and the trusted Windows process runner.
 - [x] Implement bounded workspace secret scanning.
-- [ ] Implement typed environment probes and trusted IDE handoff.
+- [x] Implement typed environment probes and trusted IDE handoff.
 - [ ] Harden injection, traversal, link-race, cancellation, locked-file, and privacy behavior.
 - [ ] Run locked restore, format, Release build, full tests, and focused M3 security suites.
 - [ ] Record exact evidence and mark M3 complete only after every gate is green.

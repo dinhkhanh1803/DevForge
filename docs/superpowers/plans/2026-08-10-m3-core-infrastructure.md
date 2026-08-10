@@ -318,30 +318,30 @@ Observed before final pattern additions: scanner tests 13/13 and whole-root cont
 - Test: `tests/DevForge.IntegrationTests/Infrastructure/Ide/WindowsIdeLauncherTests.cs`
 - Test: `tests/DevForge.IntegrationTests/Infrastructure/Environment/EnvironmentDoctorTests.cs`
 
-- [ ] **Step 1: Write fixed-probe environment RED tests**
+- [x] **Step 1: Write fixed-probe environment RED tests**
 
 Use a recording `IProcessRunner` to assert each supported tool uses a typed executable, fixed version arguments, a short positive timeout, no sensitive environment, and cancellation. Assert missing tools become normalized unavailable snapshots without raw paths/output.
 
-- [ ] **Step 2: Implement the fixed probe catalog and doctor**
+- [x] **Step 2: Implement the fixed probe catalog and doctor**
 
 Each catalog entry contains only an `ExecutableTool`, immutable fixed arguments, and a version parser operating on already-redacted bounded output. The doctor probes the current M3 set deterministically and creates `EnvironmentSnapshot` only through its guarded factory.
 
-- [ ] **Step 3: Write IDE lifecycle RED tests**
+- [x] **Step 3: Write IDE lifecycle RED tests**
 
 Prove only closed `IdeId` values map to VS Code or Visual Studio, workspace root is passed as one inert argument, `UseShellExecute=false`, no elevation verb exists, and successful handoff does not wait for the interactive IDE to exit. Automated tests use a recording launch adapter/test helper and never open the user's IDE.
 
-- [ ] **Step 4: Implement the minimum dedicated handoff path**
+- [x] **Step 4: Implement the minimum dedicated handoff path**
 
-If the RED test confirms `IProcessRunner` cannot represent detached interactive launch, introduce an internal `IInteractiveProcessLauncher` in Infrastructure, not a public raw-command Application port. It accepts only an `ExecutableIdentity` plus a previously opened `IWorkspaceFileSystem`; its implementation reuses the trusted resolver and guarded root, adds the root as one argument, starts non-elevated, and immediately disposes the `Process` handle.
+The compile RED confirmed the environment and IDE implementations were absent, while design review confirmed `IProcessRunner` cannot represent detached interactive launch. The implementation therefore adds an internal `IInteractiveProcessLauncher`, not a public raw-command Application port. It accepts only an `ExecutableIdentity` plus a previously opened `IWorkspaceFileSystem`, reuses the trusted resolver and guarded root, adds the root as one argument, starts non-elevated, and immediately disposes the `Process` handle.
 
-- [ ] **Step 5: Run GREEN and commit**
+- [x] **Step 5: Run GREEN and commit**
 
 ```powershell
-git add src/DevForge.Infrastructure/Environment src/DevForge.Infrastructure/Ide tests/DevForge.UnitTests/Infrastructure/Environment tests/DevForge.UnitTests/Infrastructure/Ide tests/DevForge.IntegrationTests/Infrastructure/Environment
+git add src/DevForge.Infrastructure/Environment src/DevForge.Infrastructure/Ide src/DevForge.Infrastructure/Processes/TrustedExecutableResolver.cs tests/DevForge.IntegrationTests/Infrastructure/Environment tests/DevForge.IntegrationTests/Infrastructure/Ide
 git commit -m "feat(infrastructure): inspect tools and launch trusted IDEs"
 ```
 
-Expected: focused UnitTests and IntegrationTests PASS; no GUI process is opened.
+Observed: focused environment/IDE tests 9/9 PASS, including one real local `dotnet --version` probe; no GUI process is opened.
 
 ## Task 7: Security and regression hardening
 

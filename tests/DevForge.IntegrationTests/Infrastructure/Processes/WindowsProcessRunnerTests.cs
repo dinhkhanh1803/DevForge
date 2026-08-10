@@ -317,7 +317,7 @@ public sealed class WindowsProcessRunnerTests
 
         private static string FindDotNetHost()
         {
-            var configured = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH");
+            var configured = System.Environment.GetEnvironmentVariable("DOTNET_HOST_PATH");
             if (!string.IsNullOrWhiteSpace(configured) && File.Exists(configured))
             {
                 return configured;

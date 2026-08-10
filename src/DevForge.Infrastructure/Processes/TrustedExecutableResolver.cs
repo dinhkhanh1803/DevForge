@@ -26,14 +26,14 @@ internal sealed class TrustedExecutableResolver : ITrustedExecutableResolver
     {
         if (executable.Tool == ExecutableTool.DotNet)
         {
-            var configuredHost = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH");
+            var configuredHost = System.Environment.GetEnvironmentVariable("DOTNET_HOST_PATH");
             if (!string.IsNullOrWhiteSpace(configuredHost))
             {
                 yield return configuredHost;
             }
         }
 
-        var pathValue = Environment.GetEnvironmentVariable("PATH");
+        var pathValue = System.Environment.GetEnvironmentVariable("PATH");
         if (string.IsNullOrWhiteSpace(pathValue))
         {
             yield break;
