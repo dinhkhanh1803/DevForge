@@ -2,7 +2,7 @@
 
 **Goal:** Deliver the Windows-native Infrastructure implementations required before planning and generation workflows.
 
-**Status:** In progress on 2026-08-10; Tasks 1-7 are implemented and Task 8 exit-gate verification remains.
+**Status:** Complete on 2026-08-10; all implementation tasks and the fresh exit gate passed.
 
 **Architecture:** Application retains its validated contracts. Infrastructure owns Windows process/file/security/environment/IDE effects and returns only contained, bounded, redacted results. Domain and Desktop remain free of OS implementation details.
 
@@ -38,8 +38,8 @@ M3 excludes blueprint catalog/planner work, orchestration, WPF composition/UI, p
 - [x] Implement bounded workspace secret scanning.
 - [x] Implement typed environment probes and trusted IDE handoff.
 - [x] Harden injection, traversal, link-race, cancellation, locked-file, and privacy behavior.
-- [ ] Run locked restore, format, Release build, full tests, and focused M3 security suites.
-- [ ] Record exact evidence and mark M3 complete only after every gate is green.
+- [x] Run locked restore, format, Release build, full tests, and focused M3 security suites.
+- [x] Record exact evidence and mark M3 complete only after every gate is green.
 
 ## Exit gate
 

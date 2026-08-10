@@ -72,7 +72,7 @@ Record these accepted decisions: typed executable identities, `ArgumentList`, no
 
 Run the focused architecture test after adding its explicit Infrastructure allowlist. Observed: 3/3 PASS with no warnings while all existing production files remain compliant.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add tests/DevForge.UnitTests/Architecture/InfrastructureBoundaryTests.cs docs/decisions/0005-guarded-windows-infrastructure-boundaries.md
@@ -384,11 +384,11 @@ Observed: both consecutive runs passed identically: focused Unit architecture/In
 - Modify: `docs/superpowers/plans/2026-08-10-m3-core-infrastructure.md`
 - Modify: `CHANGELOG.md`
 
-- [ ] **Step 1: Format and inspect scope**
+- [x] **Step 1: Format and inspect scope**
 
 Run `dotnet format` without claiming success until verification passes. Inspect `git diff --check`, every changed path, project references, and package locks. Confirm the two pre-existing CRLF-only Application test marks remain unstaged and no secret/build/temp fixture is tracked.
 
-- [ ] **Step 2: Run the full fresh exit gate**
+- [x] **Step 2: Run the full fresh exit gate**
 
 ```powershell
 .\.tools\dotnet\dotnet.exe restore DevForge.sln --locked-mode --verbosity minimal
@@ -401,11 +401,11 @@ Run `dotnet format` without claiming success until verification passes. Inspect 
 
 Expected: every command exits 0; Release build reports zero warnings/errors; every M3 test passes with zero skipped; the full solution retains all M0-M2 passes.
 
-- [ ] **Step 3: Update exact status evidence**
+- [x] **Step 3: Update exact status evidence**
 
 Mark M3 Complete only after copying the actual SDK version, commands, exit codes, test counts, warnings, errors, and skipped counts. Record any host prerequisite that was genuinely exercised; do not convert an unexecuted security test into a passed gate.
 
-- [ ] **Step 4: Commit milestone documentation**
+- [x] **Step 4: Commit milestone documentation**
 
 ```powershell
 git add docs/decisions/0005-guarded-windows-infrastructure-boundaries.md docs/implementation-plan.md docs/implementation-status.md docs/superpowers/plans/2026-08-10-m3-core-infrastructure.md CHANGELOG.md

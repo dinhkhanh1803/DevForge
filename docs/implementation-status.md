@@ -1,24 +1,35 @@
 # DevForge Studio Implementation Status
 
 **Current milestone:** M3 - Core Infrastructure
-**Status:** Planned; implementation not started
+**Status:** Complete locally
 **Last updated:** 2026-08-10
 
 ## Current M3 scope
 
-The M3 design is approved and the TDD plan is prepared for execution review in `docs/superpowers/specs/2026-08-10-m3-core-infrastructure-design.md` and `docs/superpowers/plans/2026-08-10-m3-core-infrastructure.md`. ADR-0005 fixes the Windows trust boundaries before production implementation begins.
+M3 is complete locally. The approved design is `docs/superpowers/specs/2026-08-10-m3-core-infrastructure-design.md`, the executed TDD plan is `docs/superpowers/plans/2026-08-10-m3-core-infrastructure.md`, and ADR-0005 records the Windows trust boundaries.
 
-M3 is limited to the guarded workspace file system, trusted process runner, bounded secret scanner, typed environment doctor, trusted IDE handoff, and their unit/integration/security tests. Planner/catalog, orchestration, UI composition, templates, Git, GitHub, packaging, cloud backends, and AI APIs remain out of scope.
+Delivered scope is limited to the guarded workspace file system, trusted process runner, bounded secret scanner, typed environment doctor, trusted IDE handoff, and their unit/integration/security tests. Planner/catalog, orchestration, UI composition, templates, Git, GitHub, packaging, cloud backends, and AI APIs remain out of scope.
 
-No M3 production code or test result is claimed yet. The existing verified baseline remains M2 Complete: Release build 0 warnings/errors, UnitTests 280/280, BlueprintTests 76/76, and IntegrationTests 27/27.
+## M3 delivered
 
-## M3 planned exit gate
+- Workspace operations resolve canonical relative paths under an opaque root, reject reparse escapes, require explicit destructive intent, and preserve no-overwrite move semantics.
+- Process execution resolves only typed trusted tools, uses `ArgumentList` with no shell or elevation, drains bounded redacted stdout/stderr, and terminates the complete child tree on timeout or cancellation.
+- Secret scanning is bounded by file size, line length, text extensions, and regex timeouts; findings contain only categories, guarded paths, line numbers, and redacted descriptions.
+- Environment inspection runs fixed probes for the supported M3 tools. IDE launch accepts only the closed trusted catalog and performs a non-elevated detached handoff.
+- Adversarial tests exercise real Windows processes and junctions, structured JSON/XML credentials, argument metacharacters, locked files, throwing progress observers, continuous-output cancellation, and privacy-safe failure paths with no skipped Infrastructure test.
 
-- Argument separation, no shell/elevation, output bounds/redaction, timeout/cancellation, and descendant-tree termination.
-- Canonical root containment, reparse escape rejection, safe enumeration, explicit cleanup intent, and atomic no-overwrite finalization.
-- Bounded complete secret scans whose findings never contain the matched value.
-- Typed fixed environment probes and trusted non-elevated IDE launch.
-- Fresh locked restore, format verification, Release build, full tests, and focused M3 security suites with exact evidence.
+## M3 exit gate evidence
+
+Fresh local verification on 2026-08-10 used the workspace-local .NET SDK 10.0.302 and completed in this order:
+
+| Gate | Command | Exact result |
+| --- | --- | --- |
+| Locked restore | `dotnet restore DevForge.sln --locked-mode --verbosity minimal` | Exit 0; 12 projects restored or confirmed up-to-date from pinned lock files. |
+| Format | `dotnet format DevForge.sln --verify-no-changes --no-restore --verbosity minimal` | Exit 0; no formatting diagnostics. |
+| Release build | `dotnet build DevForge.sln --configuration Release --no-restore --verbosity minimal` | Exit 0; all 12 projects built; 0 warnings, 0 errors. |
+| Full solution test | `dotnet test DevForge.sln --configuration Release --no-build --no-restore` | Exit 0; UnitTests 289, BlueprintTests 76, IntegrationTests 91; total 456 passed, 0 failed, 0 skipped. The future E2E host contains no tests. |
+| Focused Unit security | `dotnet test tests/DevForge.UnitTests/DevForge.UnitTests.csproj --configuration Release --no-build --no-restore --filter "FullyQualifiedName~Infrastructure\|FullyQualifiedName~Architecture"` | Exit 0; 40 passed, 0 failed, 0 skipped. |
+| Focused Infrastructure integration | `dotnet test tests/DevForge.IntegrationTests/DevForge.IntegrationTests.csproj --configuration Release --no-build --no-restore --filter FullyQualifiedName~Infrastructure` | Exit 0; 64 passed, 0 failed, 0 skipped. |
 
 ## Current M2 scope
 
@@ -87,9 +98,10 @@ Verification used the workspace-local SDK at `.tools/dotnet/dotnet.exe` with `DO
 
 - The Windows GitHub Actions workflow mirrors the mandatory quality gates, but CI was not run remotely in this task.
 - The E2E host remains empty because end-to-end desktop workflows belong to later milestones.
+- Environment probing and IDE launch support only the fixed M3 catalog; catalog compatibility and planning belong to M4.
 - SQLite's online backup API is synchronous during the copy itself; cancellation is honored immediately before and after the bounded call, and recovery always completes before post-mutation cancellation is propagated.
 - Production startup composition and safe-mode UI remain assigned to M6.
 
 ## Milestone progression
 
-M2 is complete. The recommended next milestone is M3 - Core Infrastructure, limited to the process runner, guarded file-system workspace, secret-scanner integration, environment detection, and the other Infrastructure implementations defined by the specification.
+M3 is complete. The recommended next milestone is M4 - Planner, Rules, and Blueprint Catalog, limited to catalog loading, compatibility evaluation, deterministic planner rules, and plan hashing defined by the specification.

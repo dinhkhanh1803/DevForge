@@ -20,3 +20,7 @@ All notable DevForge Studio changes are documented here.
 - Atomic run journal persistence with guarded Domain rehydration, scrubbed corruption failures, and redacted diagnostics.
 - Recoverable migration coordination using guarded SQLite online backup, integrity verification, restoration, and retained recovery artifacts.
 - Raw-database privacy, cancellation, detached-snapshot, deterministic concurrency, and invalid-row regression coverage.
+- Reparse-safe guarded Windows workspace operations with explicit cleanup intent and atomic no-overwrite moves.
+- Trusted Windows process execution with separated arguments, bounded redacted streaming output, timeout/cancellation, and descendant-tree termination.
+- Bounded workspace secret scanning, fixed environment probes, and trusted non-elevated IDE handoff.
+- M3 adversarial coverage for real junctions, locked files, structured credentials, output-observer failures, and continuous-output cancellation.
