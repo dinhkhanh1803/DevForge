@@ -1,9 +1,23 @@
+using System.Collections.Immutable;
 using DevForge.Application.Contracts;
 
 namespace DevForge.UnitTests.Application;
 
 public sealed class FileSystemContractTests
 {
+    [Fact]
+    public void WorkspaceSupportsWholeRootEnumerationWithoutExposingRootPath()
+    {
+        var method = typeof(IWorkspaceFileSystem).GetMethod(
+            "EnumerateAllFilesAsync",
+            [typeof(CancellationToken)]);
+
+        Assert.NotNull(method);
+        Assert.Equal(
+            typeof(Task<ImmutableArray<WorkspaceRelativePath>>),
+            method.ReturnType);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

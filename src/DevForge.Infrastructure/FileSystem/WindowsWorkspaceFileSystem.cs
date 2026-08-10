@@ -131,44 +131,15 @@ internal sealed class WindowsWorkspaceFileSystem : IWorkspaceFileSystem
         CancellationToken cancellationToken)
     {
         return ExecuteAsync(
-            () =>
-            {
-                var root = _guard.Resolve(directory);
-                _guard.VerifyExisting(root);
-                if (!Directory.Exists(root))
-                {
-                    throw new IOException();
-                }
+            () => EnumerateFiles(_guard.Resolve(directory), recursive, cancellationToken),
+            cancellationToken);
+    }
 
-                var files = ImmutableArray.CreateBuilder<WorkspaceRelativePath>();
-                var pending = new Stack<string>();
-                pending.Push(root);
-                while (pending.Count > 0)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    var current = pending.Pop();
-                    foreach (var entry in Directory.EnumerateFileSystemEntries(current))
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        _guard.VerifyExisting(entry);
-                        if (Directory.Exists(entry))
-                        {
-                            if (recursive)
-                            {
-                                pending.Push(entry);
-                            }
-
-                            continue;
-                        }
-
-                        files.Add(_guard.ToRelative(entry));
-                    }
-                }
-
-                return files
-                    .OrderBy(path => path.Value, StringComparer.OrdinalIgnoreCase)
-                    .ToImmutableArray();
-            },
+    public Task<ImmutableArray<WorkspaceRelativePath>> EnumerateAllFilesAsync(
+        CancellationToken cancellationToken)
+    {
+        return ExecuteAsync(
+            () => EnumerateFiles(_guard.RootPath, recursive: true, cancellationToken),
             cancellationToken);
     }
 
@@ -234,6 +205,47 @@ internal sealed class WindowsWorkspaceFileSystem : IWorkspaceFileSystem
             or System.Security.SecurityException
             or NotSupportedException
             or ArgumentException;
+    }
+
+    private ImmutableArray<WorkspaceRelativePath> EnumerateFiles(
+        string root,
+        bool recursive,
+        CancellationToken cancellationToken)
+    {
+        _guard.VerifyExisting(root);
+        if (!Directory.Exists(root))
+        {
+            throw new IOException();
+        }
+
+        var files = ImmutableArray.CreateBuilder<WorkspaceRelativePath>();
+        var pending = new Stack<string>();
+        pending.Push(root);
+        while (pending.Count > 0)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var current = pending.Pop();
+            foreach (var entry in Directory.EnumerateFileSystemEntries(current))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                _guard.VerifyExisting(entry);
+                if (Directory.Exists(entry))
+                {
+                    if (recursive)
+                    {
+                        pending.Push(entry);
+                    }
+
+                    continue;
+                }
+
+                files.Add(_guard.ToRelative(entry));
+            }
+        }
+
+        return files
+            .OrderBy(path => path.Value, StringComparer.OrdinalIgnoreCase)
+            .ToImmutableArray();
     }
 
     private static Task ExecuteAsync(Action action, CancellationToken cancellationToken)

@@ -266,6 +266,9 @@ public interface IWorkspaceFileSystem
         WorkspaceRelativePath path,
         CancellationToken cancellationToken);
 
+    Task<ImmutableArray<WorkspaceRelativePath>> EnumerateAllFilesAsync(
+        CancellationToken cancellationToken);
+
     Task<ImmutableArray<WorkspaceRelativePath>> EnumerateFilesAsync(
         WorkspaceRelativePath directory,
         bool recursive,

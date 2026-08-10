@@ -199,6 +199,9 @@ public sealed class ProcessContractTests
     {
         public WorkspaceRoot Root { get; } = WorkspaceRoot.Create("C:\\work").Value;
 
+        public Task<ImmutableArray<WorkspaceRelativePath>> EnumerateAllFilesAsync(
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<ImmutableArray<WorkspaceRelativePath>> EnumerateFilesAsync(
             WorkspaceRelativePath directory,
             bool recursive,

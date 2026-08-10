@@ -35,7 +35,7 @@ M3 excludes blueprint catalog/planner work, orchestration, WPF composition/UI, p
 - [x] Protect the OS-effect architecture boundary.
 - [ ] Implement canonical, reparse-safe guarded workspace operations.
 - [x] Implement redacted bounded output and the trusted Windows process runner.
-- [ ] Implement bounded workspace secret scanning.
+- [x] Implement bounded workspace secret scanning.
 - [ ] Implement typed environment probes and trusted IDE handoff.
 - [ ] Harden injection, traversal, link-race, cancellation, locked-file, and privacy behavior.
 - [ ] Run locked restore, format, Release build, full tests, and focused M3 security suites.

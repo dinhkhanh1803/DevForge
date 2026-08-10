@@ -239,6 +239,9 @@ public sealed class ProcessSecurityReviewTests
 
     private sealed class StubWorkspaceFileSystem : IWorkspaceFileSystem
     {
+        public Task<ImmutableArray<WorkspaceRelativePath>> EnumerateAllFilesAsync(
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public WorkspaceRoot Root { get; } = WorkspaceRoot.Create("C:\\work").Value;
 
         public Task<bool> FileExistsAsync(WorkspaceRelativePath path, CancellationToken cancellationToken) =>

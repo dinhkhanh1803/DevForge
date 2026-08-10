@@ -273,7 +273,7 @@ git commit -m "feat(infrastructure): execute trusted processes safely"
 - Create: `src/DevForge.Infrastructure/Security/WorkspaceSecretScanner.cs`
 - Test: `tests/DevForge.IntegrationTests/Infrastructure/Security/WorkspaceSecretScannerTests.cs`
 
-- [ ] **Step 1: Write detection, false-positive, and completeness tests**
+- [x] **Step 1: Write detection, false-positive, and completeness tests**
 
 Cover whole-workspace and explicit scopes; PEM, bearer/JWT, GitHub/OpenAI/AWS, secret assignments, connection strings, `.env` structures; binary files; oversized files/lines; unreadable files; cancellation; missing explicit files; and duplicate paths. Assert finding objects, exception text, and captured test output do not contain the fixture value.
 
@@ -290,22 +290,22 @@ public async Task ScanAsync_ReturnsCategoryWithoutMatchedSecret()
 }
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
-Expected: compile failure for the scanner implementation.
+Observed: compile failure `CS0234`/`CS0246` for the scanner implementation. A separate Application contract test then failed because whole-workspace root enumeration did not exist.
 
-- [ ] **Step 3: Implement bounded scanning through `IWorkspaceFileSystem` only**
+- [x] **Step 3: Implement bounded scanning through `IWorkspaceFileSystem` only**
 
-Enumerate guarded files, read a bounded prefix to classify binary text, enforce exact per-file and per-line byte/character limits, and scan streaming lines. Missing, unreadable, binary, or oversized content must not be silently declared clean: throw `InfrastructureOperationException` code `DF-SCAN-001` with a fixed scrubbed message when scan completeness cannot be guaranteed. Construct findings with category-only `RedactedText`.
+Add the minimal `EnumerateAllFilesAsync` workspace contract, enumerate guarded files, read at most 1 MiB, classify binary text, enforce a 16,384-character line limit, and scan text without leaving the abstraction. Missing, unreadable, malformed UTF-8, or oversized content throws `InfrastructureOperationException` code `DF-SCAN-001` with a fixed scrubbed message; known binary content is excluded. Findings contain category-only `RedactedText`.
 
-- [ ] **Step 4: Run GREEN and commit**
+- [x] **Step 4: Run GREEN and commit**
 
 ```powershell
-git add src/DevForge.Infrastructure/Security tests/DevForge.UnitTests/Infrastructure/Security tests/DevForge.IntegrationTests/Infrastructure/Security
+git add src/DevForge.Application/Contracts/FileSystemContracts.cs src/DevForge.Infrastructure/FileSystem src/DevForge.Infrastructure/Security tests/DevForge.UnitTests/Application tests/DevForge.IntegrationTests/Infrastructure/Security
 git commit -m "feat(infrastructure): scan workspaces for secrets"
 ```
 
-Expected: all scanner tests PASS and a repository search finds no committed credential fixture.
+Observed before final pattern additions: scanner tests 13/13 and whole-root contract regression 1/1 PASS. Synthetic credential fixtures exist only in tests; findings/errors never contain their matched values.
 
 ## Task 6: Implement environment inspection and trusted IDE handoff
 

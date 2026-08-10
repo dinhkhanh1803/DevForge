@@ -107,7 +107,8 @@ internal sealed class WorkspacePathGuard
     private bool IsContained(string fullPath)
     {
         var canonical = Path.GetFullPath(fullPath);
-        return canonical.StartsWith(_rootPrefix, StringComparison.OrdinalIgnoreCase);
+        return canonical.Equals(_rootPath, StringComparison.OrdinalIgnoreCase)
+            || canonical.StartsWith(_rootPrefix, StringComparison.OrdinalIgnoreCase);
     }
 
     private static void RejectReparsePoint(string path)
