@@ -1,10 +1,16 @@
 # DevForge Studio Implementation Status
 
-**Current milestone:** M1 - Domain & Contracts
-**Status:** Complete
-**Last updated:** 2026-07-31
+**Current milestone:** M2 - Persistence
+**Status:** In Progress
+**Last updated:** 2026-08-10
 
-## Delivered scope
+## Current M2 scope
+
+M2 implements EF Core SQLite metadata persistence, the required schema and migrations, privacy-safe settings/metadata repositories, the existing run-journal port, and migration backup/restore. The approved design is `docs/superpowers/specs/2026-08-10-m2-persistence-design.md`; the executable TDD plan is `docs/superpowers/plans/2026-08-10-m2-persistence.md`; the architectural decision is ADR-0004.
+
+No M2 production code or exit-gate evidence is claimed yet. M3 process/file-system infrastructure, planner/orchestrator behavior, UI, Git/GitHub, and blueprint expansion remain out of scope.
+
+## M1 delivered baseline
 
 M1 now provides immutable, validated domain models; dependency-free blueprint manifest contracts; validation/error results; and the twelve core Application ports. Security-shaped contracts separate executables from arguments, keep sensitive process values behind an Infrastructure-only friend boundary, scope file operations to an opaque workspace root, validate relative Windows paths, and distinguish whole-workspace from explicit-path secret scans.
 
@@ -43,6 +49,6 @@ Verification used the workspace-local SDK at `.tools/dotnet/dotnet.exe` with `DO
 - Integration, blueprint implementation, and end-to-end workflows remain assigned to later milestones; IntegrationTests and E2ETests are intentionally empty hosts.
 - No Application port has an Infrastructure implementation yet.
 
-## Next milestone
+## Milestone progression
 
-M2 - Persistence: implement the persistence slice defined by the product specification while preserving the M1 validation, privacy, and dependency boundaries.
+M2 is active. M3 - Core Infrastructure may begin only after the M2 fresh/upgrade/backup-recovery, privacy, repository, build, and test gates pass and this document is updated with exact evidence.
