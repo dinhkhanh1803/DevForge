@@ -47,6 +47,13 @@ public sealed class AppSettingsStore : IAppSettingsStore
             [entity.Key],
             static (current, incoming) =>
             {
+                if (incoming.UpdatedAtUnixMs < current.UpdatedAtUnixMs
+                    || incoming.UpdatedAtUnixMs == current.UpdatedAtUnixMs
+                    && CompareCanonical(incoming, current) <= 0)
+                {
+                    return;
+                }
+
                 current.ValueKind = incoming.ValueKind;
                 current.SerializedValue = incoming.SerializedValue;
                 current.UpdatedAtUnixMs = incoming.UpdatedAtUnixMs;
@@ -58,5 +65,13 @@ public sealed class AppSettingsStore : IAppSettingsStore
     {
         var normalized = RepositorySupport.NormalizeSettingKey(key, nameof(key));
         return RepositorySupport.RemoveAsync<AppSettingEntity>(_factory, [normalized], cancellationToken);
+    }
+
+    private static int CompareCanonical(AppSettingEntity left, AppSettingEntity right)
+    {
+        var kindComparison = string.CompareOrdinal(left.ValueKind, right.ValueKind);
+        return kindComparison != 0
+            ? kindComparison
+            : string.CompareOrdinal(left.SerializedValue, right.SerializedValue);
     }
 }

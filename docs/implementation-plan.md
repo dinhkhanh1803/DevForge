@@ -68,9 +68,9 @@ M2 excludes M3 process/file-system implementations, M4 planning/catalog behavior
 
 ### Task 7: Privacy and concurrency hardening
 
-- [ ] Inspect raw database values for forbidden test secrets, `.env` contents, connection strings, source, and unredacted logs.
-- [ ] Prove short-lived contexts, cancellation propagation, and safe concurrent reads.
-- [ ] Add regression tests for every reproducible defect found.
+- [x] Inspect raw database values for forbidden test secrets, `.env` contents, connection strings, source, and unredacted logs.
+- [x] Prove short-lived contexts, cancellation propagation, and safe concurrent reads.
+- [x] Add regression tests for every reproducible defect found.
 
 ### Task 8: Exit gate and documentation
 

@@ -278,23 +278,23 @@ git commit -m "feat(persistence): add recoverable SQLite migrations"
 - Test: `tests/DevForge.IntegrationTests/Persistence/PersistenceConcurrencyTests.cs`
 - Modify only the scoped M2 implementation files needed by failing regressions.
 
-- [ ] **Step 1: Write raw-database privacy tests**
+- [x] **Step 1: Write raw-database privacy tests**
 
 Attempt every public persistence write with credential-shaped fixtures and `.env` content. Assert rejection. Then read every SQLite `TEXT`/`BLOB` value and assert forbidden fixture needles, the generated connection string, source-code fixture, and raw log fixture do not occur.
 
-- [ ] **Step 2: Write cancellation/concurrency tests**
+- [x] **Step 2: Write cancellation/concurrency tests**
 
 Assert pre-cancelled tokens do not mutate data and multiple store instances can perform concurrent reads without sharing a context. Serialize conflicting writes through SQLite constraints and assert deterministic final state.
 
-- [ ] **Step 3: Capture RED and implement minimal regressions**
+- [x] **Step 3: Capture RED and implement minimal regressions**
 
 For every failure, record the expected failing assertion before modifying production code. Change only the smallest relevant validator, mapping, or repository operation.
 
-- [ ] **Step 4: Run focused and full persistence GREEN**
+- [x] **Step 4: Run focused and full persistence GREEN**
 
 Run all M2 unit and integration tests twice to expose ordering/context-lifetime flakes. Expected: zero failed/skipped M2 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add src/DevForge.Application/Contracts/Persistence src/DevForge.Infrastructure/Persistence tests/DevForge.UnitTests/Application/Persistence tests/DevForge.IntegrationTests/Persistence
