@@ -26,6 +26,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\DevForge.Infrastructure\DevForge.Infrastructure.csproj" />
+    <ProjectReference Include="..\DevForge.ProcessTestHelper\DevForge.ProcessTestHelper.csproj"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 
 </Project>

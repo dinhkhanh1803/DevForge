@@ -1,4 +1,5 @@
-﻿Microsoft Visual Studio Solution File, Format Version 12.00
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
@@ -27,6 +28,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DevForge.BlueprintTests", "tests\DevForge.BlueprintTests\DevForge.BlueprintTests.csproj", "{DC7D2A82-7A7C-4FD5-90AC-8ED25375FE84}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DevForge.E2ETests", "tests\DevForge.E2ETests\DevForge.E2ETests.csproj", "{C4CF44F6-7F81-4573-82B7-5615F12A6511}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DevForge.ProcessTestHelper", "tests\DevForge.ProcessTestHelper\DevForge.ProcessTestHelper.csproj", "{D99624B0-7886-4A6A-8D61-21EE69C45FCA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -170,6 +173,18 @@ Global
 		{C4CF44F6-7F81-4573-82B7-5615F12A6511}.Release|x64.Build.0 = Release|Any CPU
 		{C4CF44F6-7F81-4573-82B7-5615F12A6511}.Release|x86.ActiveCfg = Release|Any CPU
 		{C4CF44F6-7F81-4573-82B7-5615F12A6511}.Release|x86.Build.0 = Release|Any CPU
+		{D99624B0-7886-4A6A-8D61-21EE69C45FCA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D99624B0-7886-4A6A-8D61-21EE69C45FCA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D99624B0-7886-4A6A-8D61-21EE69C45FCA}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D99624B0-7886-4A6A-8D61-21EE69C45FCA}.Debug|x64.Build.0 = Debug|Any CPU
+		{D99624B0-7886-4A6A-8D61-21EE69C45FCA}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{D99624B0-7886-4A6A-8D61-21EE69C45FCA}.Debug|x86.Build.0 = Debug|Any CPU
+		{D99624B0-7886-4A6A-8D61-21EE69C45FCA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D99624B0-7886-4A6A-8D61-21EE69C45FCA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D99624B0-7886-4A6A-8D61-21EE69C45FCA}.Release|x64.ActiveCfg = Release|Any CPU
+		{D99624B0-7886-4A6A-8D61-21EE69C45FCA}.Release|x64.Build.0 = Release|Any CPU
+		{D99624B0-7886-4A6A-8D61-21EE69C45FCA}.Release|x86.ActiveCfg = Release|Any CPU
+		{D99624B0-7886-4A6A-8D61-21EE69C45FCA}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -186,5 +201,6 @@ Global
 		{EEDF14CE-1F70-46DD-A42D-9867C92A7C64} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{DC7D2A82-7A7C-4FD5-90AC-8ED25375FE84} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{C4CF44F6-7F81-4573-82B7-5615F12A6511} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{D99624B0-7886-4A6A-8D61-21EE69C45FCA} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal

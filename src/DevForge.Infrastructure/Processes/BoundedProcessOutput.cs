@@ -66,6 +66,14 @@ internal sealed class BoundedProcessOutput
         }
     }
 
+    public void MarkTruncated()
+    {
+        lock (_sync)
+        {
+            _isOutputTruncated = true;
+        }
+    }
+
     private RedactedText BoundLine(RedactedText redactedText)
     {
         if (redactedText.Value.Length <= ProcessOutputLine.MaxTextLength)

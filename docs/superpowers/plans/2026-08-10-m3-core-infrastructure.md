@@ -205,7 +205,7 @@ Observed: Application truncation regression 1/1 and Infrastructure redaction/bou
 - Modify: `tests/DevForge.IntegrationTests/DevForge.IntegrationTests.csproj`
 - Test: `tests/DevForge.IntegrationTests/Infrastructure/Processes/WindowsProcessRunnerTests.cs`
 
-- [ ] **Step 1: Create a deterministic test-helper contract and write RED tests**
+- [x] **Step 1: Create a deterministic test-helper contract and write RED tests**
 
 The helper supports fixed verbs only: `echo-args`, `write-streams`, `large-output`, `sleep`, and `spawn-child-and-wait`. It never evaluates input. Integration tests pass spaces, quotes, `&`, `|`, `>`, `$()`, and semicolons and assert they arrive as inert individual arguments.
 
@@ -222,17 +222,17 @@ public async Task RunAsync_PreservesInjectionShapedArgumentsAsData()
 }
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
-Expected: compile failure because the resolver, runner, and helper do not exist.
+Observed: compile failure `CS0246` for `ITrustedExecutableResolver` and `WindowsProcessRunner`; the fixed helper built successfully first.
 
-- [ ] **Step 3: Implement trusted executable resolution**
+- [x] **Step 3: Implement trusted executable resolution**
 
 Map only `ExecutableTool` values. Prefer explicit test resolver injection; production resolution uses trusted Windows discovery candidates and `PATH` entries without invoking a shell. Require a regular local executable file and reject reparse candidates. Do not expose the resolved path in public results.
 
 Missing/unstartable executables are mapped to `InfrastructureOperationException` code `DF-PROC-001` with a fixed scrubbed message; raw candidate paths and caught exception messages are not retained.
 
-- [ ] **Step 4: Implement process start and asynchronous pumps**
+- [x] **Step 4: Implement process start and asynchronous pumps**
 
 Construct `ProcessStartInfo` with `UseShellExecute=false`, `CreateNoWindow=true`, redirects enabled, guarded working directory, and one `ArgumentList.Add` per argument. Copy validated environment entries only at the final boundary. Start both line pumps immediately and keep draining after retention truncates.
 
@@ -251,15 +251,15 @@ foreach (var argument in command.ArgumentList)
 }
 ```
 
-- [ ] **Step 5: Implement one completion race**
+- [x] **Step 5: Implement one completion race**
 
 Race `WaitForExitAsync` against the command timeout and caller cancellation. On timeout/cancellation, call `Kill(entireProcessTree: true)`, await exit and both pumps, and return the matching `ProcessTerminationReason` without an exit code. Confirmed normal exit wins over later cancellation.
 
-- [ ] **Step 6: Run process security GREEN**
+- [x] **Step 6: Run process security GREEN**
 
-Cover exit codes, allowed/disallowed exit-code transport, stdout/stderr, progress, long/large output, redaction, timeout, pre/mid-flight cancellation, child-tree termination, missing executable, and working-directory revalidation. Verify the child PID is no longer alive before the test completes.
+Cover exit codes, disallowed exit-code transport, stdout/stderr, progress, oversized/large output, redaction, timeout, pre/mid-flight cancellation, child-tree termination, and missing executable. Observed: 11/11 PASS; the descendant PID is no longer alive before the test completes. Working-directory replacement races remain assigned to Task 7.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```powershell
 git add DevForge.sln src/DevForge.Infrastructure/Processes tests/DevForge.ProcessTestHelper tests/DevForge.IntegrationTests/DevForge.IntegrationTests.csproj tests/DevForge.IntegrationTests/Infrastructure/Processes tests/DevForge.UnitTests/Infrastructure/Processes

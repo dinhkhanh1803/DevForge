@@ -19,6 +19,7 @@ public sealed class ProjectDependencyTests
         "DevForge.BlueprintTests",
         "DevForge.E2ETests",
         "DevForge.IntegrationTests",
+        "DevForge.ProcessTestHelper",
         "DevForge.UnitTests",
     ];
 
@@ -27,6 +28,7 @@ public sealed class ProjectDependencyTests
         "DevForge.BlueprintTests",
         "DevForge.E2ETests",
         "DevForge.IntegrationTests",
+        "DevForge.ProcessTestHelper",
         "DevForge.UnitTests",
     ];
 
@@ -68,7 +70,12 @@ public sealed class ProjectDependencyTests
                 "DevForge.Blueprints.Abstractions",
                 "DevForge.Domain",
             ],
-            ["DevForge.IntegrationTests"] = ["DevForge.Infrastructure"],
+            ["DevForge.IntegrationTests"] =
+            [
+                "DevForge.Infrastructure",
+                "DevForge.ProcessTestHelper",
+            ],
+            ["DevForge.ProcessTestHelper"] = [],
             ["DevForge.BlueprintTests"] =
             [
                 "DevForge.Blueprints.Abstractions",
