@@ -44,9 +44,9 @@ M2 excludes M3 process/file-system implementations, M4 planning/catalog behavior
 
 ### Task 3: EF schema and migrations
 
-- [ ] Write failing integration tests for required tables, keys, constraints, foreign keys, and indexes.
-- [ ] Implement `DevForgeDbContext`, entities, configurations, and two tracked migrations.
-- [ ] Prove fresh migration and sequential upgrade with historical data preservation.
+- [x] Write failing integration tests for required tables, keys, constraints, foreign keys, and indexes.
+- [x] Implement `DevForgeDbContext`, entities, configurations, and two tracked migrations.
+- [x] Prove fresh migration and sequential upgrade with historical data preservation.
 
 ### Task 4: Metadata repositories
 

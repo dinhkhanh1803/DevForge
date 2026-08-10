@@ -1,0 +1,10 @@
+namespace DevForge.Infrastructure.Persistence.Migrations;
+
+public static class PersistenceMigrationNames
+{
+    public const string HistoryTable = "SchemaMigrations";
+
+    public const string InitialSchema = "20260810032526_InitialPersistenceSchema";
+
+    public const string RetentionAndLookupIndexes = "20260810032719_AddRetentionAndLookupIndexes";
+}
