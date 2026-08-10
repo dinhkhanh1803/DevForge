@@ -34,26 +34,28 @@
 - Create: `docs/decisions/0005-guarded-windows-infrastructure-boundaries.md`
 - Modify: `DevForge.sln` only if the process helper is added in Task 4
 
-- [ ] **Step 1: Write the failing architecture test**
+- [x] **Step 1: Write the failing architecture test**
 
-Add repository-source checks that reject `Process.Start`, `ProcessStartInfo`, direct workspace-mutating `File`/`Directory` calls, `cmd /c`, PowerShell execution, and `UseShellExecute=true` outside Infrastructure and test fixtures.
+Add repository-source checks that reject `Process.Start`, `ProcessStartInfo`, direct workspace-mutating `File`/`Directory` calls, `cmd /c`, PowerShell execution, and `UseShellExecute=true` outside Infrastructure and test fixtures. Drive the analyzer with a synthetic Desktop source containing `Process.Start` so the analyzer itself has a deterministic RED without requiring placeholder production owners.
 
 ```csharp
 [Fact]
-public void OperatingSystemEffectsRemainInsideInfrastructure()
+public void AnalyzerReportsForbiddenProcessStartOutsideInfrastructure()
 {
-    var repository = RepositoryModel.LoadFrom(AppContext.BaseDirectory);
-    var violations = InfrastructureBoundary.FindViolations(repository)
-        .Concat(InfrastructureBoundary.FindMissingM3Owners(repository))
-        .ToArray();
+    var sources = new Dictionary<string, string>
+    {
+        ["src/DevForge.Desktop/UnsafeLauncher.cs"] =
+            "using System.Diagnostics; class UnsafeLauncher { void Run() => Process.Start(\"git\"); }",
+    };
+    var violations = InfrastructureBoundary.FindViolationsFromSources(sources);
 
-    Assert.Empty(violations);
+    Assert.Single(violations);
 }
 ```
 
-The helper must enumerate production `.cs` files deterministically, require the five M3 implementation owners, allow `System.IO` inside persistence only for its already-approved database backup implementation, and report `relative/path.cs:line: forbidden API` or `missing owner: type` for each violation.
+The helper must enumerate production `.cs` files deterministically, allow OS effects only inside Infrastructure, and report `relative/path.cs: forbidden API` for each violation.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 Run:
 
@@ -61,15 +63,15 @@ Run:
 .\.tools\dotnet\dotnet.exe test tests\DevForge.UnitTests\DevForge.UnitTests.csproj --configuration Release --filter FullyQualifiedName~InfrastructureBoundaryTests
 ```
 
-Expected: FAIL with deterministic `missing owner` entries because the M3 production implementations do not exist.
+Expected and observed: compile FAIL `CS0103` because `InfrastructureBoundary` does not exist.
 
-- [ ] **Step 3: Record ADR-0005 and the exact allowed boundary**
+- [x] **Step 3: Record ADR-0005 and the exact allowed boundary**
 
 Record these accepted decisions: typed executable identities, `ArgumentList`, no shell/elevation, opaque workspace roots, component-by-component reparse rejection, no-overwrite finalization, redaction before observation, and BCL-first implementation. Reject raw command strings, path-prefix-only checks, link following, and Desktop-owned OS calls.
 
-- [ ] **Step 4: Run focused GREEN**
+- [x] **Step 4: Run focused GREEN**
 
-Run the focused architecture test after adding its explicit Infrastructure allowlist. Expected: PASS with no warnings while all existing production files remain compliant.
+Run the focused architecture test after adding its explicit Infrastructure allowlist. Observed: 3/3 PASS with no warnings while all existing production files remain compliant.
 
 - [ ] **Step 5: Commit**
 

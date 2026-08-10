@@ -32,7 +32,7 @@ M3 excludes blueprint catalog/planner work, orchestration, WPF composition/UI, p
 
 ## Tasks
 
-- [ ] Protect the OS-effect architecture boundary.
+- [x] Protect the OS-effect architecture boundary.
 - [ ] Implement canonical, reparse-safe guarded workspace operations.
 - [ ] Implement redacted bounded output and the trusted Windows process runner.
 - [ ] Implement bounded workspace secret scanning.
