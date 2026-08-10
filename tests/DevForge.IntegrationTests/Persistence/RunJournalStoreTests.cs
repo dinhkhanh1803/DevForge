@@ -61,6 +61,7 @@ public sealed class RunJournalStoreTests
         var loaded = Assert.Single(await store.ListAsync(CancellationToken.None));
         var loadedAttempt = Assert.Single(loaded.Attempts);
         Assert.Equal(error.Code, loadedAttempt.Error?.Code);
+        Assert.Null(loadedAttempt.Error?.StepId);
         Assert.Equal(error.TechnicalDetail, loadedAttempt.Error?.TechnicalDetail);
         Assert.Equal(error.RedactedContext, loadedAttempt.Error?.RedactedContext);
         var loadedRunError = Assert.Single(loaded.Errors);
@@ -205,7 +206,7 @@ public sealed class RunJournalStoreTests
             "Restore failed.",
             RedactedText.FromTrustedRedaction("The restore tool returned exit code 1.").Value,
             "restore",
-            "restore",
+            null,
             false,
             ["Review the generated report."],
             [KeyValuePair.Create("workspace", RedactedText.FromTrustedRedaction("[REDACTED]").Value)]).Value;

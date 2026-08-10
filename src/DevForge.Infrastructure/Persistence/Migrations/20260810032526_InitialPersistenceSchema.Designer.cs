@@ -281,6 +281,10 @@ namespace DevForge.Infrastructure.Persistence.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("ErrorStepId")
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("ErrorSuggestedActionsJson")
                         .HasMaxLength(16384)
                         .HasColumnType("TEXT");

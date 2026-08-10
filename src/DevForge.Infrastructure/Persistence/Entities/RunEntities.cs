@@ -49,6 +49,8 @@ internal sealed class RunStepEntity
 
     public string? ErrorPhase { get; set; }
 
+    public string? ErrorStepId { get; set; }
+
     public bool? ErrorIsRetryable { get; set; }
 
     public string? ErrorSuggestedActionsJson { get; set; }

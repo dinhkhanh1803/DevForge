@@ -156,6 +156,7 @@ public partial class InitialPersistenceSchema : Migration
                 ErrorSummary = table.Column<string>(type: "TEXT", maxLength: 1024, nullable: true),
                 ErrorTechnicalDetail = table.Column<string>(type: "TEXT", maxLength: 4096, nullable: true),
                 ErrorPhase = table.Column<string>(type: "TEXT", maxLength: 128, nullable: true),
+                ErrorStepId = table.Column<string>(type: "TEXT", maxLength: 128, nullable: true),
                 ErrorIsRetryable = table.Column<bool>(type: "INTEGER", nullable: true),
                 ErrorSuggestedActionsJson = table.Column<string>(type: "TEXT", maxLength: 16384, nullable: true),
                 ErrorContextJson = table.Column<string>(type: "TEXT", maxLength: 16384, nullable: true)

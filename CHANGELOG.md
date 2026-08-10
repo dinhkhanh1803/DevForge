@@ -15,3 +15,8 @@ All notable DevForge Studio changes are documented here.
 - Dependency-free blueprint manifests with identifier, semantic-version, engine-range, timeout, uniqueness, and trust validation.
 - Twelve Application ports with guarded process, workspace, secret-scanning, Git, GitHub, journal, IDE, planning, execution, environment, rendering, and blueprint contracts.
 - Security hardening for opaque workspace roots, canonical relative Windows paths, bounded process inputs, and Infrastructure-only access to sensitive process values.
+- M2 EF Core SQLite persistence with two tracked migrations, centrally pinned 10.0.10 packages, and real fresh/upgrade integration tests.
+- Privacy-safe typed settings and metadata repositories for IDEs, environment tools, blueprints, team profiles, presets, and recent projects.
+- Atomic run journal persistence with guarded Domain rehydration, scrubbed corruption failures, and redacted diagnostics.
+- Recoverable migration coordination using guarded SQLite online backup, integrity verification, restoration, and retained recovery artifacts.
+- Raw-database privacy, cancellation, detached-snapshot, deterministic concurrency, and invalid-row regression coverage.

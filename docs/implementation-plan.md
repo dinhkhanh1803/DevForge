@@ -2,6 +2,8 @@
 
 **Goal:** Deliver the versioned, privacy-safe SQLite persistence slice required by the DevForge specification.
 
+**Status:** Complete on 2026-08-10; all M2 exit gates passed locally.
+
 **Architecture:** Application owns persistence-facing contracts and validated snapshots. Infrastructure owns EF Core entities, mappings, migrations, repositories, SQLite backup, and recovery. Domain remains free of EF Core and SQLite.
 
 **Tech stack:** .NET SDK 10.0.302, C# 14, EF Core SQLite 10.0.10, xUnit, temporary real SQLite databases.
@@ -74,9 +76,9 @@ M2 excludes M3 process/file-system implementations, M4 planning/catalog behavior
 
 ### Task 8: Exit gate and documentation
 
-- [ ] Run locked restore, format, Release build, full tests, focused UnitTests, and focused IntegrationTests.
-- [ ] Require zero warnings, zero errors, zero failed/skipped M2 tests.
-- [ ] Update `docs/implementation-status.md`, ADR-0004, `CHANGELOG.md`, and this checklist with exact evidence.
+- [x] Run locked restore, format, Release build, full tests, focused UnitTests, and focused IntegrationTests.
+- [x] Require zero warnings, zero errors, zero failed/skipped M2 tests.
+- [x] Update `docs/implementation-status.md`, ADR-0004, `CHANGELOG.md`, and this checklist with exact evidence.
 
 ## Exit gate
 

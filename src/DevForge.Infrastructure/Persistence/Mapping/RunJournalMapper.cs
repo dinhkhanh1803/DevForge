@@ -112,12 +112,6 @@ internal static class RunJournalMapper
     {
         EnsureBounded(attempt.StepId, 128);
         var error = attempt.Error is null ? null : ToDto(attempt.Error);
-        if (error is not null
-            && !string.Equals(error.StepId, attempt.StepId, StringComparison.Ordinal))
-        {
-            throw new PersistenceDataException();
-        }
-
         return new RunStepEntity
         {
             RunId = runId,
@@ -131,6 +125,7 @@ internal static class RunJournalMapper
             ErrorSummary = error?.Summary,
             ErrorTechnicalDetail = error?.TechnicalDetail,
             ErrorPhase = error?.Phase,
+            ErrorStepId = error?.StepId,
             ErrorIsRetryable = error?.IsRetryable,
             ErrorSuggestedActionsJson = error is null
                 ? null
@@ -152,6 +147,7 @@ internal static class RunJournalMapper
         var hasErrorData = entity.ErrorSummary is not null
             || entity.ErrorTechnicalDetail is not null
             || entity.ErrorPhase is not null
+            || entity.ErrorStepId is not null
             || entity.ErrorIsRetryable is not null
             || entity.ErrorSuggestedActionsJson is not null
             || entity.ErrorContextJson is not null;
@@ -189,7 +185,7 @@ internal static class RunJournalMapper
             Summary = entity.ErrorSummary,
             TechnicalDetail = entity.ErrorTechnicalDetail,
             Phase = entity.ErrorPhase,
-            StepId = entity.StepId,
+            StepId = entity.ErrorStepId,
             IsRetryable = entity.ErrorIsRetryable.Value,
             SuggestedActions = DeserializeStringArray(entity.ErrorSuggestedActionsJson),
             Context = DeserializeContext(entity.ErrorContextJson),

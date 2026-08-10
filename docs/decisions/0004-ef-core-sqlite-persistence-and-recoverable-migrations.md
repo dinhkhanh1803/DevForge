@@ -37,3 +37,7 @@ SQLite also has migration and type limitations that affect the design: it does n
 - Any future schema change must add a reviewed migration and upgrade-preservation test.
 - Persistence contracts are intentionally stricter than arbitrary JSON/key-value storage.
 - Production startup composition and safe-mode UI remain M6 responsibilities; M2 delivers the reusable migration coordinator and repositories.
+
+## Validation
+
+M2 verification on 2026-08-10 completed locked restore, format verification, Release build with zero warnings/errors, 383 solution tests with zero failures/skips, focused Unit and Integration suites, real fresh/upgrade/restore SQLite scenarios, raw-database privacy inspection, and EF Core pending-model verification. The model snapshot matches the two tracked migrations.

@@ -143,6 +143,7 @@ public sealed class DevForgeDbContext : DbContext
         entity.Property(item => item.ErrorSummary).HasMaxLength(1_024);
         entity.Property(item => item.ErrorTechnicalDetail).HasMaxLength(4_096);
         entity.Property(item => item.ErrorPhase).HasMaxLength(128);
+        entity.Property(item => item.ErrorStepId).HasMaxLength(128);
         entity.Property(item => item.ErrorSuggestedActionsJson).HasMaxLength(16_384);
         entity.Property(item => item.ErrorContextJson).HasMaxLength(16_384);
         entity.HasOne(item => item.Run)

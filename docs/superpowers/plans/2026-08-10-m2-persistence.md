@@ -309,11 +309,11 @@ git commit -m "test(persistence): harden privacy and concurrency"
 - Modify: `docs/implementation-status.md`
 - Modify: `CHANGELOG.md`
 
-- [ ] **Step 1: Write ADR-0004**
+- [x] **Step 1: Write ADR-0004**
 
 Record EF Core SQLite 10.0.10, private EF entities, short contexts, `SchemaMigrations`, Unix-millisecond timestamps, online backup/restore, and rejected alternatives.
 
-- [ ] **Step 2: Run final verification from the repository root**
+- [x] **Step 2: Run final verification from the repository root**
 
 ```powershell
 dotnet restore DevForge.sln --locked-mode
@@ -327,15 +327,15 @@ dotnet test tests/DevForge.IntegrationTests/DevForge.IntegrationTests.csproj --c
 
 Expected: every command exits 0; build has zero warnings/errors; all M2 tests pass with zero skipped.
 
-- [ ] **Step 3: Update exact evidence**
+- [x] **Step 3: Update exact evidence**
 
 Replace the status document's current milestone with M2 Complete only after copying exact command results and test counts. Set the recommended next milestone to M3 only if every M2 exit condition passes.
 
-- [ ] **Step 4: Audit scope and secrets**
+- [x] **Step 4: Audit scope and secrets**
 
 Run `git diff --check`, inspect every changed path, confirm no database/test artifact/connection string/credential is staged, and confirm the two pre-existing CRLF-only worktree marks are not accidentally committed.
 
-- [ ] **Step 5: Commit milestone documentation**
+- [x] **Step 5: Commit milestone documentation**
 
 ```powershell
 git add docs/decisions/0004-ef-core-sqlite-persistence-and-recoverable-migrations.md docs/implementation-plan.md docs/implementation-status.md CHANGELOG.md docs/superpowers/plans/2026-08-10-m2-persistence.md
