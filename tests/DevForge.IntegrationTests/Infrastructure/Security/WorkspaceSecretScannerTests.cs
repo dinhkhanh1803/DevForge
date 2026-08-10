@@ -17,6 +17,8 @@ public sealed class WorkspaceSecretScannerTests
     [InlineData("key.pem", "-----BEGIN PRIVATE KEY-----", "private key")]
     [InlineData("settings.env", "DATABASE_PASSWORD=fixture-database-password", "secret assignment")]
     [InlineData("connection.txt", "Server=local;Password=fixture-password;", "secret assignment")]
+    [InlineData("settings.json", "{\"password\":\"fixture-json-secret\"}", "secret assignment")]
+    [InlineData("project.csproj", "<ApiToken>fixture-xml-secret</ApiToken>", "secret assignment")]
     public async Task WholeWorkspaceScanReturnsCategoryWithoutMatchedValue(
         string path,
         string contents,

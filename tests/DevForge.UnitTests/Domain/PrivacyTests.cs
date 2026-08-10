@@ -17,6 +17,8 @@ public sealed class PrivacyTests
     [InlineData("AKIAIOSFODNN7EXAMPLE")]
     [InlineData("ghp_1234567890abcdef")]
     [InlineData("github_pat_1234567890abcdef")]
+    [InlineData("{\"password\":\"fixture-json-secret\"}")]
+    [InlineData("<ApiToken>fixture-xml-secret</ApiToken>")]
     public void TrustedRedactionBoundaryRejectsCredentialShapedContent(string value)
     {
         var result = RedactedText.FromTrustedRedaction(value);

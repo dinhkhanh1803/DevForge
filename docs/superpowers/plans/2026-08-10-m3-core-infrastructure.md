@@ -346,22 +346,24 @@ Observed: focused environment/IDE tests 9/9 PASS, including one real local `dotn
 ## Task 7: Security and regression hardening
 
 **Files:**
-- Create: `tests/DevForge.IntegrationTests/Infrastructure/InfrastructureSecurityTests.cs`
+- Modify: focused tests under `tests/DevForge.IntegrationTests/Infrastructure/` and the deterministic process helper.
 - Modify only scoped M3 files whose tests first fail.
 
-- [ ] **Step 1: Add adversarial cross-component tests**
+- [x] **Step 1: Add adversarial cross-component tests**
 
 Exercise argument metacharacters, environment-variable secret redaction, working-directory link replacement, link insertion during enumeration, locked files, destination creation races, output progress callbacks that throw, cancellation during output, and process-start failures. Assert outside sentinels remain unchanged and fixture credentials never appear in returned values or captured logs.
 
-- [ ] **Step 2: Capture each RED before fixing**
+- [x] **Step 2: Capture each RED before fixing**
 
 Run the exact focused test filter and retain the failed assertion/compiler error in the work log. Do not modify production code for a hypothetical issue that a deterministic test cannot reproduce.
 
-- [ ] **Step 3: Apply minimal regression fixes**
+- [x] **Step 3: Apply minimal regression fixes**
 
 Change only the guard, runner, redactor, scanner, doctor, or launcher responsible for the failing invariant. Add a stable test name describing the recovered defect and keep the test green permanently.
 
-- [ ] **Step 4: Run M3 suites twice and commit**
+Observed REDs: four adversarial Infrastructure failures for structured JSON/XML secrets and a throwing progress observer, followed by two Domain privacy failures for the same structured assignments. Fixes add bounded regex evaluation, fail-closed redaction, resilient output draining, project-file scanning, and permanent regressions for locked files and continuous-output cancellation. Focused verification after the fixes passed Unit privacy/process contracts 33/33 and Infrastructure integration 55/55 with zero skipped.
+
+- [x] **Step 4: Run M3 suites twice and commit**
 
 ```powershell
 .\.tools\dotnet\dotnet.exe test tests\DevForge.UnitTests\DevForge.UnitTests.csproj --configuration Release --filter "FullyQualifiedName~Infrastructure|FullyQualifiedName~Architecture"
@@ -371,6 +373,8 @@ git commit -m "test(infrastructure): harden Windows security boundaries"
 ```
 
 Expected: both repeated runs PASS with zero failed and zero skipped M3 tests.
+
+Observed: both consecutive runs passed identically: focused Unit architecture/Infrastructure 40/40 and focused Infrastructure integration 64/64, with zero failed and zero skipped on each run. `dotnet format` followed by `--verify-no-changes` also exited 0 before the repeated suites.
 
 ## Task 8: Run the exit gate and record exact evidence
 

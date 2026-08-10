@@ -33,7 +33,13 @@ internal sealed class BoundedProcessOutput
         {
             var boundedText = BoundLine(redactedText!);
             var line = ProcessOutputLine.Create(channel, boundedText).Value;
-            _progress?.Report(line);
+            try
+            {
+                _progress?.Report(line);
+            }
+            catch (Exception exception) when (IsRecoverableObserverFailure(exception))
+            {
+            }
 
             if (_retainedLines.Count >= ProcessResult.MaxRetainedOutputLines
                 || _retainedCharacterCount + line.Text.Value.Length
@@ -84,5 +90,12 @@ internal sealed class BoundedProcessOutput
         _isOutputTruncated = true;
         return RedactedText.FromTrustedRedaction(
             redactedText.Value[..ProcessOutputLine.MaxTextLength]).Value;
+    }
+
+    private static bool IsRecoverableObserverFailure(Exception exception)
+    {
+        return exception is not OutOfMemoryException
+            and not StackOverflowException
+            and not AccessViolationException;
     }
 }

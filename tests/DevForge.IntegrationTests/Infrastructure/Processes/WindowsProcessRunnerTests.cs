@@ -48,6 +48,21 @@ public sealed class WindowsProcessRunnerTests
     }
 
     [Fact]
+    public async Task ThrowingProgressObserverCannotStopOutputDrain()
+    {
+        await using var fixture = await ProcessFixture.CreateAsync();
+
+        var result = await fixture.Runner.RunAsync(
+            fixture.CreateCommand(["write-streams"]),
+            new ThrowingProgress(),
+            CancellationToken.None);
+
+        Assert.Equal(ProcessTerminationReason.Exited, result.TerminationReason);
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal(2, result.RetainedLines.Length);
+    }
+
+    [Fact]
     public async Task SensitiveEnvironmentOutputIsRedactedBeforeObservation()
     {
         await using var fixture = await ProcessFixture.CreateAsync();
@@ -149,6 +164,21 @@ public sealed class WindowsProcessRunnerTests
     }
 
     [Fact]
+    public async Task CancellationDuringContinuousOutputStillDrainsAndTerminates()
+    {
+        await using var fixture = await ProcessFixture.CreateAsync();
+        using var source = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
+
+        var result = await fixture.Runner.RunAsync(
+            fixture.CreateCommand(["write-until-killed"], timeout: TimeSpan.FromSeconds(30)),
+            null,
+            source.Token);
+
+        Assert.Equal(ProcessTerminationReason.Cancelled, result.TerminationReason);
+        Assert.NotEmpty(result.RetainedLines);
+    }
+
+    [Fact]
     public async Task TimeoutTerminatesDescendantProcessTree()
     {
         await using var fixture = await ProcessFixture.CreateAsync();
@@ -224,6 +254,14 @@ public sealed class WindowsProcessRunnerTests
         public void Report(ProcessOutputLine value)
         {
             Lines.Add(value);
+        }
+    }
+
+    private sealed class ThrowingProgress : IProgress<ProcessOutputLine>
+    {
+        public void Report(ProcessOutputLine value)
+        {
+            throw new InvalidOperationException("Synthetic observer failure with sensitive-looking detail.");
         }
     }
 

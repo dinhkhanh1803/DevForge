@@ -115,6 +115,25 @@ public sealed class ProcessContractTests
             result.Issues.Select(issue => issue.Code));
     }
 
+    [Theory]
+    [InlineData("{\"password\":\"correct-horse-battery-staple\"}")]
+    [InlineData("<ApiToken>github_pat_12345678901234567890</ApiToken>")]
+    public void CommandSpecRejectsStructuredSecretArguments(string argument)
+    {
+        var result = CommandSpec.Create(
+            ExecutableIdentity.Create("dotnet").Value,
+            [argument],
+            new StubWorkspaceFileSystem(),
+            WorkspaceRelativePath.Create("src").Value,
+            [],
+            TimeSpan.FromMinutes(1),
+            [0],
+            []);
+
+        var issue = Assert.Single(result.Issues);
+        Assert.Equal("process.argument.secret-shaped", issue.Code);
+    }
+
     [Fact]
     public void ProcessOutputAndRetainedResultAreRedactedAndBounded()
     {

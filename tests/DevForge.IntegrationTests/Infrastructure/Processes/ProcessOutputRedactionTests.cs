@@ -30,6 +30,7 @@ public sealed class ProcessOutputRedactionTests
     [Theory]
     [InlineData("Authorization: Bearer abcdefghijklmnopqrstuvwxyz")]
     [InlineData("token=github_pat_abcdefghijklmnopqrstuvwxyz")]
+    [InlineData("{\"password\":\"fixture-json-sensitive-value\"}")]
     [InlineData("-----BEGIN PRIVATE KEY-----")]
     [InlineData(".env contents: DATABASE_URL=server-value")]
     public void RedactorRemovesCredentialShapedOutput(string rawOutput)

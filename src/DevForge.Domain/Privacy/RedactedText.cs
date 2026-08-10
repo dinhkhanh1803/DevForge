@@ -13,29 +13,42 @@ namespace DevForge.Domain.Privacy;
 /// </remarks>
 public sealed record RedactedText
 {
+    private static readonly TimeSpan _regexTimeout = TimeSpan.FromMilliseconds(100);
+
     private static readonly Regex _assignmentPattern = new(
-        @"(?i)(?<![a-z0-9_])(?:token|password|passwd|pwd|secret|credential|api[_-]?key|api[_-]?token|(?:auth|access|refresh|github)[_-]?token|(?:db|database)[_-]?password|openai[_-]?api[_-]?key|(?:aws[_-]?)?secret[_-]?access[_-]?key|connection[_-]?string)\s*[:=]",
-        RegexOptions.CultureInvariant);
+        """(?i)(?<![a-z0-9_])(?:token|password|passwd|pwd|secret|credential|api[_-]?key|api[_-]?token|(?:auth|access|refresh|github)[_-]?token|(?:db|database)[_-]?password|openai[_-]?api[_-]?key|(?:aws[_-]?)?secret[_-]?access[_-]?key|connection[_-]?string)["']?\s*[:=]""",
+        RegexOptions.CultureInvariant,
+        _regexTimeout);
+
+    private static readonly Regex _xmlAssignmentPattern = new(
+        @"(?i)<(?:token|password|passwd|pwd|secret|credential|api[_-]?key|api[_-]?token|(?:auth|access|refresh|github)[_-]?token|(?:db|database)[_-]?password|openai[_-]?api[_-]?key|(?:aws[_-]?)?secret[_-]?access[_-]?key|connection[_-]?string)(?:\s[^>]*)?>\s*[^<\s]",
+        RegexOptions.CultureInvariant,
+        _regexTimeout);
 
     private static readonly Regex _environmentContentPattern = new(
         @"(?i)(?:\.env(?:\s+file)?\s+(?:contents?|values?|dump)|(?:contents?|values?|dump)\s+(?:of|from)\s+\.env)",
-        RegexOptions.CultureInvariant);
+        RegexOptions.CultureInvariant,
+        _regexTimeout);
 
     private static readonly Regex _privateKeyPattern = new(
         @"(?i)-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----",
-        RegexOptions.CultureInvariant);
+        RegexOptions.CultureInvariant,
+        _regexTimeout);
 
     private static readonly Regex _bearerPattern = new(
         @"(?i)(?<![a-z0-9_-])Bearer\s+[a-z0-9._~+/=-]{8,}",
-        RegexOptions.CultureInvariant);
+        RegexOptions.CultureInvariant,
+        _regexTimeout);
 
     private static readonly Regex _jwtPattern = new(
         @"(?i)(?<![a-z0-9_-])eyJ[a-z0-9_-]{6,}\.eyJ[a-z0-9_-]{6,}\.[a-z0-9_-]{6,}",
-        RegexOptions.CultureInvariant);
+        RegexOptions.CultureInvariant,
+        _regexTimeout);
 
     private static readonly Regex _serviceTokenPattern = new(
         @"(?i)(?<![a-z0-9_-])(?:sk-(?:proj-|svcacct-)?[a-z0-9_-]{16,}|(?:AKIA|ASIA)[A-Z0-9]{16}|gh[pousr]_[a-z0-9]{12,}|github_pat_[a-z0-9_]{12,})",
-        RegexOptions.CultureInvariant);
+        RegexOptions.CultureInvariant,
+        _regexTimeout);
 
     private static readonly string[] _secretKeyFragments =
     [
@@ -73,12 +86,7 @@ public sealed record RedactedText
         }
 
         var trimmed = value.Trim();
-        if (_assignmentPattern.IsMatch(trimmed)
-            || _environmentContentPattern.IsMatch(trimmed)
-            || _privateKeyPattern.IsMatch(trimmed)
-            || _bearerPattern.IsMatch(trimmed)
-            || _jwtPattern.IsMatch(trimmed)
-            || _serviceTokenPattern.IsMatch(trimmed))
+        if (LooksSecretShaped(trimmed))
         {
             return ValidationResult.Failure<RedactedText>(
             [
@@ -102,5 +110,23 @@ public sealed record RedactedText
         var normalized = string.Concat(key.Where(char.IsLetterOrDigit));
         return _secretKeyFragments.Any(
             fragment => normalized.Contains(fragment, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool LooksSecretShaped(string value)
+    {
+        try
+        {
+            return _assignmentPattern.IsMatch(value)
+                || _xmlAssignmentPattern.IsMatch(value)
+                || _environmentContentPattern.IsMatch(value)
+                || _privateKeyPattern.IsMatch(value)
+                || _bearerPattern.IsMatch(value)
+                || _jwtPattern.IsMatch(value)
+                || _serviceTokenPattern.IsMatch(value);
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return true;
+        }
     }
 }

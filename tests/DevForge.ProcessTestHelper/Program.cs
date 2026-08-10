@@ -56,6 +56,15 @@ switch (args[0])
         await Task.Delay(delayMilliseconds);
         return 0;
 
+    case "write-until-killed":
+        var outputIndex = 0;
+        while (true)
+        {
+            Console.WriteLine($"stream-line-{outputIndex++}");
+            await Console.Out.FlushAsync();
+            await Task.Delay(5);
+        }
+
     case "spawn-child-and-wait":
         var hostPath = Environment.ProcessPath ?? throw new InvalidOperationException("Host path is unavailable.");
         var assemblyPath = Assembly.GetExecutingAssembly().Location;

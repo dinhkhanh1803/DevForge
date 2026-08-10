@@ -199,6 +199,26 @@ public sealed partial class WindowsWorkspaceFileSystemTests
         Assert.False(Directory.Exists(Path.Combine(fixture.RootPath, "cancelled")));
     }
 
+    [Fact]
+    public async Task LockedFileFailureIsStableAndDoesNotLeakPath()
+    {
+        await using var fixture = await WorkspaceFixture.CreateAsync();
+        var file = Relative("locked.txt");
+        await fixture.WriteTextAsync(file, "locked");
+        var physicalPath = Path.Combine(fixture.RootPath, "locked.txt");
+        await using var lockStream = new FileStream(
+            physicalPath,
+            FileMode.Open,
+            FileAccess.ReadWrite,
+            FileShare.None);
+
+        var exception = await Assert.ThrowsAsync<InfrastructureOperationException>(() =>
+            fixture.Workspace.OpenWriteAsync(file, overwrite: true, CancellationToken.None));
+
+        Assert.Equal("DF-FS-002", exception.Code);
+        Assert.DoesNotContain(physicalPath, exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static WorkspaceRelativePath Relative(string value)
     {
         return WorkspaceRelativePath.Create(value).Value;

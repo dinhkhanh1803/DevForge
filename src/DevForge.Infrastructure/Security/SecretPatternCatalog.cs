@@ -34,7 +34,13 @@ internal static class SecretPatternCatalog
         new(
             "secret assignment",
             new Regex(
-                @"(?i)(?<![a-z0-9_])(?:token|password|passwd|pwd|secret|credential|api[_-]?key|api[_-]?token|(?:auth|access|refresh|github)[_-]?token|(?:db|database)[_-]?password|openai[_-]?api[_-]?key|(?:aws[_-]?)?secret[_-]?access[_-]?key|connection[_-]?string)\s*[:=]\s*[^\s;,]+",
+                """(?i)(?<![a-z0-9_])(?:token|password|passwd|pwd|secret|credential|api[_-]?key|api[_-]?token|(?:auth|access|refresh|github)[_-]?token|(?:db|database)[_-]?password|openai[_-]?api[_-]?key|(?:aws[_-]?)?secret[_-]?access[_-]?key|connection[_-]?string)["']?\s*[:=]\s*["']?[^\s;,}"']+["']?""",
+                RegexOptions.CultureInvariant,
+                TimeSpan.FromMilliseconds(100))),
+        new(
+            "secret assignment",
+            new Regex(
+                @"(?i)<(?:token|password|passwd|pwd|secret|credential|api[_-]?key|api[_-]?token|(?:auth|access|refresh|github)[_-]?token|(?:db|database)[_-]?password|openai[_-]?api[_-]?key|(?:aws[_-]?)?secret[_-]?access[_-]?key|connection[_-]?string)(?:\s[^>]*)?>\s*[^<\s][^<]*",
                 RegexOptions.CultureInvariant,
                 TimeSpan.FromMilliseconds(100))),
     ];
