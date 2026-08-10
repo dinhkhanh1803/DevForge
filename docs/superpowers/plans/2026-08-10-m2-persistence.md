@@ -174,23 +174,23 @@ git commit -m "feat(persistence): add SQLite schema and migrations"
 - Create: `src/DevForge.Infrastructure/Persistence/Repositories/RecentProjectStore.cs`
 - Test: `tests/DevForge.IntegrationTests/Persistence/MetadataRepositoryTests.cs`
 
-- [ ] **Step 1: Write failing repository round-trip tests**
+- [x] **Step 1: Write failing repository round-trip tests**
 
 For each store, test create/upsert/list/get/remove, deterministic ordering, immutable return snapshots, cancellation, and unique-key replacement. Use the real migrated SQLite database.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 Expected: compile failure for missing Infrastructure store implementations.
 
-- [ ] **Step 3: Implement one short-lived-context repository at a time**
+- [x] **Step 3: Implement one short-lived-context repository at a time**
 
 Each public operation validates cancellation first, creates one context, executes async EF APIs, saves once, disposes the context, and returns detached immutable contracts. Do not return `IQueryable`, entities, connections, or connection strings.
 
-- [ ] **Step 4: Run focused GREEN after each repository**
+- [x] **Step 4: Run focused GREEN after each repository**
 
 Run `MetadataRepositoryTests` after each minimal implementation. Refactor shared upsert/mapping helpers only while green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add src/DevForge.Infrastructure/Persistence/Mapping src/DevForge.Infrastructure/Persistence/Repositories tests/DevForge.IntegrationTests/Persistence/MetadataRepositoryTests.cs

@@ -50,9 +50,9 @@ M2 excludes M3 process/file-system implementations, M4 planning/catalog behavior
 
 ### Task 4: Metadata repositories
 
-- [ ] Write failing round-trip/upsert/removal/cancellation tests for settings and metadata stores.
-- [ ] Implement short-lived-context repositories and deterministic mappings.
-- [ ] Prove callers cannot mutate stored or returned snapshots.
+- [x] Write failing round-trip/upsert/removal/cancellation tests for settings and metadata stores.
+- [x] Implement short-lived-context repositories and deterministic mappings.
+- [x] Prove callers cannot mutate stored or returned snapshots.
 
 ### Task 5: Run journal
 

@@ -8,7 +8,14 @@
 
 M2 implements EF Core SQLite metadata persistence, the required schema and migrations, privacy-safe settings/metadata repositories, the existing run-journal port, and migration backup/restore. The approved design is `docs/superpowers/specs/2026-08-10-m2-persistence-design.md`; the executable TDD plan is `docs/superpowers/plans/2026-08-10-m2-persistence.md`; the architectural decision is ADR-0004.
 
-No M2 production code or exit-gate evidence is claimed yet. M3 process/file-system infrastructure, planner/orchestrator behavior, UI, Git/GitHub, and blueprint expansion remain out of scope.
+M2 Tasks 1-4 are implemented locally: exact EF Core SQLite dependencies, guarded Application persistence contracts, the versioned schema and migrations, and short-lived metadata repositories. The M2 exit gate is not claimed yet; the run journal, migration backup/recovery, final privacy/concurrency hardening, and fresh full verification remain. M3 process/file-system infrastructure, planner/orchestrator behavior, UI, Git/GitHub, and blueprint expansion remain out of scope.
+
+## M2 progress
+
+- Package ownership is pinned centrally, including the direct non-vulnerable SQLite native bundle dependency.
+- Fresh and sequential SQLite migrations preserve historical data and create the required tables, foreign keys, and lookup indexes.
+- Settings, IDE, environment-tool, blueprint, team-profile, preset, and recent-project repositories use one short-lived context per operation and return detached immutable snapshots.
+- Repository integration tests cover round-trip/upsert/removal, pre-cancelled writes, detached snapshots, non-canonical stored enums, and scrubbed fail-closed corruption handling.
 
 ## M1 delivered baseline
 
