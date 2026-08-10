@@ -26,7 +26,7 @@ M3 excludes blueprint catalog/planner work, orchestration, WPF composition/UI, p
 - Add guarded workspace components under `src/DevForge.Infrastructure/FileSystem/`.
 - Add secret scanning under `src/DevForge.Infrastructure/Security/`.
 - Add environment and IDE components under `src/DevForge.Infrastructure/Environment/` and `src/DevForge.Infrastructure/Ide/`.
-- Add architecture/unit tests under `tests/DevForge.UnitTests/`.
+- Add source-policy architecture tests under `tests/DevForge.UnitTests/` without adding an Infrastructure reference.
 - Add real Windows tests and a deterministic helper under `tests/DevForge.IntegrationTests/` and `tests/DevForge.ProcessTestHelper/` if required by RED tests.
 - Update ADR-0005, status, plan, and changelog only with verified evidence.
 

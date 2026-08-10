@@ -23,8 +23,7 @@
 - `src/DevForge.Infrastructure/Environment/WindowsEnvironmentDoctor.cs`: typed fixed version probes.
 - `src/DevForge.Infrastructure/Ide/WindowsIdeLauncher.cs`: trusted non-elevated IDE handoff.
 - `tests/DevForge.UnitTests/Architecture/InfrastructureBoundaryTests.cs`: dependency and forbidden-API enforcement.
-- `tests/DevForge.UnitTests/Infrastructure/**/*.cs`: focused policy/value tests.
-- `tests/DevForge.IntegrationTests/Infrastructure/**/*.cs`: real Windows process/filesystem/scanner tests.
+- `tests/DevForge.IntegrationTests/Infrastructure/**/*.cs`: focused policy tests and real Windows process/filesystem/scanner tests; Infrastructure implementation tests stay out of UnitTests to preserve its approved project-reference boundary.
 - `tests/DevForge.ProcessTestHelper/Program.cs`: deterministic child process used only by integration tests.
 
 ## Task 1: Protect the Infrastructure boundary
@@ -87,10 +86,9 @@ git commit -m "test(architecture): protect M3 infrastructure boundaries"
 - Create: `src/DevForge.Infrastructure/FileSystem/WorkspacePathGuard.cs`
 - Create: `src/DevForge.Infrastructure/FileSystem/WindowsFileSystem.cs`
 - Create: `src/DevForge.Infrastructure/FileSystem/WindowsWorkspaceFileSystem.cs`
-- Test: `tests/DevForge.UnitTests/Infrastructure/FileSystem/WorkspacePathGuardTests.cs`
 - Test: `tests/DevForge.IntegrationTests/Infrastructure/FileSystem/WindowsWorkspaceFileSystemTests.cs`
 
-- [ ] **Step 1: Write path-guard and real I/O tests**
+- [x] **Step 1: Write path-guard and real I/O tests**
 
 Cover opening a local directory, non-reparse root enforcement, canonical containment, case-insensitive comparison, create/read/write/enumerate, no-overwrite writes, safe overwrite of regular files, cancellation, root deletion rejection, recursive run-owned deletion, and atomic no-overwrite directory finalization.
 
@@ -110,11 +108,11 @@ public async Task MoveDirectoryAsync_DoesNotOverwriteExistingDestination()
 }
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
-Expected: compile failure because `WindowsFileSystem`, `WindowsWorkspaceFileSystem`, and `WorkspacePathGuard` do not exist.
+Observed: compile failure `CS0234` because `DevForge.Infrastructure.FileSystem` did not exist.
 
-- [ ] **Step 3: Implement canonical containment and component checks**
+- [x] **Step 3: Implement canonical containment and component checks**
 
 `WorkspacePathGuard.ResolveContainedPath` must combine the private root and guarded relative path, normalize with `Path.GetFullPath`, require either exact root or `root + separator` prefix using `OrdinalIgnoreCase`, walk each existing component, and reject `FileAttributes.ReparsePoint`.
 
@@ -135,17 +133,17 @@ internal string ResolveContainedPath(WorkspaceRelativePath relativePath)
 
 Add `InfrastructureOperationException` with a stable code and fixed safe message, no public raw path/command/output property, and no retained inner exception. Map expected `IOException`, `UnauthorizedAccessException`, `SecurityException`, and supported Win32 failures only at the outer Infrastructure operation boundary.
 
-- [ ] **Step 4: Implement each workspace operation minimally**
+- [x] **Step 4: Implement each workspace operation minimally**
 
 Use `FileStreamOptions` with explicit `FileMode`/`FileAccess`/`FileShare`, async mode, and `FileOptions.Asynchronous`. Enumeration converts every result back to `WorkspaceRelativePath`, skips no error silently, and never follows reparse directories. Move uses `Directory.Move` only after source/destination validation and explicit missing-destination proof. Recursive delete rejects the root and validates every discovered entry before deletion.
 
-- [ ] **Step 5: Add link/junction escape tests**
+- [x] **Step 5: Add link/junction escape tests**
 
-Create a test-owned outside directory and a link/junction inside the workspace. Assert read, write, enumerate, move, and delete all reject it and the outside sentinel remains unchanged. If fixture creation is unavailable without elevation, fail with an explicit prerequisite message instead of returning a passing test.
+Create a test-owned outside directory and a link/junction inside the workspace. Assert open-root, read, enumerate, and recursive delete all reject it and the outside sentinel remains unchanged. The host could not create symbolic links without privilege, so the test fixture creates a mount-point junction directly with `FSCTL_SET_REPARSE_POINT`; no shell, elevation, or skipped test is used.
 
-- [ ] **Step 6: Run GREEN and commit**
+- [x] **Step 6: Run GREEN and commit**
 
-Run focused UnitTests and IntegrationTests twice. Expected: all filesystem tests PASS with zero skipped tests on the supported Windows development host.
+Run focused architecture UnitTests and filesystem IntegrationTests twice. Observed before final coverage additions: architecture 3/3 and filesystem 7/7 PASS repeatedly with zero skipped tests on the supported Windows development host.
 
 ```powershell
 git add src/DevForge.Infrastructure/InfrastructureOperationException.cs src/DevForge.Infrastructure/FileSystem tests/DevForge.UnitTests/Infrastructure/FileSystem tests/DevForge.IntegrationTests/Infrastructure/FileSystem
@@ -157,8 +155,8 @@ git commit -m "feat(infrastructure): add guarded workspace filesystem"
 **Files:**
 - Create: `src/DevForge.Infrastructure/Processes/ProcessOutputRedactor.cs`
 - Create: `src/DevForge.Infrastructure/Processes/BoundedProcessOutput.cs`
-- Test: `tests/DevForge.UnitTests/Infrastructure/Processes/ProcessOutputRedactorTests.cs`
-- Test: `tests/DevForge.UnitTests/Infrastructure/Processes/BoundedProcessOutputTests.cs`
+- Test: `tests/DevForge.IntegrationTests/Infrastructure/Processes/ProcessOutputRedactorTests.cs`
+- Test: `tests/DevForge.IntegrationTests/Infrastructure/Processes/BoundedProcessOutputTests.cs`
 
 - [ ] **Step 1: Write failing redaction/limit tests**
 
@@ -205,7 +203,6 @@ Expected: focused tests PASS and no test output contains a credential fixture.
 - Create: `tests/DevForge.ProcessTestHelper/Program.cs`
 - Modify: `DevForge.sln`
 - Modify: `tests/DevForge.IntegrationTests/DevForge.IntegrationTests.csproj`
-- Test: `tests/DevForge.UnitTests/Infrastructure/Processes/TrustedExecutableResolverTests.cs`
 - Test: `tests/DevForge.IntegrationTests/Infrastructure/Processes/WindowsProcessRunnerTests.cs`
 
 - [ ] **Step 1: Create a deterministic test-helper contract and write RED tests**
@@ -274,7 +271,6 @@ git commit -m "feat(infrastructure): execute trusted processes safely"
 **Files:**
 - Create: `src/DevForge.Infrastructure/Security/SecretPatternCatalog.cs`
 - Create: `src/DevForge.Infrastructure/Security/WorkspaceSecretScanner.cs`
-- Test: `tests/DevForge.UnitTests/Infrastructure/Security/SecretPatternCatalogTests.cs`
 - Test: `tests/DevForge.IntegrationTests/Infrastructure/Security/WorkspaceSecretScannerTests.cs`
 
 - [ ] **Step 1: Write detection, false-positive, and completeness tests**
@@ -318,8 +314,8 @@ Expected: all scanner tests PASS and a repository search finds no committed cred
 - Create: `src/DevForge.Infrastructure/Environment/WindowsEnvironmentDoctor.cs`
 - Create: `src/DevForge.Infrastructure/Ide/IdeCatalog.cs`
 - Create: `src/DevForge.Infrastructure/Ide/WindowsIdeLauncher.cs`
-- Test: `tests/DevForge.UnitTests/Infrastructure/Environment/WindowsEnvironmentDoctorTests.cs`
-- Test: `tests/DevForge.UnitTests/Infrastructure/Ide/WindowsIdeLauncherTests.cs`
+- Test: `tests/DevForge.IntegrationTests/Infrastructure/Environment/WindowsEnvironmentDoctorTests.cs`
+- Test: `tests/DevForge.IntegrationTests/Infrastructure/Ide/WindowsIdeLauncherTests.cs`
 - Test: `tests/DevForge.IntegrationTests/Infrastructure/Environment/EnvironmentDoctorTests.cs`
 
 - [ ] **Step 1: Write fixed-probe environment RED tests**
