@@ -1,8 +1,24 @@
 # DevForge Studio Implementation Status
 
-**Current milestone:** M2 - Persistence
-**Status:** Complete
+**Current milestone:** M3 - Core Infrastructure
+**Status:** Planned; implementation not started
 **Last updated:** 2026-08-10
+
+## Current M3 scope
+
+The M3 design is approved and the TDD plan is prepared for execution review in `docs/superpowers/specs/2026-08-10-m3-core-infrastructure-design.md` and `docs/superpowers/plans/2026-08-10-m3-core-infrastructure.md`. ADR-0005 fixes the Windows trust boundaries before production implementation begins.
+
+M3 is limited to the guarded workspace file system, trusted process runner, bounded secret scanner, typed environment doctor, trusted IDE handoff, and their unit/integration/security tests. Planner/catalog, orchestration, UI composition, templates, Git, GitHub, packaging, cloud backends, and AI APIs remain out of scope.
+
+No M3 production code or test result is claimed yet. The existing verified baseline remains M2 Complete: Release build 0 warnings/errors, UnitTests 280/280, BlueprintTests 76/76, and IntegrationTests 27/27.
+
+## M3 planned exit gate
+
+- Argument separation, no shell/elevation, output bounds/redaction, timeout/cancellation, and descendant-tree termination.
+- Canonical root containment, reparse escape rejection, safe enumeration, explicit cleanup intent, and atomic no-overwrite finalization.
+- Bounded complete secret scans whose findings never contain the matched value.
+- Typed fixed environment probes and trusted non-elevated IDE launch.
+- Fresh locked restore, format verification, Release build, full tests, and focused M3 security suites with exact evidence.
 
 ## Current M2 scope
 

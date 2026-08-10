@@ -1,85 +1,46 @@
-# Milestone M2 Persistence Implementation Plan
+# Milestone M3 Core Infrastructure Implementation Plan
 
-**Goal:** Deliver the versioned, privacy-safe SQLite persistence slice required by the DevForge specification.
+**Goal:** Deliver the Windows-native Infrastructure implementations required before planning and generation workflows.
 
-**Status:** Complete on 2026-08-10; all M2 exit gates passed locally.
+**Status:** Planned on 2026-08-10; implementation has not started.
 
-**Architecture:** Application owns persistence-facing contracts and validated snapshots. Infrastructure owns EF Core entities, mappings, migrations, repositories, SQLite backup, and recovery. Domain remains free of EF Core and SQLite.
+**Architecture:** Application retains its validated contracts. Infrastructure owns Windows process/file/security/environment/IDE effects and returns only contained, bounded, redacted results. Domain and Desktop remain free of OS implementation details.
 
-**Tech stack:** .NET SDK 10.0.302, C# 14, EF Core SQLite 10.0.10, xUnit, temporary real SQLite databases.
+**Tech stack:** .NET SDK 10.0.302, C# 14, Windows BCL APIs, xUnit 2.9.3.
 
 ## Source and detailed plan
 
-- Design: `docs/superpowers/specs/2026-08-10-m2-persistence-design.md`
-- Task plan: `docs/superpowers/plans/2026-08-10-m2-persistence.md`
-- Decision: `docs/decisions/0004-ef-core-sqlite-persistence-and-recoverable-migrations.md`
+- Design: `docs/superpowers/specs/2026-08-10-m3-core-infrastructure-design.md`
+- Task plan: `docs/superpowers/plans/2026-08-10-m3-core-infrastructure.md`
+- Decision: `docs/decisions/0005-guarded-windows-infrastructure-boundaries.md`
 
 ## Scope
 
-M2 includes the required local SQLite schema, EF Core migrations, short-lived contexts, privacy-safe metadata repositories, the `IRunJournalStore` implementation, and migration backup/recovery.
+M3 includes `IProcessRunner`, `IFileSystem`/`IWorkspaceFileSystem`, `ISecretScanner`, `IEnvironmentDoctor`, and `IIdeLauncher` implementations plus real Windows integration/security tests.
 
-M2 excludes M3 process/file-system implementations, M4 planning/catalog behavior, M5 orchestration/finalization, WPF composition, Git/GitHub automation, and blueprint catalog expansion.
+M3 excludes blueprint catalog/planner work, orchestration, WPF composition/UI, project templates, Git, GitHub, packaging, and cloud/AI integrations.
 
 ## Planned files
 
-- Modify `Directory.Packages.props`, Infrastructure and IntegrationTests project files, and lock files.
-- Add Application persistence contracts under `src/DevForge.Application/Contracts/Persistence/`.
-- Add EF Core implementation under `src/DevForge.Infrastructure/Persistence/`.
-- Add unit tests under `tests/DevForge.UnitTests/Application/Persistence/`.
-- Add integration tests under `tests/DevForge.IntegrationTests/Persistence/`.
-- Add ADR-0004 and update milestone status/changelog after verification.
+- Add process components under `src/DevForge.Infrastructure/Processes/`.
+- Add guarded workspace components under `src/DevForge.Infrastructure/FileSystem/`.
+- Add secret scanning under `src/DevForge.Infrastructure/Security/`.
+- Add environment and IDE components under `src/DevForge.Infrastructure/Environment/` and `src/DevForge.Infrastructure/Ide/`.
+- Add architecture/unit tests under `tests/DevForge.UnitTests/`.
+- Add real Windows tests and a deterministic helper under `tests/DevForge.IntegrationTests/` and `tests/DevForge.ProcessTestHelper/` if required by RED tests.
+- Update ADR-0005, status, plan, and changelog only with verified evidence.
 
 ## Tasks
 
-### Task 1: Persistence dependency boundary
-
-- [x] Write architecture tests proving EF Core packages are Infrastructure-only and centrally pinned.
-- [x] Capture the expected RED result.
-- [x] Pin EF Core SQLite/Design 10.0.10 and update project lock files.
-- [x] Reach focused GREEN without changing the approved project-reference graph.
-
-### Task 2: Persistence contracts and privacy values
-
-- [x] Write failing tests for guarded database locations, typed settings, `PersistableJson`, immutable metadata snapshots, and secret rejection.
-- [x] Implement the minimum Application contracts and values.
-- [x] Run focused tests and refactor only while green.
-
-### Task 3: EF schema and migrations
-
-- [x] Write failing integration tests for required tables, keys, constraints, foreign keys, and indexes.
-- [x] Implement `DevForgeDbContext`, entities, configurations, and two tracked migrations.
-- [x] Prove fresh migration and sequential upgrade with historical data preservation.
-
-### Task 4: Metadata repositories
-
-- [x] Write failing round-trip/upsert/removal/cancellation tests for settings and metadata stores.
-- [x] Implement short-lived-context repositories and deterministic mappings.
-- [x] Prove callers cannot mutate stored or returned snapshots.
-
-### Task 5: Run journal
-
-- [x] Write failing round-trip and atomic-replacement tests for `ProjectRun`, attempts, and redacted errors.
-- [x] Implement `SqliteRunJournalStore` with guarded rehydration.
-- [x] Add invalid-row regression tests and fail closed with `DF-DB-001`.
-
-### Task 6: Migration backup and recovery
-
-- [x] Write a failure-injection test that mutates an existing database and fails an upgrade.
-- [x] Implement SQLite online backup, migration execution, integrity checking, and restoration.
-- [x] Prove the original data is restored and the returned error contains no connection string or raw exception.
-
-### Task 7: Privacy and concurrency hardening
-
-- [x] Inspect raw database values for forbidden test secrets, `.env` contents, connection strings, source, and unredacted logs.
-- [x] Prove short-lived contexts, cancellation propagation, and safe concurrent reads.
-- [x] Add regression tests for every reproducible defect found.
-
-### Task 8: Exit gate and documentation
-
-- [x] Run locked restore, format, Release build, full tests, focused UnitTests, and focused IntegrationTests.
-- [x] Require zero warnings, zero errors, zero failed/skipped M2 tests.
-- [x] Update `docs/implementation-status.md`, ADR-0004, `CHANGELOG.md`, and this checklist with exact evidence.
+- [ ] Protect the OS-effect architecture boundary.
+- [ ] Implement canonical, reparse-safe guarded workspace operations.
+- [ ] Implement redacted bounded output and the trusted Windows process runner.
+- [ ] Implement bounded workspace secret scanning.
+- [ ] Implement typed environment probes and trusted IDE handoff.
+- [ ] Harden injection, traversal, link-race, cancellation, locked-file, and privacy behavior.
+- [ ] Run locked restore, format, Release build, full tests, and focused M3 security suites.
+- [ ] Record exact evidence and mark M3 complete only after every gate is green.
 
 ## Exit gate
 
-M2 passes only when fresh migration, sequential upgrade, failed-upgrade backup restore, repository/journal round trips, invalid-row handling, raw-database privacy checks, architecture checks, locked restore, format, Release build, and all tests pass with exact recorded evidence.
+M3 passes only when all five ports are production-backed; process, filesystem, scanner, environment, and IDE security tests are genuinely executed with no skipped escape test; full locked restore/format/build/test is green; Release build has zero warnings/errors; and exact results are recorded in `docs/implementation-status.md`.
