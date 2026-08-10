@@ -56,9 +56,9 @@ M2 excludes M3 process/file-system implementations, M4 planning/catalog behavior
 
 ### Task 5: Run journal
 
-- [ ] Write failing round-trip and atomic-replacement tests for `ProjectRun`, attempts, and redacted errors.
-- [ ] Implement `SqliteRunJournalStore` with guarded rehydration.
-- [ ] Add invalid-row regression tests and fail closed with `DF-DB-001`.
+- [x] Write failing round-trip and atomic-replacement tests for `ProjectRun`, attempts, and redacted errors.
+- [x] Implement `SqliteRunJournalStore` with guarded rehydration.
+- [x] Add invalid-row regression tests and fail closed with `DF-DB-001`.
 
 ### Task 6: Migration backup and recovery
 

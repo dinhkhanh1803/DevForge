@@ -206,7 +206,7 @@ git commit -m "feat(persistence): add local metadata repositories"
 - Create: `src/DevForge.Infrastructure/Persistence/Repositories/SqliteRunJournalStore.cs`
 - Test: `tests/DevForge.IntegrationTests/Persistence/RunJournalStoreTests.cs`
 
-- [ ] **Step 1: Write failing journal tests**
+- [x] **Step 1: Write failing journal tests**
 
 Create real Domain runs through guarded transitions. Cover empty run, completed attempts, failed attempt with redacted error, multiple saves replacing the immutable snapshot, deterministic list order, and cancellation.
 
@@ -218,19 +218,19 @@ Assert.Equal(run.Status, loaded.Status);
 Assert.Equal(run.Attempts.Select(a => a.AttemptNumber), loaded.Attempts.Select(a => a.AttemptNumber));
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 Expected: compile failure because `SqliteRunJournalStore` does not exist.
 
-- [ ] **Step 3: Implement atomic save and guarded load**
+- [x] **Step 3: Implement atomic save and guarded load**
 
 Upsert the run summary and replace attempts/errors within one transaction. Rehydrate `RedactedText`, `DevForgeError`, `StepAttempt`, and `ProjectRun` only through supported guarded factories. Map any invalid persisted state to a scrubbed `PersistenceDataException` carrying code `DF-DB-001`.
 
-- [ ] **Step 4: Add invalid-row regression tests**
+- [x] **Step 4: Add invalid-row regression tests**
 
 Insert invalid status, duplicate attempts, and secret-shaped diagnostic data through raw test SQL. Assert the store fails closed and does not return a partial aggregate or raw offending value.
 
-- [ ] **Step 5: Run GREEN and commit**
+- [x] **Step 5: Run GREEN and commit**
 
 ```powershell
 git add src/DevForge.Application/Contracts/JournalContracts.cs src/DevForge.Infrastructure/Persistence tests/DevForge.IntegrationTests/Persistence/RunJournalStoreTests.cs
