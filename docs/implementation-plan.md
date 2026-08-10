@@ -38,9 +38,9 @@ M2 excludes M3 process/file-system implementations, M4 planning/catalog behavior
 
 ### Task 2: Persistence contracts and privacy values
 
-- [ ] Write failing tests for guarded database locations, typed settings, `PersistableJson`, immutable metadata snapshots, and secret rejection.
-- [ ] Implement the minimum Application contracts and values.
-- [ ] Run focused tests and refactor only while green.
+- [x] Write failing tests for guarded database locations, typed settings, `PersistableJson`, immutable metadata snapshots, and secret rejection.
+- [x] Implement the minimum Application contracts and values.
+- [x] Run focused tests and refactor only while green.
 
 ### Task 3: EF schema and migrations
 
