@@ -62,9 +62,9 @@ M2 excludes M3 process/file-system implementations, M4 planning/catalog behavior
 
 ### Task 6: Migration backup and recovery
 
-- [ ] Write a failure-injection test that mutates an existing database and fails an upgrade.
-- [ ] Implement SQLite online backup, migration execution, integrity checking, and restoration.
-- [ ] Prove the original data is restored and the returned error contains no connection string or raw exception.
+- [x] Write a failure-injection test that mutates an existing database and fails an upgrade.
+- [x] Implement SQLite online backup, migration execution, integrity checking, and restoration.
+- [x] Prove the original data is restored and the returned error contains no connection string or raw exception.
 
 ### Task 7: Privacy and concurrency hardening
 

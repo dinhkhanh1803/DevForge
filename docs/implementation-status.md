@@ -8,7 +8,7 @@
 
 M2 implements EF Core SQLite metadata persistence, the required schema and migrations, privacy-safe settings/metadata repositories, the existing run-journal port, and migration backup/restore. The approved design is `docs/superpowers/specs/2026-08-10-m2-persistence-design.md`; the executable TDD plan is `docs/superpowers/plans/2026-08-10-m2-persistence.md`; the architectural decision is ADR-0004.
 
-M2 Tasks 1-5 are implemented locally: exact EF Core SQLite dependencies, guarded Application persistence contracts, the versioned schema and migrations, short-lived metadata repositories, and the atomic run journal. The M2 exit gate is not claimed yet; migration backup/recovery, final privacy/concurrency hardening, and fresh full verification remain. M3 process/file-system infrastructure, planner/orchestrator behavior, UI, Git/GitHub, and blueprint expansion remain out of scope.
+M2 Tasks 1-6 are implemented locally: exact EF Core SQLite dependencies, guarded Application persistence contracts, the versioned schema and migrations, short-lived metadata repositories, the atomic run journal, and recoverable migration coordination. The M2 exit gate is not claimed yet; final privacy/concurrency hardening and fresh full verification remain. M3 process/file-system infrastructure, planner/orchestrator behavior, UI, Git/GitHub, and blueprint expansion remain out of scope.
 
 ## M2 progress
 
@@ -17,6 +17,7 @@ M2 Tasks 1-5 are implemented locally: exact EF Core SQLite dependencies, guarded
 - Settings, IDE, environment-tool, blueprint, team-profile, preset, and recent-project repositories use one short-lived context per operation and return detached immutable snapshots.
 - Repository integration tests cover round-trip/upsert/removal, pre-cancelled writes, detached snapshots, non-canonical stored enums, and scrubbed fail-closed corruption handling.
 - The run journal atomically replaces immutable run/attempt/error snapshots and rehydrates only through Domain factories; tests cover deterministic ordering, failed/redacted diagnostics, invalid status, normalized duplicate attempts, and secret-shaped stored data.
+- The migration coordinator creates guarded SQLite online backups before upgrades, verifies integrity, restores on migration/integrity failure, preserves recovery artifacts when restore fails, and restores before propagating post-mutation cancellation.
 
 ## M1 delivered baseline
 

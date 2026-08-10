@@ -248,23 +248,23 @@ git commit -m "feat(persistence): persist guarded run journals"
 - Create: `src/DevForge.Infrastructure/Persistence/Migrations/SqliteMigrationCoordinator.cs`
 - Test: `tests/DevForge.IntegrationTests/Persistence/MigrationRecoveryTests.cs`
 
-- [ ] **Step 1: Write the failing restoration test**
+- [x] **Step 1: Write the failing restoration test**
 
 Create a migration-1 database with sentinel metadata. Inject an executor that mutates the primary database and throws. Assert the coordinator reports `DF-DB-001`, restores the original sentinel, passes `PRAGMA integrity_check`, and does not include the path/connection string/raw exception in its result.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 Expected: compile failure for the missing migration coordinator.
 
-- [ ] **Step 3: Implement SQLite online backup/restore**
+- [x] **Step 3: Implement SQLite online backup/restore**
 
 Use `SqliteConnection.BackupDatabase` between validated primary and backup locations. Never shell out or use raw file-copy commands. Close contexts before restore, verify integrity after migrate/restore, and preserve cancellation semantics without masking a required restore after mutation.
 
-- [ ] **Step 4: Test happy paths and failure phases**
+- [x] **Step 4: Test happy paths and failure phases**
 
 Cover fresh creation (no backup), upgrade (backup created), successful integrity verification, migration failure restore, integrity failure restore, and restore-failure reporting that keeps both database artifacts for manual recovery.
 
-- [ ] **Step 5: Run GREEN and commit**
+- [x] **Step 5: Run GREEN and commit**
 
 ```powershell
 git add src/DevForge.Infrastructure/Persistence/Migrations tests/DevForge.IntegrationTests/Persistence/MigrationRecoveryTests.cs
