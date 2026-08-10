@@ -31,10 +31,10 @@ M2 excludes M3 process/file-system implementations, M4 planning/catalog behavior
 
 ### Task 1: Persistence dependency boundary
 
-- [ ] Write architecture tests proving EF Core packages are Infrastructure-only and centrally pinned.
-- [ ] Capture the expected RED result.
-- [ ] Pin EF Core SQLite/Design 10.0.10 and update project lock files.
-- [ ] Reach focused GREEN without changing the approved project-reference graph.
+- [x] Write architecture tests proving EF Core packages are Infrastructure-only and centrally pinned.
+- [x] Capture the expected RED result.
+- [x] Pin EF Core SQLite/Design 10.0.10 and update project lock files.
+- [x] Reach focused GREEN without changing the approved project-reference graph.
 
 ### Task 2: Persistence contracts and privacy values
 
