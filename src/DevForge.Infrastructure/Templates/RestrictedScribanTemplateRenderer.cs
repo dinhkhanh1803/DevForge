@@ -15,7 +15,16 @@ public sealed class RestrictedScribanTemplateRenderer : ITemplateRenderer
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var template = Template.Parse(request.Template);
+        Template template;
+        try
+        {
+            template = Template.Parse(request.Template);
+        }
+        catch (Exception exception) when (!TemplateRenderFailures.IsFatal(exception))
+        {
+            throw TemplateRenderFailures.Parse();
+        }
+
         if (template.HasErrors || template.Page is null)
         {
             throw TemplateRenderFailures.Parse();
@@ -47,15 +56,19 @@ public sealed class RestrictedScribanTemplateRenderer : ITemplateRenderer
         {
             throw new OperationCanceledException(cancellationToken);
         }
-        catch (ScriptRuntimeException exception) when (TemplateRenderFailures.IsOutputLimit(exception))
+        catch (Exception exception) when (TemplateRenderFailures.IsOutputLimit(exception))
         {
             throw TemplateRenderFailures.OutputTooLarge();
         }
-        catch (ScriptRuntimeException exception) when (TemplateRenderFailures.IsMissingVariable(exception))
+        catch (Exception exception) when (TemplateRenderFailures.IsMissingVariable(exception))
         {
             throw TemplateRenderFailures.MissingVariable();
         }
         catch (ScriptRuntimeException)
+        {
+            throw TemplateRenderFailures.RenderFailed();
+        }
+        catch (Exception exception) when (!TemplateRenderFailures.IsFatal(exception))
         {
             throw TemplateRenderFailures.RenderFailed();
         }

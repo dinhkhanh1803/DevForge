@@ -47,6 +47,14 @@ internal static class TemplateRenderFailures
         return Contains<TemplateOutputLimitExceededException>(exception);
     }
 
+    public static bool IsFatal(Exception exception)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+        return Contains<OutOfMemoryException>(exception) ||
+            Contains<StackOverflowException>(exception) ||
+            Contains<AccessViolationException>(exception);
+    }
+
     private static bool Contains<TException>(Exception? exception)
         where TException : Exception
     {
