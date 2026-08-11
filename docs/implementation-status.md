@@ -1,14 +1,14 @@
 # DevForge Studio Implementation Status
 
 **Current milestone:** M4 - Planner, Rules, and Blueprint Catalog
-**Status:** Active implementation; M4 Tasks 1-3 complete
+**Status:** Active implementation; M4 Tasks 1-4 complete
 **Last updated:** 2026-08-11
 
 ## Current M4 scope
 
 M0-M3 remain complete and green. M4 is now the only active milestone. The approved design is `docs/superpowers/specs/2026-08-10-m4-planner-rules-blueprint-catalog-design.md`, the executable TDD plan is `docs/superpowers/plans/2026-08-11-m4-planner-rules-blueprint-catalog.md`, and ADR-0007 fixes deterministic catalog/trust/rule/hash decisions before production code.
 
-M4 Tasks 1-3 are complete. Domain has bounded immutable typed plan values; Blueprint abstractions provide SemVer 2.0 and guarded normalized package contracts; Application now exposes opaque catalog source/fingerprint/inspection/snapshot contracts plus immutable plan previews and planned projects. The guarded Windows workspace can enumerate immediate child directories without exposing absolute paths or crossing reparse boundaries. The latest Task 3 checkpoint passed format verification, Release build with 0 warnings/errors, and 580 solution tests (322 Unit, 108 Blueprint, 150 Integration) with 0 failed/0 skipped; the future E2E host remains empty. Tasks 4-10 and the full M4 exit gate remain open. M5-M11 remain deferred until the M4 exit gate passes.
+M4 Tasks 1-4 are complete. Domain has bounded immutable typed plan values; Blueprint abstractions provide SemVer 2.0 and normalized package contracts; Application exposes opaque catalog/planning contracts; Infrastructure now owns exact YamlDotNet 18.1.0 and bounded closed YAML/JSON control readers. Parser fixtures reject duplicate/unknown fields, anchors, aliases, merge keys, tags, non-scalar keys, unsupported/remote JSON Schema features, malformed UTF-8, excessive scalar/depth/file sizes, and return only scrubbed stable issues. The latest Task 4 checkpoint passed locked restore, format verification, Release build with 0 warnings/errors, and 599 solution tests (324 Unit, 108 Blueprint, 167 Integration) with 0 failed/0 skipped; the future E2E host remains empty. Tasks 5-10 and the full M4 exit gate remain open. M5-M11 remain deferred until the M4 exit gate passes.
 
 ## Current M3 scope
 

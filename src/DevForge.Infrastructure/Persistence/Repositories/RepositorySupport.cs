@@ -38,7 +38,7 @@ internal static class RepositorySupport
             id,
             version,
             BlueprintSource.BuiltIn,
-            Blueprints.Abstractions.Models.BlueprintTrust.BuiltIn,
+            global::DevForge.Blueprints.Abstractions.Models.BlueprintTrust.BuiltIn,
             new string('a', 64),
             false,
             DateTimeOffset.UnixEpoch);

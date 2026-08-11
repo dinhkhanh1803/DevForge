@@ -189,11 +189,11 @@ internal sealed record BlueprintLoadResult<T>(
 }
 ```
 
-- [ ] **Step 1: Write RED architecture tests** requiring exact YamlDotNet 18.1.0, Infrastructure-only ownership, and absence of YAML/filesystem/process/reflection APIs from Application and Blueprint abstractions.
-- [ ] **Step 2: Add central pin/reference**, force-evaluate restore, inspect all changed lock files, then locked restore.
-- [ ] **Step 3: Write parser RED fixtures** for unknown/duplicate fields, anchors, aliases, merge keys, tags, non-scalar keys, scalar/depth/control-file limits, unsupported JSON Schema keywords, duplicate JSON properties, and remote/reference keywords.
-- [ ] **Step 4: Implement closed readers** over bounded streams and exact DTO/property allowlists. Map every nonfatal parser exception to a stable issue without retaining caught exceptions.
-- [ ] **Step 5: GREEN** parser and architecture tests; commit `feat(infrastructure): parse bounded blueprint controls`.
+- [x] **Step 1: Write RED architecture tests** requiring exact YamlDotNet 18.1.0, Infrastructure-only ownership, and absence of YAML/filesystem/process/reflection APIs from Application and Blueprint abstractions.
+- [x] **Step 2: Add central pin/reference**, force-evaluate restore, inspect all changed lock files, then locked restore.
+- [x] **Step 3: Write parser RED fixtures** for unknown/duplicate fields, anchors, aliases, merge keys, tags, non-scalar keys, scalar/depth/control-file limits, unsupported JSON Schema keywords, duplicate JSON properties, and remote/reference keywords.
+- [x] **Step 4: Implement closed readers** over bounded streams and exact DTO/property allowlists. Map every nonfatal parser exception to a stable issue without retaining caught exceptions.
+- [x] **Step 5: GREEN** parser and architecture tests; commit `feat(infrastructure): parse bounded blueprint controls`.
 
 ## Task 5: Verify checksums, paths, variables, and action policy
 
