@@ -301,10 +301,10 @@ internal interface IVariableTemplateResolver
 }
 ```
 
-- [ ] **Step 1: Write RED tests** for defaults only when absent, required, additionalProperties false, string/Boolean/integer parsing, enum, min/max length/value, unknown inputs/features, credential-shaped values, deterministic effective ordering, known planning variables, typed M5 placeholders, malformed delimiters, functions/filters, unknown/secret-shaped references, and single-pass non-recursion.
-- [ ] **Step 2: Implement schema validation** returning an immutable ordinal map of typed `PlanValue`; aggregate `DF-PLAN-001` issues without coercing invalid values.
-- [ ] **Step 3: Implement variable resolution** over the documented fixed catalog; replacement values are not reparsed.
-- [ ] **Step 4: GREEN**, full Application tests, commit `feat(application): validate blueprint inputs and variables`.
+- [x] **Step 1: Write RED tests** for defaults only when absent, required, additionalProperties false, string/Boolean/integer parsing, enum, min/max length/value, unknown inputs/features, credential-shaped values, deterministic effective ordering, known planning variables, typed M5 placeholders, malformed delimiters, functions/filters, unknown/secret-shaped references, and single-pass non-recursion.
+- [x] **Step 2: Implement schema validation** returning an immutable ordinal map of typed `PlanValue`; aggregate `DF-PLAN-001` issues without coercing invalid values.
+- [x] **Step 3: Implement variable resolution** over the documented fixed catalog; replacement values are not reparsed.
+- [x] **Step 4: GREEN**, full Application tests, commit `feat(application): validate blueprint inputs and variables`.
 
 ## Task 9: Build deterministic previews and plan hashes
 

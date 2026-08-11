@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Text;
 using DevForge.Application.Contracts;
+using DevForge.Application.Planning;
 using DevForge.Blueprints.Abstractions.Models;
 using DevForge.Blueprints.Abstractions.Validation;
 using DevForge.Domain.Privacy;
@@ -61,23 +62,6 @@ internal static class BlueprintActionPolicy
                 ("payload", ParameterKind.Map)),
             ["finalize-workspace"] = Descriptor(true),
         }.ToImmutableDictionary(StringComparer.Ordinal);
-
-    private static readonly ImmutableHashSet<string> _knownVariables =
-        new[]
-        {
-            "project.name",
-            "project.safe-name",
-            "project.target-path",
-            "blueprint.id",
-            "blueprint.version",
-            "team.company-name",
-            "team.root-namespace",
-            "team.package-manager",
-            "git.primary-branch",
-            "git.develop-branch",
-            "runtime.staging-path",
-            "runtime.run-id",
-        }.ToImmutableHashSet(StringComparer.Ordinal);
 
     internal static ImmutableArray<BlueprintInspectionIssue> Validate(
         BlueprintActionDefinition action,
@@ -222,19 +206,7 @@ internal static class BlueprintActionPolicy
             return false;
         }
 
-        if (_knownVariables.Contains(identifier))
-        {
-            return true;
-        }
-
-        return HasKnownDynamicPrefix(identifier, "recipe.input.")
-            || HasKnownDynamicPrefix(identifier, "recipe.feature.");
-    }
-
-    private static bool HasKnownDynamicPrefix(string identifier, string prefix)
-    {
-        return identifier.StartsWith(prefix, StringComparison.Ordinal)
-            && BlueprintIdentifierValidator.IsValid(identifier[prefix.Length..]);
+        return PlanningVariableIdentifierPolicy.IsAllowed(identifier);
     }
 
     private static BlueprintInspectionIssue Issue(string code, string summary)
