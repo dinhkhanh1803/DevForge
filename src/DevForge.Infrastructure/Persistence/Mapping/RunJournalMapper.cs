@@ -35,9 +35,18 @@ internal static class RunJournalMapper
         };
     }
 
-    public static void UpdateEntity(ProjectRunEntity entity, ProjectRun run, DateTimeOffset now)
+    public static void UpdateEntity(
+        ProjectRunEntity entity,
+        ProjectRun run,
+        DateTimeOffset now,
+        bool allowCheckpointUpdate = false)
     {
         ValidateRunIdentity(run);
+        if (!allowCheckpointUpdate && entity.PlanHash is not null)
+        {
+            throw new PersistenceDataException();
+        }
+
         entity.RecipeId = run.RecipeId;
         entity.Status = run.Status.ToString();
         entity.CurrentStepId = run.CurrentStepId;
@@ -88,14 +97,22 @@ internal static class RunJournalMapper
             throw new PersistenceDataException();
         }
 
-        if (entity.StagingPath is not null || entity.TargetPath is not null)
+        var stepEntities = entity.Steps.ToArray();
+        var hasSequence = stepEntities.Any(step => step.SequenceNumber is not null);
+        if (hasSequence
+            && (stepEntities.Any(step => step.SequenceNumber is null)
+                || !stepEntities.OrderBy(step => step.SequenceNumber)
+                    .Select(step => step.SequenceNumber!.Value)
+                    .SequenceEqual(Enumerable.Range(0, stepEntities.Length))))
         {
             throw new PersistenceDataException();
         }
 
-        var attempts = entity.Steps
-            .OrderBy(step => step.StepId, StringComparer.Ordinal)
-            .ThenBy(step => step.AttemptNumber)
+        var orderedSteps = hasSequence
+            ? stepEntities.OrderBy(step => step.SequenceNumber)
+            : stepEntities.OrderBy(step => step.StepId, StringComparer.Ordinal)
+                .ThenBy(step => step.AttemptNumber);
+        var attempts = orderedSteps
             .Select(ToModel)
             .ToArray();
         var errors = DeserializeErrors(entity.ErrorsJson);
@@ -121,6 +138,7 @@ internal static class RunJournalMapper
             StartedAtUnixMs = attempt.StartedAt.ToUnixTimeMilliseconds(),
             CompletedAtUnixMs = attempt.CompletedAt?.ToUnixTimeMilliseconds(),
             ExitCode = attempt.ExitCode,
+            OutputDigest = attempt.OutputDigest,
             ErrorCode = error?.Code,
             ErrorSummary = error?.Summary,
             ErrorTechnicalDetail = error?.TechnicalDetail,
@@ -164,7 +182,8 @@ internal static class RunJournalMapper
             entity.CompletedAtUnixMs is null ? null : ToTimestamp(entity.CompletedAtUnixMs.Value),
             outcome,
             entity.ExitCode,
-            error));
+            error,
+            entity.OutputDigest));
     }
 
     private static DevForgeError ReadStepError(RunStepEntity entity)

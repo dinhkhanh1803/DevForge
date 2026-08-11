@@ -125,6 +125,24 @@ public sealed class DevForgeDbContext : DbContext
         entity.Property(item => item.CurrentStepId).HasMaxLength(128);
         entity.Property(item => item.StagingPath).HasMaxLength(1_024);
         entity.Property(item => item.TargetPath).HasMaxLength(1_024);
+        entity.Property(item => item.PlanHash).HasMaxLength(71);
+        entity.Property(item => item.PlanJson).HasMaxLength(1_048_576);
+        entity.Property(item => item.PlanBodyChecksum).HasMaxLength(71);
+        entity.Property(item => item.BlueprintId).HasMaxLength(128);
+        entity.Property(item => item.BlueprintVersion).HasMaxLength(64);
+        entity.Property(item => item.BlueprintSourceId).HasMaxLength(128);
+        entity.Property(item => item.BlueprintPackageDirectory).HasMaxLength(1_024);
+        entity.Property(item => item.BlueprintTrust).HasMaxLength(32);
+        entity.Property(item => item.BlueprintChecksum).HasMaxLength(71);
+        entity.Property(item => item.StagingPayloadPath).HasMaxLength(1_024);
+        entity.Property(item => item.OwnershipMarkerPath).HasMaxLength(1_024);
+        entity.Property(item => item.OwnershipMarkerId).HasMaxLength(128);
+        entity.Property(item => item.TargetParentRoot).HasMaxLength(1_024);
+        entity.Property(item => item.CrossVolumeTemporaryPath).HasMaxLength(1_024);
+        entity.Property(item => item.RunArtifactRoot).HasMaxLength(1_024);
+        entity.Property(item => item.EvidenceJson).HasMaxLength(262_144);
+        entity.Property(item => item.FinalizationState).HasMaxLength(32);
+        entity.Property(item => item.ReportState).HasMaxLength(32);
         entity.Property(item => item.ErrorsJson).HasMaxLength(65_536);
         entity.HasIndex(item => new { item.Status, item.UpdatedAtUnixMs });
     }
@@ -139,6 +157,8 @@ public sealed class DevForgeDbContext : DbContext
         entity.Property(item => item.RunId).HasMaxLength(128);
         entity.Property(item => item.StepId).HasMaxLength(128);
         entity.Property(item => item.Outcome).HasMaxLength(32);
+        entity.Property(item => item.OutputDigest).HasMaxLength(71);
+        entity.HasIndex(item => new { item.RunId, item.SequenceNumber }).IsUnique();
         entity.Property(item => item.ErrorCode).HasMaxLength(64);
         entity.Property(item => item.ErrorSummary).HasMaxLength(1_024);
         entity.Property(item => item.ErrorTechnicalDetail).HasMaxLength(4_096);

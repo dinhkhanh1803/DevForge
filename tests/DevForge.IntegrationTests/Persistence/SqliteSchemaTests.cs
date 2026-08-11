@@ -44,6 +44,7 @@ public sealed class SqliteSchemaTests
         Assert.Contains("IX_EnvironmentTools_ExpiresAtUnixMs", indexes);
         Assert.Contains("IX_ProjectRuns_Status_UpdatedAtUnixMs", indexes);
         Assert.Contains("IX_RecentProjects_LastOpenedAtUnixMs", indexes);
+        Assert.Contains("IX_RunSteps_RunId_SequenceNumber", indexes);
         AssertRunStepCascade(connection);
     }
 

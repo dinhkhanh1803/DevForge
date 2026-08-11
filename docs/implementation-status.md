@@ -1,14 +1,14 @@
 # DevForge Studio Implementation Status
 
 **Current milestone:** M5 - Orchestrator, Staging, Retry/Resume, and Finalizer
-**Status:** M4 complete; M5 Tasks 1-2 implemented and verified
+**Status:** M4 complete; M5 Tasks 1-3 implemented and verified
 **Last updated:** 2026-08-11
 
 ## Current M5 scope
 
 The approved design is `docs/superpowers/specs/2026-08-11-m5-recoverable-orchestration-design.md`, the executable TDD plan is `docs/superpowers/plans/2026-08-11-m5-recoverable-orchestration.md`, and ADR-0008 fixes checkpoint, marker, retry/resume, interruption, validation, and finalization decisions. M5 is limited to the execution engine and recovery boundary. WPF composition, Git/GitHub, production blueprints, release packaging, and catalog expansion remain deferred.
 
-Tasks 1-2 are implemented locally. Domain provides explicit bounded retry modes, canonical attempt output digests, interruption normalization, guarded resume, staging-cleanup eligibility, warning validation evidence, and retry-mode-aware plan hashing. Application now carries exact blueprint provenance and exposes immutable guarded contracts for execution requests, complete checkpoints, opaque recovery roots, owned staging, handler phases/results, finalization/report receipts, checkpoint persistence, and recovery/cleanup. The legacy M2 run journal remains intact until Task 3 migrates SQLite atomically to the complete checkpoint boundary; no lossy adapter or placeholder implementation was introduced. Focused M5/M4 contract and architecture tests pass 26/26, full UnitTests pass 427/427, format verification exits 0, and the Release solution build succeeds with 0 warnings and 0 errors. Task 3 checkpoint persistence is the next active scope.
+Tasks 1-3 are implemented locally. Domain provides explicit bounded retry modes, canonical attempt output digests, interruption normalization, guarded resume, staging-cleanup eligibility, warning validation evidence, and retry-mode-aware plan hashing. Application carries exact blueprint provenance and immutable guarded execution/checkpoint/staging/handler/finalization/recovery contracts. Infrastructure adds migration `20260811051654_AddExecutionCheckpoints` and an atomic SQLite checkpoint store for the complete plan, independent plan-body checksum, fingerprint, opaque roots, owned paths/marker, ordered attempts/evidence, and finalization/report states. Canonical closed JSON rejects unknown, duplicate, noncanonical, oversized, secret-shaped, or checksum-mismatched data without echoing content; legacy M2 rows survive upgrade and cannot overwrite complete M5 checkpoints. Fresh verification passes locked restore, format, Release build with 0 warnings/errors, full tests 778/778, focused persistence 37/37, and EF reports no pending model changes. Task 4 owned staging is the next active scope.
 
 ## M4 completed scope
 

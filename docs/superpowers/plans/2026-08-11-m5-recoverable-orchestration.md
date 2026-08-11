@@ -20,9 +20,9 @@
 
 ## Task 3: Persist complete run checkpoints
 
-- [ ] RED migration and repository tests for plan hash/body, blueprint fingerprint, staging/target descriptors, marker/finalization/report state, attempt digest, old-schema upgrade, corruption/privacy, and atomic replacement.
-- [ ] Add one versioned EF Core migration and bounded canonical plan/checkpoint mapping.
-- [ ] GREEN fresh/upgrade/round-trip/concurrency tests and pending-model check; commit `feat(persistence): store execution checkpoints`.
+- [x] RED migration and repository tests for plan hash/body, blueprint fingerprint, staging/target descriptors, marker/finalization/report state, attempt digest, old-schema upgrade, corruption/privacy, chronological ordering, and atomic replacement.
+- [x] Add one versioned EF Core migration and bounded canonical plan/checkpoint mapping.
+- [x] GREEN fresh/upgrade/round-trip/concurrency tests and pending-model check; commit `feat(persistence): store execution checkpoints`.
 
 ## Task 4: Implement owned staging and cleanup guards
 

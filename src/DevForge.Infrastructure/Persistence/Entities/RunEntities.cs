@@ -20,6 +20,42 @@ internal sealed class ProjectRunEntity
 
     public string? TargetPath { get; set; }
 
+    public string? PlanHash { get; set; }
+
+    public string? PlanJson { get; set; }
+
+    public string? PlanBodyChecksum { get; set; }
+
+    public string? BlueprintId { get; set; }
+
+    public string? BlueprintVersion { get; set; }
+
+    public string? BlueprintSourceId { get; set; }
+
+    public string? BlueprintPackageDirectory { get; set; }
+
+    public string? BlueprintTrust { get; set; }
+
+    public string? BlueprintChecksum { get; set; }
+
+    public string? StagingPayloadPath { get; set; }
+
+    public string? OwnershipMarkerPath { get; set; }
+
+    public string? OwnershipMarkerId { get; set; }
+
+    public string? TargetParentRoot { get; set; }
+
+    public string? CrossVolumeTemporaryPath { get; set; }
+
+    public string? RunArtifactRoot { get; set; }
+
+    public string? EvidenceJson { get; set; }
+
+    public string? FinalizationState { get; set; }
+
+    public string? ReportState { get; set; }
+
     public string ErrorsJson { get; set; } = "[]";
 
     public List<RunStepEntity> Steps { get; } = [];
@@ -33,6 +69,8 @@ internal sealed class RunStepEntity
 
     public int AttemptNumber { get; set; }
 
+    public int? SequenceNumber { get; set; }
+
     public string Outcome { get; set; } = string.Empty;
 
     public long StartedAtUnixMs { get; set; }
@@ -40,6 +78,8 @@ internal sealed class RunStepEntity
     public long? CompletedAtUnixMs { get; set; }
 
     public int? ExitCode { get; set; }
+
+    public string? OutputDigest { get; set; }
 
     public string? ErrorCode { get; set; }
 
