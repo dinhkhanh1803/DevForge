@@ -134,7 +134,7 @@ public void IsSecretShapedValue_DetectsCredentialsWithoutRejectingWhitespace()
 Run:
 
 ```powershell
-.\.tools\dotnet\dotnet.exe test tests\DevForge.UnitTests\DevForge.UnitTests.csproj --configuration Release --filter "FullyQualifiedName~TemplateRenderRequestTests|FullyQualifiedName~PrivacyTests"
+..\..\.tools\dotnet\dotnet.exe test tests\DevForge.UnitTests\DevForge.UnitTests.csproj --configuration Release --filter "FullyQualifiedName~TemplateRenderRequestTests|FullyQualifiedName~PrivacyTests"
 ```
 
 Expected: compile failure because `RedactedText.IsSecretShapedValue` and the new request constants/validation do not exist.
@@ -305,7 +305,7 @@ private static string FindRepositoryRoot(string startDirectory)
 - [ ] **Step 2: Run dependency RED**
 
 ```powershell
-.\.tools\dotnet\dotnet.exe test tests\DevForge.UnitTests\DevForge.UnitTests.csproj --configuration Release --filter FullyQualifiedName~TemplateRendererDependencyTests
+..\..\.tools\dotnet\dotnet.exe test tests\DevForge.UnitTests\DevForge.UnitTests.csproj --configuration Release --filter FullyQualifiedName~TemplateRendererDependencyTests
 ```
 
 Expected: assertion failure because the central version and Infrastructure package reference are absent.
@@ -325,8 +325,8 @@ Do not add `Version`, `VersionOverride`, wildcard, range, or floating metadata t
 - [ ] **Step 4: Regenerate and verify lock files**
 
 ```powershell
-.\.tools\dotnet\dotnet.exe restore DevForge.sln --force-evaluate --verbosity minimal
-.\.tools\dotnet\dotnet.exe restore DevForge.sln --locked-mode --verbosity minimal
+..\..\.tools\dotnet\dotnet.exe restore DevForge.sln --force-evaluate --verbosity minimal
+..\..\.tools\dotnet\dotnet.exe restore DevForge.sln --locked-mode --verbosity minimal
 ```
 
 Expected: both commands exit 0. Inspect every changed lock file and confirm Scriban resolves to exactly 7.2.5 with no unexpected package introduced.
@@ -393,7 +393,7 @@ Add one table-driven exact-text test for Unicode, LF, CRLF, blank lines, indenta
 - [ ] **Step 2: Run renderer RED**
 
 ```powershell
-.\.tools\dotnet\dotnet.exe test tests\DevForge.IntegrationTests\DevForge.IntegrationTests.csproj --configuration Release --filter FullyQualifiedName~RestrictedTemplateRendererTests
+..\..\.tools\dotnet\dotnet.exe test tests\DevForge.IntegrationTests\DevForge.IntegrationTests.csproj --configuration Release --filter FullyQualifiedName~RestrictedTemplateRendererTests
 ```
 
 Expected: compile failure because `RestrictedScribanTemplateRenderer` does not exist.
@@ -670,7 +670,7 @@ The test method receives the case name and template, renders with a context cont
 - [ ] **Step 3: Run policy RED**
 
 ```powershell
-.\.tools\dotnet\dotnet.exe test tests\DevForge.IntegrationTests\DevForge.IntegrationTests.csproj --configuration Release --filter FullyQualifiedName~RestrictedTemplatePolicyTests
+..\..\.tools\dotnet\dotnet.exe test tests\DevForge.IntegrationTests\DevForge.IntegrationTests.csproj --configuration Release --filter FullyQualifiedName~RestrictedTemplatePolicyTests
 ```
 
 Expected: conditional happy paths fail and at least one forbidden case is accepted by the variable-only policy/parser flow.
@@ -790,7 +790,7 @@ Also assert a credential-shaped context value is rejected by `TemplateRenderRequ
 - [ ] **Step 3: Run security RED**
 
 ```powershell
-.\.tools\dotnet\dotnet.exe test tests\DevForge.IntegrationTests\DevForge.IntegrationTests.csproj --configuration Release --filter FullyQualifiedName~TemplateRendererSecurityTests
+..\..\.tools\dotnet\dotnet.exe test tests\DevForge.IntegrationTests\DevForge.IntegrationTests.csproj --configuration Release --filter FullyQualifiedName~TemplateRendererSecurityTests
 ```
 
 Expected: the focused suite fails on the first unimplemented exception-chain, limit, or cancellation assertion; the failure identifies the exact test method.
@@ -820,8 +820,8 @@ Map `ScriptAbortException` and direct `OperationCanceledException` to cancellati
 - [ ] **Step 5: Run security and all renderer GREEN, then commit**
 
 ```powershell
-.\.tools\dotnet\dotnet.exe test tests\DevForge.IntegrationTests\DevForge.IntegrationTests.csproj --configuration Release --filter FullyQualifiedName~Templates
-.\.tools\dotnet\dotnet.exe test tests\DevForge.IntegrationTests\DevForge.IntegrationTests.csproj --configuration Release --filter FullyQualifiedName~Templates
+..\..\.tools\dotnet\dotnet.exe test tests\DevForge.IntegrationTests\DevForge.IntegrationTests.csproj --configuration Release --filter FullyQualifiedName~Templates
+..\..\.tools\dotnet\dotnet.exe test tests\DevForge.IntegrationTests\DevForge.IntegrationTests.csproj --configuration Release --filter FullyQualifiedName~Templates
 ```
 
 Expected: both runs pass identically with zero failed and zero skipped.
@@ -870,8 +870,8 @@ git commit -m "docs: record restricted template runtime decision"
 - [ ] **Step 1: Format and inspect the exact diff**
 
 ```powershell
-.\.tools\dotnet\dotnet.exe format DevForge.sln --no-restore --verbosity minimal
-.\.tools\dotnet\dotnet.exe format DevForge.sln --verify-no-changes --no-restore --verbosity minimal
+..\..\.tools\dotnet\dotnet.exe format DevForge.sln --no-restore --verbosity minimal
+..\..\.tools\dotnet\dotnet.exe format DevForge.sln --verify-no-changes --no-restore --verbosity minimal
 git diff --check
 git status --short
 git diff --name-only
@@ -882,9 +882,9 @@ Expected: format and diff checks exit 0; every changed path appears in the appro
 - [ ] **Step 2: Run locked restore, Release build, and the full solution**
 
 ```powershell
-.\.tools\dotnet\dotnet.exe restore DevForge.sln --locked-mode --verbosity minimal
-.\.tools\dotnet\dotnet.exe build DevForge.sln --configuration Release --no-restore --verbosity minimal
-.\.tools\dotnet\dotnet.exe test DevForge.sln --configuration Release --no-build --no-restore
+..\..\.tools\dotnet\dotnet.exe restore DevForge.sln --locked-mode --verbosity minimal
+..\..\.tools\dotnet\dotnet.exe build DevForge.sln --configuration Release --no-restore --verbosity minimal
+..\..\.tools\dotnet\dotnet.exe test DevForge.sln --configuration Release --no-build --no-restore
 ```
 
 Expected: every command exits 0; Release build reports 0 warnings and 0 errors; every discovered test passes with 0 failed and 0 skipped renderer/M3 tests.
@@ -892,10 +892,10 @@ Expected: every command exits 0; Release build reports 0 warnings and 0 errors; 
 - [ ] **Step 3: Run focused contract, architecture, renderer, and M3 suites**
 
 ```powershell
-.\.tools\dotnet\dotnet.exe test tests\DevForge.UnitTests\DevForge.UnitTests.csproj --configuration Release --no-build --no-restore --filter "FullyQualifiedName~TemplateRenderRequestTests|FullyQualifiedName~TemplateRendererDependencyTests|FullyQualifiedName~PrivacyTests"
-.\.tools\dotnet\dotnet.exe test tests\DevForge.IntegrationTests\DevForge.IntegrationTests.csproj --configuration Release --no-build --no-restore --filter FullyQualifiedName~Templates
-.\.tools\dotnet\dotnet.exe test tests\DevForge.UnitTests\DevForge.UnitTests.csproj --configuration Release --no-build --no-restore --filter "FullyQualifiedName~Infrastructure|FullyQualifiedName~Architecture"
-.\.tools\dotnet\dotnet.exe test tests\DevForge.IntegrationTests\DevForge.IntegrationTests.csproj --configuration Release --no-build --no-restore --filter FullyQualifiedName~Infrastructure
+..\..\.tools\dotnet\dotnet.exe test tests\DevForge.UnitTests\DevForge.UnitTests.csproj --configuration Release --no-build --no-restore --filter "FullyQualifiedName~TemplateRenderRequestTests|FullyQualifiedName~TemplateRendererDependencyTests|FullyQualifiedName~PrivacyTests"
+..\..\.tools\dotnet\dotnet.exe test tests\DevForge.IntegrationTests\DevForge.IntegrationTests.csproj --configuration Release --no-build --no-restore --filter FullyQualifiedName~Templates
+..\..\.tools\dotnet\dotnet.exe test tests\DevForge.UnitTests\DevForge.UnitTests.csproj --configuration Release --no-build --no-restore --filter "FullyQualifiedName~Infrastructure|FullyQualifiedName~Architecture"
+..\..\.tools\dotnet\dotnet.exe test tests\DevForge.IntegrationTests\DevForge.IntegrationTests.csproj --configuration Release --no-build --no-restore --filter FullyQualifiedName~Infrastructure
 ```
 
 Expected: all four commands exit 0 with zero failed and zero skipped.
