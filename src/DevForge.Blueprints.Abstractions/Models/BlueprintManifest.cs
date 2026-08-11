@@ -14,9 +14,14 @@ public sealed class BlueprintManifest
         ImmutableArray<InputDefinition?> inputs,
         ImmutableArray<CompatibilityRule?> compatibilityRules,
         ImmutableArray<BlueprintStepDefinition?> steps,
-        ImmutableArray<ValidatorDefinition?> validators)
+        ImmutableArray<ValidatorDefinition?> validators,
+        ImmutableArray<BlueprintFeatureDefinition?> features,
+        ImmutableArray<BlueprintActionDefinition?> actions,
+        ImmutableArray<BlueprintDependency?> dependencies,
+        ImmutableArray<BlueprintArtifact?> artifacts)
     {
         Id = draft.Id!.Trim();
+        Name = draft.Name?.Trim() ?? Id;
         Version = draft.Version!.Trim();
         EngineVersionRange = engineVersionRange.Expression;
         Trust = trustAssignment.Trust;
@@ -29,9 +34,15 @@ public sealed class BlueprintManifest
         CompatibilityRules = [.. compatibilityRules.Select(NormalizeCompatibilityRule)];
         Steps = [.. steps.Select(NormalizeStep)];
         Validators = [.. validators.Select(NormalizeValidator)];
+        Features = [.. features.Select(NormalizeFeature)];
+        Actions = [.. actions.Select(NormalizeAction)];
+        Dependencies = [.. dependencies.Select(NormalizeDependency)];
+        Artifacts = [.. artifacts.Select(NormalizeArtifact)];
     }
 
     public string Id { get; }
+
+    public string Name { get; }
 
     public string Version { get; }
 
@@ -48,6 +59,14 @@ public sealed class BlueprintManifest
     public ImmutableArray<BlueprintStepDefinition> Steps { get; }
 
     public ImmutableArray<ValidatorDefinition> Validators { get; }
+
+    public ImmutableArray<BlueprintFeatureDefinition> Features { get; }
+
+    public ImmutableArray<BlueprintActionDefinition> Actions { get; }
+
+    public ImmutableArray<BlueprintDependency> Dependencies { get; }
+
+    public ImmutableArray<BlueprintArtifact> Artifacts { get; }
 
     public static BlueprintValidationResult<BlueprintManifest> Create(
         BlueprintManifestDraft? draft,
@@ -68,6 +87,10 @@ public sealed class BlueprintManifest
         var compatibilityRules = draft.CompatibilityRules?.ToImmutableArray() ?? [];
         var steps = draft.Steps?.ToImmutableArray() ?? [];
         var validators = draft.Validators?.ToImmutableArray() ?? [];
+        var features = draft.Features?.ToImmutableArray() ?? [];
+        var actions = draft.Actions?.ToImmutableArray() ?? [];
+        var dependencies = draft.Dependencies?.ToImmutableArray() ?? [];
+        var artifacts = draft.Artifacts?.ToImmutableArray() ?? [];
         var engineVersionRange =
             SemanticVersionRange.TryParse(draft.EngineVersionRange, out var parsedEngineVersionRange)
                 ? parsedEngineVersionRange
@@ -85,12 +108,16 @@ public sealed class BlueprintManifest
         ValidateTrustAssignment(trustAssignment, issues);
         ValidateTools(draft.Tools, tools, toolVersionRanges, issues);
         ValidateInputs(draft.Inputs, inputs, issues);
+        ValidateFeatures(draft.Features, features, issues);
         ValidateCompatibilityRules(
             draft.CompatibilityRules,
             compatibilityRules,
             issues);
         ValidateSteps(draft.Steps, steps, issues);
+        ValidateActions(draft.Actions, actions, issues);
         ValidateValidators(draft.Validators, validators, issues);
+        ValidateDependencies(draft.Dependencies, dependencies, issues);
+        ValidateArtifacts(draft.Artifacts, artifacts, issues);
 
         return issues.Count == 0
             ? BlueprintValidationResult.Success(
@@ -103,7 +130,11 @@ public sealed class BlueprintManifest
                     inputs,
                     compatibilityRules,
                     steps,
-                    validators))
+                    validators,
+                    features,
+                    actions,
+                    dependencies,
+                    artifacts))
             : BlueprintValidationResult.Failure<BlueprintManifest>(issues);
     }
 
@@ -119,6 +150,15 @@ public sealed class BlueprintManifest
                     "blueprint.id.invalid",
                     "The blueprint identifier must use lowercase dot- or hyphen-separated segments.",
                     "id"));
+        }
+
+        if (draft.Name is not null && string.IsNullOrWhiteSpace(draft.Name))
+        {
+            issues.Add(
+                new BlueprintValidationIssue(
+                    "blueprint.name.required",
+                    "A blueprint name cannot be blank.",
+                    "name"));
         }
 
         if (!SemanticVersionRange.IsSemanticVersion(draft.Version))
@@ -178,6 +218,7 @@ public sealed class BlueprintManifest
             return;
         }
 
+        var identifiers = new HashSet<string>(StringComparer.Ordinal);
         for (var index = 0; index < tools.Length; index++)
         {
             var tool = tools[index];
@@ -197,6 +238,14 @@ public sealed class BlueprintManifest
                     new BlueprintValidationIssue(
                         "blueprint.tool.id.invalid",
                         "A tool identifier must use lowercase dot- or hyphen-separated segments.",
+                        $"tools[{index}].id"));
+            }
+            else if (!identifiers.Add(tool.Id.Trim()))
+            {
+                issues.Add(
+                    new BlueprintValidationIssue(
+                        "blueprint.tool.id.duplicate",
+                        "Blueprint tool identifiers must be unique.",
                         $"tools[{index}].id"));
             }
 
@@ -303,6 +352,7 @@ public sealed class BlueprintManifest
             return;
         }
 
+        var identifiers = new HashSet<string>(StringComparer.Ordinal);
         for (var index = 0; index < compatibilityRules.Length; index++)
         {
             var rule = compatibilityRules[index];
@@ -314,6 +364,23 @@ public sealed class BlueprintManifest
                         "A blueprint compatibility rule is required.",
                         $"compatibilityRules[{index}]"));
                 continue;
+            }
+            var normalizedId = rule.Id?.Trim();
+            if (!BlueprintIdentifierValidator.IsValid(rule.Id))
+            {
+                issues.Add(
+                    new BlueprintValidationIssue(
+                        "blueprint.rule.id.invalid",
+                        "A rule identifier must use lowercase dot- or hyphen-separated segments.",
+                        $"compatibilityRules[{index}].id"));
+            }
+            else if (!identifiers.Add(normalizedId!))
+            {
+                issues.Add(
+                    new BlueprintValidationIssue(
+                        "blueprint.rule.id.duplicate",
+                        "Blueprint rule identifiers must be unique.",
+                        $"compatibilityRules[{index}].id"));
             }
 
             if (string.IsNullOrWhiteSpace(rule.Expression))
@@ -332,6 +399,234 @@ public sealed class BlueprintManifest
                         "blueprint.compatibility-rule.message.required",
                         "A compatibility-rule message is required.",
                         $"compatibilityRules[{index}].message"));
+            }
+
+            if (!Enum.IsDefined(rule.Severity))
+            {
+                issues.Add(
+                    new BlueprintValidationIssue(
+                        "blueprint.rule.severity.invalid",
+                        "The compatibility-rule severity is not defined.",
+                        $"compatibilityRules[{index}].severity"));
+            }
+
+            if (!Enum.IsDefined(rule.Override))
+            {
+                issues.Add(
+                    new BlueprintValidationIssue(
+                        "blueprint.rule.override.invalid",
+                        "The compatibility-rule override policy is not defined.",
+                        $"compatibilityRules[{index}].override"));
+            }
+
+            if (rule.Remediation is not null && string.IsNullOrWhiteSpace(rule.Remediation))
+            {
+                issues.Add(
+                    new BlueprintValidationIssue(
+                        "blueprint.rule.remediation.invalid",
+                        "A compatibility-rule remediation cannot be blank.",
+                        $"compatibilityRules[{index}].remediation"));
+            }
+        }
+    }
+
+    private static void ValidateFeatures(
+        IReadOnlyCollection<BlueprintFeatureDefinition?>? source,
+        ImmutableArray<BlueprintFeatureDefinition?> features,
+        List<BlueprintValidationIssue> issues)
+    {
+        if (source is null)
+        {
+            return;
+        }
+
+        var identifiers = new HashSet<string>(StringComparer.Ordinal);
+        for (var index = 0; index < features.Length; index++)
+        {
+            var feature = features[index];
+            if (feature is null)
+            {
+                issues.Add(new BlueprintValidationIssue(
+                    "blueprint.feature.required",
+                    "A blueprint feature definition is required.",
+                    $"features[{index}]"));
+                continue;
+            }
+
+            var normalizedId = feature.Id?.Trim();
+            if (!BlueprintIdentifierValidator.IsValid(feature.Id))
+            {
+                issues.Add(new BlueprintValidationIssue(
+                    "blueprint.feature.id.invalid",
+                    "A feature identifier must use lowercase dot- or hyphen-separated segments.",
+                    $"features[{index}].id"));
+            }
+            else if (!identifiers.Add(normalizedId!))
+            {
+                issues.Add(new BlueprintValidationIssue(
+                    "blueprint.feature.id.duplicate",
+                    "Blueprint feature identifiers must be unique.",
+                    $"features[{index}].id"));
+            }
+        }
+    }
+
+    private static void ValidateActions(
+        IReadOnlyCollection<BlueprintActionDefinition?>? source,
+        ImmutableArray<BlueprintActionDefinition?> actions,
+        List<BlueprintValidationIssue> issues)
+    {
+        if (source is null)
+        {
+            return;
+        }
+
+        var identifiers = new HashSet<string>(StringComparer.Ordinal);
+        for (var index = 0; index < actions.Length; index++)
+        {
+            var action = actions[index];
+            if (action is null)
+            {
+                issues.Add(new BlueprintValidationIssue(
+                    "blueprint.action.required",
+                    "A blueprint action definition is required.",
+                    $"actions[{index}]"));
+                continue;
+            }
+
+            var normalizedId = action.Id?.Trim();
+            if (!BlueprintIdentifierValidator.IsValid(action.Id))
+            {
+                issues.Add(new BlueprintValidationIssue(
+                    "blueprint.action.id.invalid",
+                    "An action identifier must use lowercase dot- or hyphen-separated segments.",
+                    $"actions[{index}].id"));
+            }
+            else if (!identifiers.Add(normalizedId!))
+            {
+                issues.Add(new BlueprintValidationIssue(
+                    "blueprint.action.id.duplicate",
+                    "Blueprint action identifiers must be unique.",
+                    $"actions[{index}].id"));
+            }
+
+            AddHandlerIssue(
+                issues,
+                action.HandlerId,
+                "blueprint.action",
+                $"actions[{index}].handlerId");
+            if (action.Parameters is null)
+            {
+                issues.Add(new BlueprintValidationIssue(
+                    "blueprint.action.parameters.required",
+                    "An action parameter map is required.",
+                    $"actions[{index}].parameters"));
+            }
+            else
+            {
+                ValidateParameterKeys(
+                    action.Parameters,
+                    $"actions[{index}].parameters",
+                    "blueprint.action.parameter",
+                    issues);
+            }
+
+            if (action.Timeout <= TimeSpan.Zero)
+            {
+                issues.Add(new BlueprintValidationIssue(
+                    "blueprint.action.timeout.invalid",
+                    "A blueprint action timeout must be positive.",
+                    $"actions[{index}].timeout"));
+            }
+        }
+    }
+
+    private static void ValidateDependencies(
+        IReadOnlyCollection<BlueprintDependency?>? source,
+        ImmutableArray<BlueprintDependency?> dependencies,
+        List<BlueprintValidationIssue> issues)
+    {
+        if (source is null)
+        {
+            return;
+        }
+
+        var identifiers = new HashSet<string>(StringComparer.Ordinal);
+        for (var index = 0; index < dependencies.Length; index++)
+        {
+            var dependency = dependencies[index];
+            if (dependency is null)
+            {
+                issues.Add(new BlueprintValidationIssue(
+                    "blueprint.dependency.required",
+                    "A blueprint dependency definition is required.",
+                    $"dependencies[{index}]"));
+                continue;
+            }
+
+            var normalizedId = dependency.Id?.Trim();
+            if (!BlueprintIdentifierValidator.IsValid(dependency.Id))
+            {
+                issues.Add(new BlueprintValidationIssue(
+                    "blueprint.dependency.id.invalid",
+                    "A dependency identifier must use lowercase dot- or hyphen-separated segments.",
+                    $"dependencies[{index}].id"));
+            }
+            else if (!identifiers.Add(normalizedId!))
+            {
+                issues.Add(new BlueprintValidationIssue(
+                    "blueprint.dependency.id.duplicate",
+                    "Blueprint dependency identifiers must be unique.",
+                    $"dependencies[{index}].id"));
+            }
+
+            if (!SemanticVersion.TryParse(dependency.Version, out _))
+            {
+                issues.Add(new BlueprintValidationIssue(
+                    "blueprint.dependency.version.invalid",
+                    "A dependency version must be a valid semantic version.",
+                    $"dependencies[{index}].version"));
+            }
+        }
+    }
+
+    private static void ValidateArtifacts(
+        IReadOnlyCollection<BlueprintArtifact?>? source,
+        ImmutableArray<BlueprintArtifact?> artifacts,
+        List<BlueprintValidationIssue> issues)
+    {
+        if (source is null)
+        {
+            return;
+        }
+
+        var paths = new HashSet<string>(StringComparer.Ordinal);
+        for (var index = 0; index < artifacts.Length; index++)
+        {
+            var artifact = artifacts[index];
+            if (artifact is null)
+            {
+                issues.Add(new BlueprintValidationIssue(
+                    "blueprint.artifact.required",
+                    "A blueprint artifact definition is required.",
+                    $"artifacts[{index}]"));
+                continue;
+            }
+
+            var normalizedPath = artifact.Path?.Trim();
+            if (string.IsNullOrWhiteSpace(normalizedPath) || normalizedPath.Contains('\0'))
+            {
+                issues.Add(new BlueprintValidationIssue(
+                    "blueprint.artifact.path.invalid",
+                    "A blueprint artifact path is required.",
+                    $"artifacts[{index}].path"));
+            }
+            else if (!paths.Add(normalizedPath))
+            {
+                issues.Add(new BlueprintValidationIssue(
+                    "blueprint.artifact.path.duplicate",
+                    "Blueprint artifact paths must be unique.",
+                    $"artifacts[{index}].path"));
             }
         }
     }
@@ -415,6 +710,7 @@ public sealed class BlueprintManifest
             return;
         }
 
+        var identifiers = new HashSet<string>(StringComparer.Ordinal);
         for (var index = 0; index < validators.Length; index++)
         {
             var validator = validators[index];
@@ -436,6 +732,14 @@ public sealed class BlueprintManifest
                         "A validator identifier must use lowercase dot- or hyphen-separated segments.",
                         $"validators[{index}].id"));
             }
+            else if (!identifiers.Add(validator.Id.Trim()))
+            {
+                issues.Add(
+                    new BlueprintValidationIssue(
+                        "blueprint.validator.id.duplicate",
+                        "Blueprint validator identifiers must be unique.",
+                        $"validators[{index}].id"));
+            }
 
             AddHandlerIssue(
                 issues,
@@ -450,6 +754,47 @@ public sealed class BlueprintManifest
                         "blueprint.validator.timeout.invalid",
                         "A blueprint validator timeout must be positive.",
                         $"validators[{index}].timeout"));
+            }
+
+            ValidateParameterKeys(
+                validator.Parameters,
+                $"validators[{index}].parameters",
+                "blueprint.validator.parameter",
+                issues);
+        }
+    }
+
+    private static void ValidateParameterKeys(
+        ImmutableDictionary<string, BlueprintValue> parameters,
+        string location,
+        string codePrefix,
+        List<BlueprintValidationIssue> issues)
+    {
+        var normalizedKeys = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var pair in parameters)
+        {
+            var key = pair.Key.Trim();
+            if (key.Length == 0)
+            {
+                issues.Add(new BlueprintValidationIssue(
+                    $"{codePrefix}.key.required",
+                    "A parameter key is required.",
+                    location));
+            }
+            else if (!normalizedKeys.Add(key))
+            {
+                issues.Add(new BlueprintValidationIssue(
+                    $"{codePrefix}.key.duplicate",
+                    "Parameter keys must be unique after normalization.",
+                    location));
+            }
+
+            if (pair.Value is null)
+            {
+                issues.Add(new BlueprintValidationIssue(
+                    $"{codePrefix}.value.required",
+                    "A parameter value is required.",
+                    location));
             }
         }
     }
@@ -499,7 +844,13 @@ public sealed class BlueprintManifest
 
     private static CompatibilityRule NormalizeCompatibilityRule(CompatibilityRule? rule)
     {
-        return new CompatibilityRule(rule!.Expression.Trim(), rule.Message.Trim());
+        return new CompatibilityRule(
+            rule!.Id.Trim(),
+            rule.Expression.Trim(),
+            rule.Severity,
+            rule.Message.Trim(),
+            rule.Remediation?.Trim(),
+            rule.Override);
     }
 
     private static BlueprintStepDefinition NormalizeStep(BlueprintStepDefinition? step)
@@ -515,7 +866,42 @@ public sealed class BlueprintManifest
         return new ValidatorDefinition(
             validator!.Id.Trim(),
             validator.HandlerId.Trim(),
-            validator.Timeout);
+            validator.Timeout,
+            NormalizeParameters(validator.Parameters),
+            validator.Required);
+    }
+
+    private static BlueprintFeatureDefinition NormalizeFeature(BlueprintFeatureDefinition? feature)
+    {
+        return new BlueprintFeatureDefinition(feature!.Id.Trim(), feature.DefaultEnabled);
+    }
+
+    private static BlueprintActionDefinition NormalizeAction(BlueprintActionDefinition? action)
+    {
+        return new BlueprintActionDefinition(
+            action!.Id.Trim(),
+            action.HandlerId.Trim(),
+            NormalizeParameters(action.Parameters),
+            action.Timeout);
+    }
+
+    private static BlueprintDependency NormalizeDependency(BlueprintDependency? dependency)
+    {
+        return new BlueprintDependency(dependency!.Id.Trim(), dependency.Version.Trim());
+    }
+
+    private static BlueprintArtifact NormalizeArtifact(BlueprintArtifact? artifact)
+    {
+        return new BlueprintArtifact(artifact!.Path.Trim());
+    }
+
+    private static ImmutableDictionary<string, BlueprintValue> NormalizeParameters(
+        ImmutableDictionary<string, BlueprintValue> parameters)
+    {
+        return parameters.ToImmutableDictionary(
+            pair => pair.Key.Trim(),
+            pair => pair.Value,
+            StringComparer.Ordinal);
     }
 
 }

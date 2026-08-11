@@ -131,12 +131,12 @@ public sealed record BlueprintActionDefinition(
     TimeSpan Timeout);
 ```
 
-- [ ] **Step 1: Write RED tests** proving SemVer numeric ordering, prerelease precedence, build-metadata equality for precedence, comparator AND/OR ranges, invalid leading zeroes, and exact normalization.
-- [ ] **Step 2: Write RED contract tests** for features, required tools, input constraints/defaults, rule IDs/severity/remediation/override-none, typed action payloads, validators, dependencies, artifacts, uniqueness, immutable snapshots, and trust provenance.
-- [ ] **Step 3: Run RED:** `dotnet test tests/DevForge.BlueprintTests/DevForge.BlueprintTests.csproj -c Release` and require missing-type/behavior failures.
-- [ ] **Step 4: Implement `SemanticVersion`** and make `SemanticVersionRange.Contains` compare SemVer 2.0 values without culture or build metadata precedence.
-- [ ] **Step 5: Implement normalized package models** with explicit nonzero enums, bounded identifiers/text/collections, stable validation issues, and no Application/Infrastructure dependency.
-- [ ] **Step 6: GREEN twice**, verify project references unchanged, format, commit `feat(blueprints): define normalized M4 package contracts`.
+- [x] **Step 1: Write RED tests** proving SemVer numeric ordering, prerelease precedence, build-metadata equality for precedence, comparator AND/OR ranges, invalid leading zeroes, and exact normalization.
+- [x] **Step 2: Write RED contract tests** for features, required tools, input constraints/defaults, rule IDs/severity/remediation/override-none, typed action payloads, validators, dependencies, artifacts, uniqueness, immutable snapshots, and trust provenance.
+- [x] **Step 3: Run RED:** `dotnet test tests/DevForge.BlueprintTests/DevForge.BlueprintTests.csproj -c Release` and require missing-type/behavior failures.
+- [x] **Step 4: Implement `SemanticVersion`** and make `SemanticVersionRange.Contains` compare SemVer 2.0 values without culture or build metadata precedence.
+- [x] **Step 5: Implement normalized package models** with explicit nonzero enums, bounded identifiers/text/collections, stable validation issues, and no Application/Infrastructure dependency.
+- [x] **Step 6: GREEN twice**, verify project references unchanged, format, commit `feat(blueprints): define normalized M4 package contracts`.
 
 ## Task 3: Evolve catalog, filesystem, and planner contracts
 

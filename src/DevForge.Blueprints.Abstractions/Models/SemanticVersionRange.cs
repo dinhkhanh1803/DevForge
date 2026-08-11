@@ -60,7 +60,7 @@ public sealed record SemanticVersionRange
             }
 
             if (!TrySeparateComparator(token, out var hasComparator, out var version)
-                || !IsSemanticVersion(version))
+                || !SemanticVersion.TryParse(version, out _))
             {
                 return false;
             }
@@ -84,6 +84,38 @@ public sealed record SemanticVersionRange
         return true;
     }
 
+    /// <summary>
+    /// Determines whether a semantic version satisfies this range.
+    /// </summary>
+    public bool Contains(SemanticVersion version)
+    {
+        ArgumentNullException.ThrowIfNull(version);
+
+        var currentGroupMatches = true;
+        foreach (var token in Split(Expression))
+        {
+            if (token == "||")
+            {
+                if (currentGroupMatches)
+                {
+                    return true;
+                }
+
+                currentGroupMatches = true;
+                continue;
+            }
+
+            _ = TrySeparateComparator(token, out var hasComparator, out var candidateText);
+            _ = SemanticVersion.TryParse(candidateText, out var candidate);
+            var comparison = version.CompareTo(candidate);
+            currentGroupMatches &= hasComparator
+                ? MatchesComparator(token, comparison)
+                : comparison == 0;
+        }
+
+        return currentGroupMatches;
+    }
+
     /// <inheritdoc />
     public override string ToString()
     {
@@ -92,32 +124,20 @@ public sealed record SemanticVersionRange
 
     internal static bool IsSemanticVersion(string? value)
     {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return false;
-        }
+        return SemanticVersion.TryParse(value, out _);
+    }
 
-        var candidate = value.Trim();
-        var buildParts = candidate.Split('+');
-        if (buildParts.Length > 2
-            || (buildParts.Length == 2 && !AreValidIdentifiers(buildParts[1], false)))
+    private static bool MatchesComparator(string token, int comparison)
+    {
+        return token[0] switch
         {
-            return false;
-        }
-
-        var coreAndPrerelease = buildParts[0];
-        var prereleaseSeparator = coreAndPrerelease.IndexOf('-', StringComparison.Ordinal);
-        var core = prereleaseSeparator < 0
-            ? coreAndPrerelease
-            : coreAndPrerelease[..prereleaseSeparator];
-        if (prereleaseSeparator >= 0
-            && !AreValidIdentifiers(coreAndPrerelease[(prereleaseSeparator + 1)..], true))
-        {
-            return false;
-        }
-
-        var coreParts = core.Split('.');
-        return coreParts.Length == 3 && coreParts.All(IsValidNumericIdentifier);
+            '>' when token.StartsWith(">=", StringComparison.Ordinal) => comparison >= 0,
+            '<' when token.StartsWith("<=", StringComparison.Ordinal) => comparison <= 0,
+            '>' => comparison > 0,
+            '<' => comparison < 0,
+            '=' => comparison == 0,
+            _ => false,
+        };
     }
 
     private static bool TrySeparateComparator(
@@ -144,36 +164,6 @@ public sealed record SemanticVersionRange
         return version.Length > 0;
     }
 
-    private static bool AreValidIdentifiers(string value, bool forbidNumericLeadingZero)
-    {
-        var identifiers = value.Split('.');
-        foreach (var identifier in identifiers)
-        {
-            if (identifier.Length == 0
-                || identifier.Any(
-                    character => !IsAsciiLetterOrDigit(character) && character != '-'))
-            {
-                return false;
-            }
-
-            if (forbidNumericLeadingZero
-                && identifier.All(IsAsciiDigit)
-                && !IsValidNumericIdentifier(identifier))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private static bool IsValidNumericIdentifier(string value)
-    {
-        return value.Length > 0
-            && value.All(IsAsciiDigit)
-            && (value.Length == 1 || value[0] != '0');
-    }
-
     private static string[] Split(string expression)
     {
         return expression.Split(
@@ -181,15 +171,4 @@ public sealed record SemanticVersionRange
             StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     }
 
-    private static bool IsAsciiLetterOrDigit(char value)
-    {
-        return value is >= 'a' and <= 'z'
-            || value is >= 'A' and <= 'Z'
-            || IsAsciiDigit(value);
-    }
-
-    private static bool IsAsciiDigit(char value)
-    {
-        return value is >= '0' and <= '9';
-    }
 }

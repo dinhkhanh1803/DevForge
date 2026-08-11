@@ -1,14 +1,14 @@
 # DevForge Studio Implementation Status
 
 **Current milestone:** M4 - Planner, Rules, and Blueprint Catalog
-**Status:** Approved design and implementation plan; production implementation not started
+**Status:** Active implementation; M4 Tasks 1-2 complete
 **Last updated:** 2026-08-11
 
 ## Current M4 scope
 
 M0-M3 remain complete and green. M4 is now the only active milestone. The approved design is `docs/superpowers/specs/2026-08-10-m4-planner-rules-blueprint-catalog-design.md`, the executable TDD plan is `docs/superpowers/plans/2026-08-11-m4-planner-rules-blueprint-catalog.md`, and ADR-0007 fixes deterministic catalog/trust/rule/hash decisions before production code.
 
-No M4 production code or result is claimed yet. The verified baseline is M3: Release build 0 warnings/errors and 529 tests passed with 0 failed/0 skipped. M5-M11 remain deferred until the M4 exit gate passes.
+M4 Tasks 1-2 are complete. Domain now has bounded immutable typed plan values, and Blueprint abstractions now provide SemVer 2.0 precedence/range evaluation plus guarded normalized package contracts for features, typed inputs/actions/validators, rules, dependencies, and artifacts. The latest Task 2 checkpoint passed locked restore, format verification, Release build with 0 warnings/errors, and 567 solution tests (310 Unit, 108 Blueprint, 149 Integration) with 0 failed/0 skipped; the future E2E host remains empty. Tasks 3-10 and the full M4 exit gate remain open. M5-M11 remain deferred until the M4 exit gate passes.
 
 ## Current M3 scope
 
