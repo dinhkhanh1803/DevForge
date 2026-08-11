@@ -1,14 +1,14 @@
 # DevForge Studio Implementation Status
 
 **Current milestone:** M3 - Core Infrastructure
-**Status:** Complete locally
-**Last updated:** 2026-08-10
+**Status:** Renderer closure planned; implementation pending
+**Last updated:** 2026-08-11
 
 ## Current M3 scope
 
-M3 is complete locally. The approved design is `docs/superpowers/specs/2026-08-10-m3-core-infrastructure-design.md`, the executed TDD plan is `docs/superpowers/plans/2026-08-10-m3-core-infrastructure.md`, and ADR-0005 records the Windows trust boundaries.
+The original five-boundary M3 checkpoint is green, but the full DOCX audit found one unimplemented M3 exit item: the restricted Scriban template renderer. Its approved design is `docs/superpowers/specs/2026-08-10-m3-restricted-template-renderer-closure-design.md` and its executable TDD plan is `docs/superpowers/plans/2026-08-11-m3-restricted-template-renderer-closure.md`. M3 remains open until that plan and a fresh six-boundary exit gate pass.
 
-Delivered scope is limited to the guarded workspace file system, trusted process runner, bounded secret scanner, typed environment doctor, trusted IDE handoff, and their unit/integration/security tests. Planner/catalog, orchestration, UI composition, templates, Git, GitHub, packaging, cloud backends, and AI APIs remain out of scope.
+Delivered scope is currently limited to the guarded workspace file system, trusted process runner, bounded secret scanner, typed environment doctor, trusted IDE handoff, and their unit/integration/security tests. The template-renderer port exists but has no production implementation yet. Planner/catalog, orchestration, UI composition, production templates, Git, GitHub, packaging, cloud backends, and AI APIs remain out of scope.
 
 ## M3 delivered
 
@@ -19,6 +19,8 @@ Delivered scope is limited to the guarded workspace file system, trusted process
 - Adversarial tests exercise real Windows processes and junctions, structured JSON/XML credentials, argument metacharacters, locked files, throwing progress observers, continuous-output cancellation, and privacy-safe failure paths with no skipped Infrastructure test.
 
 ## M3 exit gate evidence
+
+The table below is historical evidence for the original five-boundary checkpoint on 2026-08-10. It does not include the restricted template renderer and is not the final six-boundary M3 exit gate.
 
 Fresh local verification on 2026-08-10 used the workspace-local .NET SDK 10.0.302 and completed in this order:
 
@@ -104,4 +106,4 @@ Verification used the workspace-local SDK at `.tools/dotnet/dotnet.exe` with `DO
 
 ## Milestone progression
 
-M3 is complete. The recommended next milestone is M4 - Planner, Rules, and Blueprint Catalog, limited to catalog loading, compatibility evaluation, deterministic planner rules, and plan hashing defined by the specification.
+Complete the restricted template-renderer closure and rerun the full M3 exit gate. After every gate is green, the recommended next milestone is M4 - Planner, Rules, and Blueprint Catalog, limited to catalog loading, compatibility evaluation, deterministic planner rules, and plan hashing defined by the specification.

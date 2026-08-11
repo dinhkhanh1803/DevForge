@@ -1,7 +1,7 @@
 # M3 Restricted Template Renderer Closure Design
 
-**Status:** Proposed - awaiting user review
-**Date:** 2026-08-10
+**Status:** Approved for implementation planning
+**Date:** 2026-08-10; approved 2026-08-11
 **Milestone:** M3 closure prerequisite for M4
 
 ## Context
