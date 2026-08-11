@@ -49,8 +49,102 @@ internal sealed class RestrictedTemplatePolicy
             case ScriptExpressionStatement expression:
                 ValidateOutput(expression.Expression, depth + 1);
                 return;
+            case ScriptEndStatement:
+                return;
+            case ScriptIfStatement conditional:
+                ValidateCondition(conditional.Condition, depth + 1);
+                ValidateBlock(conditional.Then, depth + 1);
+                ValidateElse(conditional.Else, depth + 1);
+                return;
             default:
                 throw new ForbiddenTemplateConstructException();
+        }
+    }
+
+    private void ValidateElse(ScriptConditionStatement? statement, int depth)
+    {
+        if (statement is null)
+        {
+            return;
+        }
+
+        Enter(depth);
+        switch (statement)
+        {
+            case ScriptElseStatement otherwise:
+                ValidateBlock(otherwise.Body, depth + 1);
+                return;
+            case ScriptIfStatement conditional when conditional.IsElseIf:
+                ValidateCondition(conditional.Condition, depth + 1);
+                ValidateBlock(conditional.Then, depth + 1);
+                ValidateElse(conditional.Else, depth + 1);
+                return;
+            default:
+                throw new ForbiddenTemplateConstructException();
+        }
+    }
+
+    private void ValidateCondition(ScriptExpression? expression, int depth)
+    {
+        Enter(depth);
+        switch (expression)
+        {
+            case ScriptLiteral { Value: bool }:
+                return;
+            case ScriptNestedExpression nested:
+                ValidateCondition(nested.Expression, depth + 1);
+                return;
+            case ScriptUnaryExpression { Operator: ScriptUnaryOperator.Not } unary:
+                ValidateCondition(unary.Right, depth + 1);
+                return;
+            case ScriptBinaryExpression binary when
+                binary.Operator is ScriptBinaryOperator.And or ScriptBinaryOperator.Or:
+                ValidateCondition(binary.Left, depth + 1);
+                ValidateCondition(binary.Right, depth + 1);
+                return;
+            case ScriptBinaryExpression binary when
+                binary.Operator is ScriptBinaryOperator.CompareEqual or
+                    ScriptBinaryOperator.CompareNotEqual:
+                ValidateComparablePair(binary.Left, binary.Right, depth + 1);
+                return;
+            default:
+                throw new ForbiddenTemplateConstructException();
+        }
+    }
+
+    private void ValidateComparablePair(
+        ScriptExpression? left,
+        ScriptExpression? right,
+        int depth)
+    {
+        Enter(depth);
+        if (left is ScriptLiteral { Value: bool } && right is ScriptLiteral { Value: bool })
+        {
+            return;
+        }
+
+        if (IsStringComparable(left, depth + 1) && IsStringComparable(right, depth + 1))
+        {
+            return;
+        }
+
+        throw new ForbiddenTemplateConstructException();
+    }
+
+    private bool IsStringComparable(ScriptExpression? expression, int depth)
+    {
+        Enter(depth);
+        switch (expression)
+        {
+            case ScriptLiteral { Value: string }:
+                return true;
+            case ScriptVariableGlobal:
+                return true;
+            case ScriptMemberExpression member:
+                ValidateVariablePath(member, depth + 1);
+                return true;
+            default:
+                return false;
         }
     }
 
