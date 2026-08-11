@@ -215,12 +215,12 @@ internal sealed record BlueprintPackageLoadResult(
     BlueprintInspection Inspection);
 ```
 
-- [ ] **Step 1: Write RED real-workspace fixtures** covering mandatory layout, missing/extra/duplicate/self-declared checksum entries, hash mismatch, 2,048/32 MiB bounds, traversal/rooted/device/forward-slash canonicalization, `.env` target rejection with `.env.example` acceptance, and junction escape.
-- [ ] **Step 2: Write RED policy matrix** for every allowed handler, missing/unknown parameters, combined command line, shell mode, unsafe paths, untrusted/built-in restrictions, typed arguments, validators, and malformed/recursive/unknown variable references.
-- [ ] **Step 3: Implement checksum verification** before package-controlled parsing. Aggregate hash input is ordinal `path + NUL + lowercase hash + LF`; `checksums.json` cannot declare itself.
-- [ ] **Step 4: Implement single-pass variable tokenizer and action policy** with closed handler descriptors; never activate handlers or execute commands.
-- [ ] **Step 5: Implement `BlueprintPackageLoader`** enforcing all limits and producing either normalized package data or one scrubbed quarantine inspection.
-- [ ] **Step 6: GREEN twice**, security scan test, format, commit `feat(infrastructure): validate guarded blueprint packages`.
+- [x] **Step 1: Write RED real-workspace fixtures** covering mandatory layout, missing/extra/duplicate/self-declared checksum entries, hash mismatch, 2,048/32 MiB bounds, traversal/rooted/device/forward-slash canonicalization, `.env` target rejection with `.env.example` acceptance, and junction escape.
+- [x] **Step 2: Write RED policy matrix** for every allowed handler, missing/unknown parameters, combined command line, shell mode, unsafe paths, untrusted/built-in restrictions, typed arguments, validators, and malformed/recursive/unknown variable references.
+- [x] **Step 3: Implement checksum verification** before package-controlled parsing. Aggregate hash input is ordinal `path + NUL + lowercase hash + LF`; `checksums.json` cannot declare itself.
+- [x] **Step 4: Implement single-pass variable tokenizer and action policy** with closed handler descriptors; never activate handlers or execute commands.
+- [x] **Step 5: Implement `BlueprintPackageLoader`** enforcing all limits and producing either normalized package data or one scrubbed quarantine inspection.
+- [x] **Step 6: GREEN twice**, security scan test, format, commit `feat(infrastructure): validate guarded blueprint packages`.
 
 ## Task 6: Publish an atomic executable catalog
 
