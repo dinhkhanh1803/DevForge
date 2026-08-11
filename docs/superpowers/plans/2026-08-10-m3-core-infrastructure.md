@@ -424,7 +424,7 @@ The 2026-08-10 execution above is preserved as the historical five-boundary chec
 - [x] Enforce the closed variable/conditional AST grammar and permanent forbidden-family matrix.
 - [x] Prove request/AST/depth/output limits, cancellation, concurrency, culture determinism, and scrubbed failures.
 - [x] Correct the architecture decision and milestone documentation without rewriting historical command evidence.
-- [ ] Run the complete fresh six-boundary restore/format/build/test exit gate and record exact results.
+- [x] Run the complete fresh six-boundary restore/format/build/test exit gate and record exact results.
 
 Implementation commits for the closure are additive; the earlier five-boundary checkpoint remains unchanged and is not represented as final M3 evidence.
 

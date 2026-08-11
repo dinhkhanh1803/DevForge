@@ -1,12 +1,12 @@
 # DevForge Studio Implementation Status
 
-**Current milestone:** M3 - Core Infrastructure
-**Status:** Renderer closure implemented; verification in progress
+**Current milestone:** M3 - Core Infrastructure (Complete)
+**Status:** Complete; six-boundary exit gate passed
 **Last updated:** 2026-08-11
 
 ## Current M3 scope
 
-The original five-boundary M3 checkpoint is green, but the full DOCX audit found one omitted M3 exit item: the restricted Scriban template renderer. The renderer implementation, contract hardening, exact dependency pin, closed AST policy, and focused security tests are now present. Its approved design is `docs/superpowers/specs/2026-08-10-m3-restricted-template-renderer-closure-design.md`, its executable TDD plan is `docs/superpowers/plans/2026-08-11-m3-restricted-template-renderer-closure.md`, and the accepted runtime boundary is ADR-0006. M3 remains open until the fresh six-boundary exit gate passes.
+The original five-boundary M3 checkpoint was green, but the full DOCX audit found one omitted M3 exit item: the restricted Scriban template renderer. The renderer implementation, contract hardening, exact dependency pin, closed AST policy, focused security tests, and fresh six-boundary exit gate now pass. Its approved design is `docs/superpowers/specs/2026-08-10-m3-restricted-template-renderer-closure-design.md`, its executable TDD plan is `docs/superpowers/plans/2026-08-11-m3-restricted-template-renderer-closure.md`, and the accepted runtime boundary is ADR-0006.
 
 Delivered scope now includes the guarded workspace file system, trusted process runner, bounded secret scanner, typed environment doctor, trusted IDE handoff, the restricted Scriban renderer, and their unit/integration/security tests. Planner/catalog, orchestration, UI composition, production templates, Git, GitHub, packaging, cloud backends, and AI APIs remain out of scope.
 
@@ -19,7 +19,23 @@ Delivered scope now includes the guarded workspace file system, trusted process 
 - Template rendering uses Scriban 7.2.5 only inside Infrastructure, an empty strict runtime, frozen string-only context objects, a closed conditional grammar, bounded AST/output, cancellation, and stable scrubbed failures.
 - Adversarial tests exercise real Windows processes and junctions, structured JSON/XML credentials, argument metacharacters, locked files, throwing progress observers, continuous-output cancellation, and privacy-safe failure paths with no skipped Infrastructure test.
 
-## M3 exit gate evidence
+## M3 final six-boundary exit gate evidence
+
+Fresh local verification on 2026-08-11 used the workspace-local .NET SDK 10.0.302 and completed in this order:
+
+| Gate | Command | Exact result |
+| --- | --- | --- |
+| SDK | `dotnet --version` | Exit 0; `10.0.302`. |
+| Locked restore | `dotnet restore DevForge.sln --locked-mode --verbosity minimal` | Exit 0; all projects were up-to-date from pinned lock files. |
+| Format | `dotnet format DevForge.sln --verify-no-changes --no-restore --verbosity minimal` | Exit 0; no formatting diagnostics. |
+| Release build | `dotnet build DevForge.sln --configuration Release --no-restore --verbosity minimal` | Exit 0; all 12 projects built; 0 warnings, 0 errors. |
+| Full solution test | `dotnet test DevForge.sln --configuration Release --no-build --no-restore` | Exit 0; UnitTests 304, BlueprintTests 76, IntegrationTests 149; total 529 passed, 0 failed, 0 skipped. The future E2E host contains no tests. |
+| Renderer contract/privacy | `dotnet test tests/DevForge.UnitTests/DevForge.UnitTests.csproj --configuration Release --no-build --no-restore --filter "FullyQualifiedName~TemplateRenderRequestTests\|FullyQualifiedName~TemplateRendererDependencyTests\|FullyQualifiedName~PrivacyTests"` | Exit 0; 40 passed, 0 failed, 0 skipped. |
+| Renderer integration/security | `dotnet test tests/DevForge.IntegrationTests/DevForge.IntegrationTests.csproj --configuration Release --no-build --no-restore --filter FullyQualifiedName~Templates` | Exit 0; 58 passed, 0 failed, 0 skipped. |
+| Focused Unit architecture/Infrastructure | `dotnet test tests/DevForge.UnitTests/DevForge.UnitTests.csproj --configuration Release --no-build --no-restore --filter "FullyQualifiedName~Infrastructure\|FullyQualifiedName~Architecture"` | Exit 0; 42 passed, 0 failed, 0 skipped. |
+| Focused Infrastructure integration | `dotnet test tests/DevForge.IntegrationTests/DevForge.IntegrationTests.csproj --configuration Release --no-build --no-restore --filter FullyQualifiedName~Infrastructure` | Exit 0; 122 passed, 0 failed, 0 skipped. |
+
+## Historical five-boundary checkpoint
 
 The table below is historical evidence for the original five-boundary checkpoint on 2026-08-10. It does not include the restricted template renderer and is not the final six-boundary M3 exit gate.
 
@@ -107,4 +123,4 @@ Verification used the workspace-local SDK at `.tools/dotnet/dotnet.exe` with `DO
 
 ## Milestone progression
 
-Complete the restricted template-renderer closure and rerun the full M3 exit gate. After every gate is green, the recommended next milestone is M4 - Planner, Rules, and Blueprint Catalog, limited to catalog loading, compatibility evaluation, deterministic planner rules, and plan hashing defined by the specification.
+The recommended next milestone is M4 - Planner, Rules, and Blueprint Catalog, limited to catalog loading, compatibility evaluation, deterministic planner rules, and plan hashing defined by the specification.

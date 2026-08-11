@@ -2,7 +2,7 @@
 
 **Goal:** Deliver the Windows-native Infrastructure implementations required before planning and generation workflows.
 
-**Status:** Renderer closure implemented; full six-boundary verification is in progress.
+**Status:** Complete; full six-boundary verification passed on 2026-08-11.
 
 **Architecture:** Application retains its validated contracts. Infrastructure owns Windows process/file/security/environment/IDE effects and returns only contained, bounded, redacted results. Domain and Desktop remain free of OS implementation details.
 
@@ -45,7 +45,7 @@ M3 excludes blueprint catalog/planner work, orchestration, WPF composition/UI, p
 - [x] Run locked restore, format, Release build, full tests, and focused M3 security suites.
 - [x] Record exact evidence and mark M3 complete only after every gate is green.
 - [x] Implement the restricted template renderer closure through the approved TDD plan.
-- [ ] Rerun the full M3 exit gate and replace the earlier five-port completion claim with fresh six-port evidence.
+- [x] Rerun the full M3 exit gate and replace the earlier five-port completion claim with fresh six-port evidence.
 
 ## Exit gate
 

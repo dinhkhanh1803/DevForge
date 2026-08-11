@@ -1,6 +1,6 @@
 # M3 Core Infrastructure Design
 
-**Status:** Approved; renderer closure verification in progress
+**Status:** Approved and implemented
 **Date:** 2026-08-10
 **Milestone:** M3 - Core Infrastructure
 

@@ -94,7 +94,7 @@ Runtime failures use these exact codes and fixed messages:
 - Create: `tests/DevForge.UnitTests/Application/TemplateRenderRequestTests.cs`
 - Modify: `tests/DevForge.UnitTests/Application/RequestContractTests.cs`
 
-- [ ] **Step 1: Write failing privacy-predicate and request-boundary tests**
+- [x] **Step 1: Write failing privacy-predicate and request-boundary tests**
 
 Cover null collections, single enumeration, exact value preservation, 1 MiB template length, 256 entries, 256-character names, 64 KiB values, 2 MiB aggregate context, null characters, dotted-name grammar, duplicates after trimming, parent/child collisions, secret-shaped names, credential-shaped values, and caller mutation after success. Use boundary values at `limit` and `limit + 1`; assert issue codes, never English message fragments.
 
@@ -129,7 +129,7 @@ public void IsSecretShapedValue_DetectsCredentialsWithoutRejectingWhitespace()
 }
 ```
 
-- [ ] **Step 2: Run focused RED**
+- [x] **Step 2: Run focused RED**
 
 Run:
 
@@ -139,7 +139,7 @@ Run:
 
 Expected: compile failure because `RedactedText.IsSecretShapedValue` and the new request constants/validation do not exist.
 
-- [ ] **Step 3: Expose the existing value-shape predicate without changing redaction semantics**
+- [x] **Step 3: Expose the existing value-shape predicate without changing redaction semantics**
 
 Add this method and make `FromTrustedRedaction` call it. Empty text remains invalid for `FromTrustedRedaction` but is not credential-shaped.
 
@@ -155,7 +155,7 @@ public static bool IsSecretShapedValue(string? value)
 }
 ```
 
-- [ ] **Step 4: Extract and implement the guarded request**
+- [x] **Step 4: Extract and implement the guarded request**
 
 Move `TemplateRenderRequest` and `ITemplateRenderer` unchanged in namespace/API identity to `TemplateRendererContracts.cs`. Define these public bounds:
 
@@ -199,7 +199,7 @@ return ValidationResult.Success(new TemplateRenderRequest(template!, immutableCo
 
 Use the compiled identifier regex `^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$` with a 100 ms invariant timeout. For every normalized name, test ordinal duplication and `RedactedText.IsSecretShapedKey`; after the loop, sort names ordinally and detect an adjacent prefix where the longer name starts with `shorter + "."`. Sum value lengths in `long`, preserve valid values exactly, and call `RedactedText.IsSecretShapedValue` only after the individual value length bound passes.
 
-- [ ] **Step 5: Run focused GREEN and commit**
+- [x] **Step 5: Run focused GREEN and commit**
 
 Run the command from Step 2 twice. Expected: every matching test passes with zero failed and zero skipped.
 
@@ -217,7 +217,7 @@ git commit -m "feat(application): harden template render requests"
 - Modify: dependent `packages.lock.json` files only if restore changes them
 - Create: `tests/DevForge.UnitTests/Architecture/TemplateRendererDependencyTests.cs`
 
-- [ ] **Step 1: Write the failing package-ownership test**
+- [x] **Step 1: Write the failing package-ownership test**
 
 ```csharp
 public sealed class TemplateRendererDependencyTests
@@ -302,7 +302,7 @@ private static string FindRepositoryRoot(string startDirectory)
 }
 ```
 
-- [ ] **Step 2: Run dependency RED**
+- [x] **Step 2: Run dependency RED**
 
 ```powershell
 ..\..\.tools\dotnet\dotnet.exe test tests\DevForge.UnitTests\DevForge.UnitTests.csproj --configuration Release --filter FullyQualifiedName~TemplateRendererDependencyTests
@@ -310,7 +310,7 @@ private static string FindRepositoryRoot(string startDirectory)
 
 Expected: assertion failure because the central version and Infrastructure package reference are absent.
 
-- [ ] **Step 3: Add the exact central package and Infrastructure-only reference**
+- [x] **Step 3: Add the exact central package and Infrastructure-only reference**
 
 ```xml
 <!-- Directory.Packages.props -->
@@ -322,7 +322,7 @@ Expected: assertion failure because the central version and Infrastructure packa
 
 Do not add `Version`, `VersionOverride`, wildcard, range, or floating metadata to the project reference.
 
-- [ ] **Step 4: Regenerate and verify lock files**
+- [x] **Step 4: Regenerate and verify lock files**
 
 ```powershell
 ..\..\.tools\dotnet\dotnet.exe restore DevForge.sln --force-evaluate --verbosity minimal
@@ -331,7 +331,7 @@ Do not add `Version`, `VersionOverride`, wildcard, range, or floating metadata t
 
 Expected: both commands exit 0. Inspect every changed lock file and confirm Scriban resolves to exactly 7.2.5 with no unexpected package introduced.
 
-- [ ] **Step 5: Run dependency GREEN and commit**
+- [x] **Step 5: Run dependency GREEN and commit**
 
 Run the test from Step 2 plus `FullyQualifiedName~CentralPackage`. Expected: all pass.
 
@@ -353,7 +353,7 @@ Before staging a dependent lock path, omit it when restore did not change it.
 - Create: `src/DevForge.Infrastructure/Templates/RestrictedScribanTemplateRenderer.cs`
 - Create: `tests/DevForge.IntegrationTests/Infrastructure/Templates/RestrictedTemplateRendererTests.cs`
 
-- [ ] **Step 1: Write failing scalar, dotted, exact-text, concurrency, and culture tests**
+- [x] **Step 1: Write failing scalar, dotted, exact-text, concurrency, and culture tests**
 
 ```csharp
 [Fact]
@@ -390,7 +390,7 @@ public async Task RenderAsync_UsesIndependentContextsConcurrently()
 
 Add one table-driven exact-text test for Unicode, LF, CRLF, blank lines, indentation, and leading/trailing context whitespace. The culture test must save and restore both `CurrentCulture` and `CurrentUICulture` in `finally`, render under `tr-TR` and `en-US`, and assert ordinal-equal output.
 
-- [ ] **Step 2: Run renderer RED**
+- [x] **Step 2: Run renderer RED**
 
 ```powershell
 ..\..\.tools\dotnet\dotnet.exe test tests\DevForge.IntegrationTests\DevForge.IntegrationTests.csproj --configuration Release --filter FullyQualifiedName~RestrictedTemplateRendererTests
@@ -398,7 +398,7 @@ Add one table-driven exact-text test for Unicode, LF, CRLF, blank lines, indenta
 
 Expected: compile failure because `RestrictedScribanTemplateRenderer` does not exist.
 
-- [ ] **Step 3: Implement bounded output and safe markers**
+- [x] **Step 3: Implement bounded output and safe markers**
 
 `BoundedTemplateOutput` implements both `IScriptOutput.Write` methods, checks both the render token and method token, rejects overflow before appending, and overrides `ToString`:
 
@@ -441,7 +441,7 @@ internal sealed class BoundedTemplateOutput(int maximumLength, CancellationToken
 
 Marker exception types are internal, parameterless, have fixed messages, and are never attached as `InnerException` to the public-boundary exception.
 
-- [ ] **Step 4: Build a fresh frozen string-only context**
+- [x] **Step 4: Build a fresh frozen string-only context**
 
 Construct an empty read-only built-in object, build the nested globals from ordinal-sorted validated paths, then recursively freeze every object. Never call `Import`, never expose a CLR model, and never set a loader.
 
@@ -475,7 +475,7 @@ context.PushOutput(output);
 
 For each path segment, use `ScriptObject.SetValue(segment, childOrValue, readOnly: true)`. Build all descendants before setting `IsReadOnly = true` on each object.
 
-- [ ] **Step 5: Implement the first closed policy and renderer flow**
+- [x] **Step 5: Implement the first closed policy and renderer flow**
 
 The first policy permits raw text, normal Scriban delimiter escape nodes, scalar/dotted global variables, and string/Boolean literal output. It rejects every other semantic statement/expression. Task 4 extends this same policy for conditionals. Define `MaximumNodeCount = 10_000` and `MaximumDepth = 64`, then validate the page body through explicit semantic properties:
 
@@ -576,7 +576,7 @@ public async Task<string> RenderAsync(
 
 `MaximumOutputLength` is exactly `4 * 1024 * 1024`. Error factories create `InfrastructureOperationException` from only the stable table at the top of this plan.
 
-- [ ] **Step 6: Run renderer GREEN and commit**
+- [x] **Step 6: Run renderer GREEN and commit**
 
 Run the command from Step 2 twice. Expected: every renderer test passes with zero skipped.
 
@@ -591,7 +591,7 @@ git commit -m "feat(infrastructure): render bounded Scriban variables"
 - Modify: `src/DevForge.Infrastructure/Templates/RestrictedTemplatePolicy.cs`
 - Create: `tests/DevForge.IntegrationTests/Infrastructure/Templates/RestrictedTemplatePolicyTests.cs`
 
-- [ ] **Step 1: Write failing allowed-conditional tests**
+- [x] **Step 1: Write failing allowed-conditional tests**
 
 Cover `if`, `else if`, `else`, nested conditions, `==`, `!=`, `&&`, `||`, `!`, parentheses, string literals, and Boolean literals. Explicitly reject implicit string truthiness.
 
@@ -626,7 +626,7 @@ public async Task RenderAsync_RejectsImplicitStringTruthiness()
 }
 ```
 
-- [ ] **Step 2: Write the complete forbidden-family theory**
+- [x] **Step 2: Write the complete forbidden-family theory**
 
 The data table contains one parseable sample for every family and always expects `template.policy.forbidden`: assignment, increment/decrement, `for`, `while`, `tablerow`, `case`/`when`, `break`, `continue`, function definition, direct function call, pipe, `object.eval`, `object.eval_template`, include, import, capture, wrap, array literal, object literal, indexer, optional member access, interpolated string, conditional expression, local variable, `with`, arithmetic/comparison operators outside the allowlist, and whitespace-control/escaped-code delimiters outside the selected syntax.
 
@@ -667,7 +667,7 @@ public static TheoryData<string, string> ForbiddenTemplates => new()
 
 The test method receives the case name and template, renders with a context containing `project.name`, and includes only the case name in its custom assertion failure.
 
-- [ ] **Step 3: Run policy RED**
+- [x] **Step 3: Run policy RED**
 
 ```powershell
 ..\..\.tools\dotnet\dotnet.exe test tests\DevForge.IntegrationTests\DevForge.IntegrationTests.csproj --configuration Release --filter FullyQualifiedName~RestrictedTemplatePolicyTests
@@ -675,7 +675,7 @@ The test method receives the case name and template, renders with a context cont
 
 Expected: conditional happy paths fail and at least one forbidden case is accepted by the variable-only policy/parser flow.
 
-- [ ] **Step 4: Implement semantic statement and expression validation**
+- [x] **Step 4: Implement semantic statement and expression validation**
 
 Use explicit property traversal rather than default visitor traversal so parser tokens are not accidentally treated as executable nodes. Count every visited semantic statement/expression and reject more than 10,000 nodes or depth greater than 64.
 
@@ -735,7 +735,7 @@ private void ValidateCondition(ScriptExpression? expression, int depth)
 
 `ValidateComparablePair` permits two variable/string operands or two Boolean literals. `ValidateVariablePath` permits only `ScriptVariableGlobal` and `ScriptMemberExpression` chains whose dot token is a normal dot and whose members are global identifier nodes. `ValidateBlock` iterates statements; `ValidateElse` accepts null, `ScriptElseStatement`, or an `IsElseIf` `ScriptIfStatement`. Policy exceptions never store a node, span, token, variable name, or template fragment.
 
-- [ ] **Step 5: Run policy GREEN and commit**
+- [x] **Step 5: Run policy GREEN and commit**
 
 Run the command from Step 3 twice. Expected: all allowed and forbidden cases pass, zero skipped.
 
@@ -752,7 +752,7 @@ git commit -m "feat(infrastructure): restrict Scriban template grammar"
 - Modify: `src/DevForge.Infrastructure/Templates/RestrictedScribanTemplateRenderer.cs`
 - Create: `tests/DevForge.IntegrationTests/Infrastructure/Templates/TemplateRendererSecurityTests.cs`
 
-- [ ] **Step 1: Write failing stable-error and non-leakage tests**
+- [x] **Step 1: Write failing stable-error and non-leakage tests**
 
 For parse, policy, missing-variable, output-limit, and render failures, assert exact `Code`, exact fixed `Message`, null `InnerException`, and absence of the template marker, context name, context value, rendered partial output, Scriban message, source span, and credential fixture in `exception.ToString()`.
 
@@ -778,7 +778,7 @@ public async Task RenderAsync_MissingVariableReturnsOnlyStableScrubbedFailure()
 
 Also assert a credential-shaped context value is rejected by `TemplateRenderRequest.Create` before rendering and does not appear in any validation issue.
 
-- [ ] **Step 2: Write failing node/depth/output/cancellation tests**
+- [x] **Step 2: Write failing node/depth/output/cancellation tests**
 
 - Generate 10,001 `{{ value }}` nodes under the 1 MiB request limit and expect `template.policy.forbidden`.
 - Generate 65 nested parenthesized Boolean conditions and expect `template.policy.forbidden`.
@@ -787,7 +787,7 @@ Also assert a credential-shaped context value is rejected by `TemplateRenderRequ
 - Construct `BoundedTemplateOutput` through the Infrastructure friend boundary, write once, cancel, and assert the next synchronous and asynchronous writes throw `OperationCanceledException` without changing retained output.
 - Run 32 concurrent failing renders and assert each exception contains only its fixed code/message.
 
-- [ ] **Step 3: Run security RED**
+- [x] **Step 3: Run security RED**
 
 ```powershell
 ..\..\.tools\dotnet\dotnet.exe test tests\DevForge.IntegrationTests\DevForge.IntegrationTests.csproj --configuration Release --filter FullyQualifiedName~TemplateRendererSecurityTests
@@ -795,7 +795,7 @@ Also assert a credential-shaped context value is rejected by `TemplateRenderRequ
 
 Expected: the focused suite fails on the first unimplemented exception-chain, limit, or cancellation assertion; the failure identifies the exact test method.
 
-- [ ] **Step 4: Complete safe exception classification**
+- [x] **Step 4: Complete safe exception classification**
 
 Traverse only exception types, never messages, to recognize internal markers:
 
@@ -817,7 +817,7 @@ private static bool Contains<TException>(Exception? exception)
 
 Map `ScriptAbortException` and direct `OperationCanceledException` to cancellation. Map marker chains before the generic `ScriptRuntimeException` catch. Do not persist, log, return, or attach the caught Scriban exception. Fatal runtime exceptions (`OutOfMemoryException`, `StackOverflowException`, `AccessViolationException`) remain outside broad catches.
 
-- [ ] **Step 5: Run security and all renderer GREEN, then commit**
+- [x] **Step 5: Run security and all renderer GREEN, then commit**
 
 ```powershell
 ..\..\.tools\dotnet\dotnet.exe test tests\DevForge.IntegrationTests\DevForge.IntegrationTests.csproj --configuration Release --filter FullyQualifiedName~Templates
@@ -841,19 +841,19 @@ git commit -m "test(infrastructure): harden template rendering boundaries"
 - Modify: `docs/implementation-status.md`
 - Modify: `CHANGELOG.md`
 
-- [ ] **Step 1: Write ADR-0006**
+- [x] **Step 1: Write ADR-0006**
 
 Record status `Accepted`, the discovered M3 specification gap, exact Scriban 7.2.5 pin, Infrastructure-only ownership, closed AST grammar, empty built-ins, frozen string-only model, limits, cancellation, scrubbed errors, and consequences. State that M4 consumes the renderer port but does not widen its language.
 
-- [ ] **Step 2: Correct M3 design and executed-plan counts**
+- [x] **Step 2: Correct M3 design and executed-plan counts**
 
 Change references from five to six M3 production-backed ports and add `ITemplateRenderer` to the architecture flow, expected files, tests, and exit gate. Preserve the historical evidence for the original five-port checkpoint and append a dated closure section; do not rewrite old command results as though the renderer existed then.
 
-- [ ] **Step 3: Keep implementation status honest before the final gate**
+- [x] **Step 3: Keep implementation status honest before the final gate**
 
 Set M3 to `Verification in progress` while code is present but the full exit gate is not yet fresh. Add the approved closure design, this plan, and ADR link. Do not mark M3 complete or recommend M4 until Task 7 succeeds.
 
-- [ ] **Step 4: Commit documentation structure**
+- [x] **Step 4: Commit documentation structure**
 
 ```powershell
 git add docs/decisions/0006-restricted-scriban-template-runtime.md docs/superpowers/specs/2026-08-10-m3-core-infrastructure-design.md docs/superpowers/plans/2026-08-10-m3-core-infrastructure.md docs/implementation-plan.md docs/implementation-status.md CHANGELOG.md
@@ -867,7 +867,7 @@ git commit -m "docs: record restricted template runtime decision"
 - Modify: `docs/implementation-plan.md`
 - Modify: `docs/superpowers/plans/2026-08-11-m3-restricted-template-renderer-closure.md`
 
-- [ ] **Step 1: Format and inspect the exact diff**
+- [x] **Step 1: Format and inspect the exact diff**
 
 ```powershell
 ..\..\.tools\dotnet\dotnet.exe format DevForge.sln --no-restore --verbosity minimal
@@ -879,7 +879,7 @@ git diff --name-only
 
 Expected: format and diff checks exit 0; every changed path appears in the approved file map or is a restore-generated dependent lock file whose graph was inspected.
 
-- [ ] **Step 2: Run locked restore, Release build, and the full solution**
+- [x] **Step 2: Run locked restore, Release build, and the full solution**
 
 ```powershell
 ..\..\.tools\dotnet\dotnet.exe restore DevForge.sln --locked-mode --verbosity minimal
@@ -889,7 +889,7 @@ Expected: format and diff checks exit 0; every changed path appears in the appro
 
 Expected: every command exits 0; Release build reports 0 warnings and 0 errors; every discovered test passes with 0 failed and 0 skipped renderer/M3 tests.
 
-- [ ] **Step 3: Run focused contract, architecture, renderer, and M3 suites**
+- [x] **Step 3: Run focused contract, architecture, renderer, and M3 suites**
 
 ```powershell
 ..\..\.tools\dotnet\dotnet.exe test tests\DevForge.UnitTests\DevForge.UnitTests.csproj --configuration Release --no-build --no-restore --filter "FullyQualifiedName~TemplateRenderRequestTests|FullyQualifiedName~TemplateRendererDependencyTests|FullyQualifiedName~PrivacyTests"
@@ -900,11 +900,11 @@ Expected: every command exits 0; Release build reports 0 warnings and 0 errors; 
 
 Expected: all four commands exit 0 with zero failed and zero skipped.
 
-- [ ] **Step 4: Record exact evidence and mark M3 complete**
+- [x] **Step 4: Record exact evidence and mark M3 complete**
 
 Copy the actual SDK version, command text, exit codes, project counts, test counts, warning/error counts, and skipped counts into `docs/implementation-status.md`. Mark the closure checklist and this plan complete only from those fresh results. Set the recommended next milestone to M4 only after every gate above is green.
 
-- [ ] **Step 5: Verify documentation-only final diff and commit**
+- [x] **Step 5: Verify documentation-only final diff and commit**
 
 ```powershell
 git diff --check
@@ -915,6 +915,14 @@ git status --short
 ```
 
 Expected: commit succeeds and final `git status --short` is empty. Do not push.
+
+### Observed final evidence - 2026-08-11
+
+- SDK 10.0.302; locked restore and format verification exited 0.
+- Release build compiled all 12 projects with 0 warnings and 0 errors.
+- Full solution: UnitTests 304, BlueprintTests 76, IntegrationTests 149; total 529 passed, 0 failed, 0 skipped. The future E2E host has no tests.
+- Focused renderer contract/privacy 40/40, renderer integration/security 58/58, Unit architecture/Infrastructure 42/42, and Infrastructure integration 122/122 all passed with 0 skipped.
+- `git diff --check` reported no whitespace errors and the changed paths matched the approved file responsibility map plus restore-generated dependent lock files.
 
 ## Exit gate
 
