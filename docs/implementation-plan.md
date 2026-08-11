@@ -44,3 +44,7 @@ M4 excludes execution, staging, orchestration, WPF workflows, Git/GitHub behavio
 M4 passes only when valid built-in/trusted-local fixtures load, malicious/invalid packages quarantine deterministically, non-executable trust states cannot resolve, rule/schema/tool/engine failures are covered, plan/hash snapshots are stable and mutation-sensitive, refresh is atomic, no production blueprint is added, and all locked restore/format/build/full/focused gates pass with zero skipped M4 tests.
 
 All conditions passed. The next specification milestone is M5 - Orchestrator, staging, retry/resume, and finalizer.
+
+## Active M5 plan
+
+M5 is governed by `docs/superpowers/specs/2026-08-11-m5-recoverable-orchestration-design.md`, `docs/superpowers/plans/2026-08-11-m5-recoverable-orchestration.md`, and ADR-0008. Work is divided into Domain lifecycle, execution contracts, checkpoint persistence, owned staging, exact blueprint reopening, closed handlers, retry/resume orchestration, validation/finalization/reporting, interrupted-run recovery, and the final exit gate. No M6 UI or M8 Git/GitHub behavior is included.

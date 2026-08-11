@@ -1,8 +1,14 @@
 # DevForge Studio Implementation Status
 
 **Current milestone:** M5 - Orchestrator, Staging, Retry/Resume, and Finalizer
-**Status:** M4 complete; M5 design and implementation not started
+**Status:** M4 complete; M5 design approved and implementation starting
 **Last updated:** 2026-08-11
+
+## Current M5 scope
+
+The approved design is `docs/superpowers/specs/2026-08-11-m5-recoverable-orchestration-design.md`, the executable TDD plan is `docs/superpowers/plans/2026-08-11-m5-recoverable-orchestration.md`, and ADR-0008 fixes checkpoint, marker, retry/resume, interruption, validation, and finalization decisions. M5 is limited to the execution engine and recovery boundary. WPF composition, Git/GitHub, production blueprints, release packaging, and catalog expansion remain deferred.
+
+Implementation has not begun. The first task is the Domain lifecycle/retry model; its exit gate requires guarded immutable states and no Domain dependency on filesystem, process, persistence, or UI APIs.
 
 ## M4 completed scope
 
@@ -27,7 +33,7 @@ Fresh local verification on 2026-08-11 used workspace-local .NET SDK 10.0.302:
 | Planning/Blueprint/Architecture | `dotnet test tests/DevForge.UnitTests/DevForge.UnitTests.csproj --configuration Release --no-build --no-restore --filter "FullyQualifiedName~Planning\|FullyQualifiedName~Blueprint\|FullyQualifiedName~Architecture"` | Exit 0; 117 passed, 0 failed, 0 skipped. |
 | Blueprint integration/security | `dotnet test tests/DevForge.IntegrationTests/DevForge.IntegrationTests.csproj --configuration Release --no-build --no-restore --filter FullyQualifiedName~Blueprints` | Exit 0; 82 passed, 0 failed, 0 skipped. |
 
-The next specification milestone is M5. Execution, staging, retry/resume, rollback/finalization, and run orchestration remain deferred to that milestone.
+The next specification milestone is M5. Execution, staging, retry/resume, rollback/finalization, and run orchestration are now the active scope.
 
 ## Current M3 scope
 
