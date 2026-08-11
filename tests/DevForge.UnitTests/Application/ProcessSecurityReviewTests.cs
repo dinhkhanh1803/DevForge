@@ -87,6 +87,28 @@ public sealed class ProcessSecurityReviewTests
         Assert.Contains(result.Issues, issue => issue.Code == "process.argument.raw-mode-forbidden");
     }
 
+    [Theory]
+    [InlineData("node", "--no-warnings", "--eval=process.exit()")]
+    [InlineData("node", "--trace-warnings", "-eprocess.exit()")]
+    [InlineData("npx", "--yes", "--call=unsafe")]
+    public void CommandSpecRejectsPrefixedAndNonLeadingRawModes(
+        string executable,
+        string first,
+        string rawMode)
+    {
+        var result = CommandSpec.Create(
+            ExecutableIdentity.Create(executable).Value,
+            [first, rawMode],
+            new StubWorkspaceFileSystem(),
+            WorkspaceRelativePath.Create("build").Value,
+            [],
+            TimeSpan.FromMinutes(1),
+            [0],
+            []);
+
+        Assert.Contains(result.Issues, issue => issue.Code == "process.argument.raw-mode-forbidden");
+    }
+
     [Fact]
     public void CommandSpecCarriesScopedWorkspaceAndEphemeralSensitiveValuesWithoutLeakage()
     {

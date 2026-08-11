@@ -104,6 +104,8 @@ internal sealed class ClosedExecutionHandlerRegistry : IExecutionHandlerRegistry
     {
         public string Id { get; } = id;
 
+        public ExecutionResumeBehavior ResumeBehavior => ExecutionResumeBehavior.RerunExecution;
+
         public Task<ExecutionHandlerResult> PrepareAsync(
             ExecutionHandlerRequest request,
             CancellationToken cancellationToken) => ResultAsync(ExecutionPhase.Prepare, cancellationToken);

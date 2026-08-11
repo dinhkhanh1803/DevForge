@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using DevForge.Application.Contracts;
 using DevForge.Infrastructure.FileSystem;
 
@@ -5,15 +6,35 @@ namespace DevForge.Infrastructure.Processes;
 
 internal sealed class TrustedExecutableResolver : ITrustedExecutableResolver
 {
-    public string Resolve(ExecutableIdentity executable)
+    private readonly string? _pathValue;
+    private readonly string? _dotNetHostPath;
+
+    public TrustedExecutableResolver()
+        : this(
+            System.Environment.GetEnvironmentVariable("PATH"),
+            System.Environment.GetEnvironmentVariable("DOTNET_HOST_PATH"))
+    {
+    }
+
+    internal TrustedExecutableResolver(string? pathValue, string? dotNetHostPath)
+    {
+        _pathValue = pathValue;
+        _dotNetHostPath = dotNetHostPath;
+    }
+
+    public TrustedExecutableLaunch Resolve(ExecutableIdentity executable)
     {
         ArgumentNullException.ThrowIfNull(executable);
 
         foreach (var candidate in EnumerateCandidates(executable))
         {
-            if (IsTrustedExecutableFile(candidate))
+            if (IsTrustedExecutableFile(candidate.ExecutablePath)
+                && IsTrustedPrefix(candidate.PrefixArguments, executable))
             {
-                return Path.GetFullPath(candidate);
+                return new TrustedExecutableLaunch(
+                    Path.GetFullPath(candidate.ExecutablePath),
+                    [.. candidate.PrefixArguments.Select(argument =>
+                        Path.IsPathFullyQualified(argument) ? Path.GetFullPath(argument) : argument)]);
             }
         }
 
@@ -22,29 +43,74 @@ internal sealed class TrustedExecutableResolver : ITrustedExecutableResolver
             "The trusted executable could not be resolved.");
     }
 
-    private static IEnumerable<string> EnumerateCandidates(ExecutableIdentity executable)
+    private IEnumerable<TrustedExecutableLaunch> EnumerateCandidates(
+        ExecutableIdentity executable)
     {
         if (executable.Tool == ExecutableTool.DotNet)
         {
-            var configuredHost = System.Environment.GetEnvironmentVariable("DOTNET_HOST_PATH");
-            if (!string.IsNullOrWhiteSpace(configuredHost))
+            if (!string.IsNullOrWhiteSpace(_dotNetHostPath))
             {
-                yield return configuredHost;
+                yield return new TrustedExecutableLaunch(_dotNetHostPath, []);
             }
         }
 
-        var pathValue = System.Environment.GetEnvironmentVariable("PATH");
-        if (string.IsNullOrWhiteSpace(pathValue))
+        foreach (var candidate in EnumeratePathFiles(executable.ExecutableName + ".exe"))
+        {
+            yield return new TrustedExecutableLaunch(candidate, []);
+        }
+
+        if (executable.Tool is not (ExecutableTool.Npm
+            or ExecutableTool.Npx
+            or ExecutableTool.Pnpm
+            or ExecutableTool.Yarn))
         {
             yield break;
         }
 
-        var executableFileName = executable.ExecutableName + ".exe";
-        foreach (var directory in pathValue.Split(
+        foreach (var nodePath in EnumeratePathFiles("node.exe"))
+        {
+            var nodeDirectory = Path.GetDirectoryName(nodePath);
+            if (nodeDirectory is null)
+            {
+                continue;
+            }
+
+            if (executable.Tool is ExecutableTool.Npm or ExecutableTool.Npx)
+            {
+                var script = Path.Combine(
+                    nodeDirectory,
+                    "node_modules",
+                    "npm",
+                    "bin",
+                    executable.Tool == ExecutableTool.Npm ? "npm-cli.js" : "npx-cli.js");
+                yield return new TrustedExecutableLaunch(nodePath, [script]);
+                continue;
+            }
+
+            var corepack = Path.Combine(
+                nodeDirectory,
+                "node_modules",
+                "corepack",
+                "dist",
+                "corepack.js");
+            yield return new TrustedExecutableLaunch(
+                nodePath,
+                [corepack, executable.ExecutableName]);
+        }
+    }
+
+    private IEnumerable<string> EnumeratePathFiles(string fileName)
+    {
+        if (string.IsNullOrWhiteSpace(_pathValue))
+        {
+            yield break;
+        }
+
+        foreach (var directory in _pathValue.Split(
                      Path.PathSeparator,
                      StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
-            yield return Path.Combine(directory, executableFileName);
+            yield return Path.Combine(directory, fileName);
         }
     }
 
@@ -67,5 +133,15 @@ internal sealed class TrustedExecutableResolver : ITrustedExecutableResolver
         {
             return false;
         }
+    }
+
+    private static bool IsTrustedPrefix(
+        ImmutableArray<string> prefixArguments,
+        ExecutableIdentity executable)
+    {
+        return prefixArguments.IsEmpty
+            || IsTrustedExecutableFile(prefixArguments[0])
+                && prefixArguments.Skip(1).All(argument =>
+                    StringComparer.Ordinal.Equals(argument, executable.ExecutableName));
     }
 }

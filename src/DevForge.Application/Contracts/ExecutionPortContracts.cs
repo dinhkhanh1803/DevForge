@@ -158,14 +158,24 @@ public sealed class ExecutionHandlerRequest
 {
     private ExecutionHandlerRequest(
         string runId,
-        ExecutionStep step,
+        string itemId,
+        string handlerId,
+        ImmutableDictionary<string, PlanValue> inputs,
+        TimeSpan timeout,
+        bool isValidator,
+        bool required,
         ExecutionPlan plan,
         StagingWorkspace staging,
         BlueprintExecutionPackage blueprintPackage,
         ImmutableSortedDictionary<string, string> templateContext)
     {
         RunId = runId;
-        Step = step;
+        ItemId = itemId;
+        HandlerId = handlerId;
+        Inputs = inputs;
+        Timeout = timeout;
+        IsValidator = isValidator;
+        Required = required;
         Plan = plan;
         Staging = staging;
         BlueprintPackage = blueprintPackage;
@@ -174,7 +184,17 @@ public sealed class ExecutionHandlerRequest
 
     public string RunId { get; }
 
-    public ExecutionStep Step { get; }
+    public string ItemId { get; }
+
+    public string HandlerId { get; }
+
+    public ImmutableDictionary<string, PlanValue> Inputs { get; }
+
+    public TimeSpan Timeout { get; }
+
+    public bool IsValidator { get; }
+
+    public bool Required { get; }
 
     public ExecutionPlan Plan { get; }
 
@@ -191,6 +211,59 @@ public sealed class ExecutionHandlerRequest
         BlueprintExecutionPackage? blueprintPackage,
         ExecutionPlan? plan)
     {
+        return CreateCore(
+            runId,
+            step?.Id,
+            step?.Handler,
+            step?.Inputs,
+            step?.Timeout ?? default,
+            isValidator: false,
+            required: true,
+            step is not null && plan is not null
+                && plan.Steps.Any(candidate => ReferenceEquals(candidate, step)),
+            "step",
+            staging,
+            blueprintPackage,
+            plan);
+    }
+
+    public static ValidationResult<ExecutionHandlerRequest> Create(
+        string? runId,
+        ExecutionValidator? validator,
+        StagingWorkspace? staging,
+        BlueprintExecutionPackage? blueprintPackage,
+        ExecutionPlan? plan)
+    {
+        return CreateCore(
+            runId,
+            validator?.Id,
+            validator?.Handler,
+            validator?.Inputs,
+            validator?.Timeout ?? default,
+            isValidator: true,
+            validator?.Required ?? false,
+            validator is not null && plan is not null
+                && plan.Validators.Any(candidate => ReferenceEquals(candidate, validator)),
+            "validator",
+            staging,
+            blueprintPackage,
+            plan);
+    }
+
+    private static ValidationResult<ExecutionHandlerRequest> CreateCore(
+        string? runId,
+        string? itemId,
+        string? handlerId,
+        ImmutableDictionary<string, PlanValue>? inputs,
+        TimeSpan timeout,
+        bool isValidator,
+        bool required,
+        bool planOwnsItem,
+        string itemLocation,
+        StagingWorkspace? staging,
+        BlueprintExecutionPackage? blueprintPackage,
+        ExecutionPlan? plan)
+    {
         var issues = new List<ValidationIssue>();
         if (!ExecutionContractValidation.IsBoundedIdentifier(runId))
         {
@@ -200,24 +273,34 @@ public sealed class ExecutionHandlerRequest
                 "runId"));
         }
 
-        AddRequired(step, "step", issues);
+        if (itemId is null || handlerId is null || inputs is null || timeout <= TimeSpan.Zero)
+        {
+            issues.Add(new ValidationIssue(
+                $"handler.request.{itemLocation}.required",
+                "A valid execution plan item is required.",
+                itemLocation));
+        }
+
         AddRequired(plan, "plan", issues);
         AddRequired(staging, "staging", issues);
         AddRequired(blueprintPackage, "blueprintPackage", issues);
-        if (step is not null
-            && plan is not null
-            && !plan.Steps.Any(candidate => ReferenceEquals(candidate, step)))
+        if (itemId is not null && plan is not null && !planOwnsItem)
         {
             issues.Add(new ValidationIssue(
-                "handler.request.step.plan-mismatch",
-                "The execution step must be owned by the supplied hashed plan.",
-                "step"));
+                $"handler.request.{itemLocation}.plan-mismatch",
+                "The execution item must be owned by the supplied hashed plan.",
+                itemLocation));
         }
 
         return issues.Count == 0
             ? ValidationResult.Success(new ExecutionHandlerRequest(
                 runId!,
-                step!,
+                itemId!,
+                handlerId!,
+                inputs!,
+                timeout,
+                isValidator,
+                required,
                 plan!,
                 staging!,
                 blueprintPackage!,
@@ -559,9 +642,18 @@ public interface IGenerationReportWriter
         CancellationToken cancellationToken);
 }
 
+public enum ExecutionResumeBehavior
+{
+    RevalidatePostcondition = 1,
+    RerunExecution = 2,
+    ReplayFromFreshStaging = 3,
+}
+
 public interface IExecutionHandler
 {
     string Id { get; }
+
+    ExecutionResumeBehavior ResumeBehavior { get; }
 
     Task<ExecutionHandlerResult> PrepareAsync(
         ExecutionHandlerRequest request,

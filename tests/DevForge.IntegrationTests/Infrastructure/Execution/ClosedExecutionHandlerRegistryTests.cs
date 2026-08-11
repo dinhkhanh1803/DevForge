@@ -168,6 +168,8 @@ public sealed class ClosedExecutionHandlerRegistryTests
     {
         public string Id { get; } = id;
 
+        public ExecutionResumeBehavior ResumeBehavior => ExecutionResumeBehavior.RevalidatePostcondition;
+
         public Task<ExecutionHandlerResult> PrepareAsync(
             ExecutionHandlerRequest request,
             CancellationToken cancellationToken) => throw new NotSupportedException();

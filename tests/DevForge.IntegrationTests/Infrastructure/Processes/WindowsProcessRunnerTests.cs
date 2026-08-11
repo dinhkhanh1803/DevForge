@@ -28,6 +28,72 @@ public sealed class WindowsProcessRunnerTests
     }
 
     [Fact]
+    public async Task TrustedNodeBackedToolPrefixRemainsSeparatedFromPackageArguments()
+    {
+        await using var fixture = await ProcessFixture.CreateAsync();
+        var runner = new WindowsProcessRunner(new FixedExecutableResolver(
+            ProcessFixture.FindDotNetHost(),
+            [fixture.HelperAssemblyPath]));
+        var command = CommandSpec.Create(
+            ExecutableIdentity.Create("npm").Value,
+            ["echo-args", "package-value"],
+            fixture.Workspace,
+            WorkspaceRelativePath.Create("work").Value,
+            [],
+            TimeSpan.FromSeconds(10),
+            [0],
+            []).Value;
+
+        var result = await runner.RunAsync(command, null, default);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains(result.RetainedLines, line => line.Text.Value == "ARG[0]=package-value");
+    }
+
+    [Fact]
+    public void PackageManagerShimsResolveThroughNodeWithoutShellExecution()
+    {
+        var root = Path.Combine(
+            Path.GetTempPath(),
+            $"DevForge-TrustedResolver-{Guid.NewGuid():N}");
+        var npmBin = Path.Combine(root, "node_modules", "npm", "bin");
+        var corepackBin = Path.Combine(root, "node_modules", "corepack", "dist");
+
+        try
+        {
+            Directory.CreateDirectory(npmBin);
+            Directory.CreateDirectory(corepackBin);
+            var node = Path.Combine(root, "node.exe");
+            var npm = Path.Combine(npmBin, "npm-cli.js");
+            var corepack = Path.Combine(corepackBin, "corepack.js");
+            File.WriteAllBytes(node, [0]);
+            File.WriteAllText(npm, string.Empty);
+            File.WriteAllText(corepack, string.Empty);
+            var resolver = new TrustedExecutableResolver(root, dotNetHostPath: null);
+
+            var npmLaunch = resolver.Resolve(ExecutableIdentity.Create("npm").Value);
+            var pnpmLaunch = resolver.Resolve(ExecutableIdentity.Create("pnpm").Value);
+
+            Assert.Equal(Path.GetFullPath(node), npmLaunch.ExecutablePath);
+            Assert.Equal([Path.GetFullPath(npm)], npmLaunch.PrefixArguments.ToArray());
+            Assert.Equal(Path.GetFullPath(node), pnpmLaunch.ExecutablePath);
+            Assert.Equal(
+                [Path.GetFullPath(corepack), "pnpm"],
+                pnpmLaunch.PrefixArguments.ToArray());
+        }
+        finally
+        {
+            if (Directory.Exists(root)
+                && Path.GetFileName(root).StartsWith(
+                    "DevForge-TrustedResolver-",
+                    StringComparison.Ordinal))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task StandardOutputAndErrorAreRedirectedAndReported()
     {
         await using var fixture = await ProcessFixture.CreateAsync();
@@ -94,16 +160,21 @@ public sealed class WindowsProcessRunnerTests
     public async Task LargeOutputIsDrainedButRetentionRemainsBounded()
     {
         await using var fixture = await ProcessFixture.CreateAsync();
+        var progress = new RecordingProgress();
 
         var result = await fixture.Runner.RunAsync(
             fixture.CreateCommand(["large-output", "400", "500"]),
-            null,
+            progress,
             CancellationToken.None);
 
         Assert.Equal(ProcessTerminationReason.Exited, result.TerminationReason);
         Assert.True(result.IsOutputTruncated);
         Assert.True(result.RetainedLines.Length <= ProcessResult.MaxRetainedOutputLines);
         Assert.True(result.RetainedCharacterCount <= ProcessResult.MaxRetainedOutputCharacters);
+        Assert.True(progress.Lines.Count <= ProcessResult.MaxRetainedOutputLines);
+        Assert.True(
+            progress.Lines.Sum(line => line.Text.Value.Length)
+                <= ProcessResult.MaxRetainedOutputCharacters);
     }
 
     [Fact]
@@ -265,11 +336,15 @@ public sealed class WindowsProcessRunnerTests
         }
     }
 
-    private sealed class FixedExecutableResolver(string executablePath) : ITrustedExecutableResolver
+    private sealed class FixedExecutableResolver(
+        string executablePath,
+        ImmutableArray<string> prefixArguments = default) : ITrustedExecutableResolver
     {
-        public string Resolve(ExecutableIdentity executable)
+        public TrustedExecutableLaunch Resolve(ExecutableIdentity executable)
         {
-            return executablePath;
+            return new TrustedExecutableLaunch(
+                executablePath,
+                prefixArguments.IsDefault ? [] : prefixArguments);
         }
     }
 
@@ -353,7 +428,7 @@ public sealed class WindowsProcessRunnerTests
             return WorkspaceRelativePath.Create(value).Value;
         }
 
-        private static string FindDotNetHost()
+        public static string FindDotNetHost()
         {
             var configured = System.Environment.GetEnvironmentVariable("DOTNET_HOST_PATH");
             if (!string.IsNullOrWhiteSpace(configured) && File.Exists(configured))

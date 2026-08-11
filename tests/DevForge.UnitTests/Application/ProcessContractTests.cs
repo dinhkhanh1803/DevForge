@@ -115,6 +115,55 @@ public sealed class ProcessContractTests
             result.Issues.Select(issue => issue.Code));
     }
 
+    [Fact]
+    public void CommandSpecRejectsUnboundedProcessCollectionsAndTimeouts()
+    {
+        var executable = ExecutableIdentity.Create("dotnet").Value;
+        var workspace = new StubWorkspaceFileSystem();
+        var directory = WorkspaceRelativePath.Create("src").Value;
+        var tooManyArguments = CommandSpec.Create(
+            executable,
+            Enumerable.Repeat<string?>("x", CommandSpec.MaxArgumentCount + 1),
+            workspace,
+            directory,
+            [],
+            TimeSpan.FromMinutes(1),
+            [0],
+            []);
+        var tooMuchArgumentText = CommandSpec.Create(
+            executable,
+            [new string('x', CommandSpec.MaxTotalArgumentLength + 1)],
+            workspace,
+            directory,
+            [],
+            TimeSpan.FromMinutes(1),
+            [0],
+            []);
+        var tooManyExitCodes = CommandSpec.Create(
+            executable,
+            ["build"],
+            workspace,
+            directory,
+            [],
+            TimeSpan.FromMinutes(1),
+            Enumerable.Range(0, CommandSpec.MaxAllowedExitCodes + 1),
+            []);
+        var excessiveTimeout = CommandSpec.Create(
+            executable,
+            ["build"],
+            workspace,
+            directory,
+            [],
+            CommandSpec.MaxTimeout + TimeSpan.FromTicks(1),
+            [0],
+            []);
+
+        Assert.Contains(tooManyArguments.Issues, issue => issue.Code == "process.argument.too-many");
+        Assert.Contains(tooMuchArgumentText.Issues, issue => issue.Code == "process.argument.total-too-large");
+        Assert.Contains(tooManyExitCodes.Issues, issue => issue.Code == "process.allowed-exit-codes.too-many");
+        Assert.Contains(excessiveTimeout.Issues, issue => issue.Code == "process.timeout.too-large");
+    }
+
     [Theory]
     [InlineData("{\"password\":\"correct-horse-battery-staple\"}")]
     [InlineData("<ApiToken>github_pat_12345678901234567890</ApiToken>")]

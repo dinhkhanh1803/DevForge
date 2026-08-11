@@ -33,20 +33,20 @@ internal sealed class BoundedProcessOutput
         {
             var boundedText = BoundLine(redactedText!);
             var line = ProcessOutputLine.Create(channel, boundedText).Value;
-            try
-            {
-                _progress?.Report(line);
-            }
-            catch (Exception exception) when (IsRecoverableObserverFailure(exception))
-            {
-            }
-
             if (_retainedLines.Count >= ProcessResult.MaxRetainedOutputLines
                 || _retainedCharacterCount + line.Text.Value.Length
                     > ProcessResult.MaxRetainedOutputCharacters)
             {
                 _isOutputTruncated = true;
                 return;
+            }
+
+            try
+            {
+                _progress?.Report(line);
+            }
+            catch (Exception exception) when (IsRecoverableObserverFailure(exception))
+            {
             }
 
             _retainedLines.Add(line);

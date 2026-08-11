@@ -32,10 +32,17 @@ internal sealed class WindowsInteractiveProcessLauncher : IInteractiveProcessLau
 
         try
         {
-            var executablePath = _executableResolver.Resolve(executable);
+            var resolved = _executableResolver.Resolve(executable);
+            if (!resolved.PrefixArguments.IsEmpty)
+            {
+                throw new InfrastructureOperationException(
+                    "DF-IDE-001",
+                    "The trusted IDE executable could not be resolved directly.");
+            }
+
             var guard = WorkspacePathGuard.Open(workspace.Root);
             var workspacePath = guard.RootPath;
-            var startInfo = new ProcessStartInfo(executablePath)
+            var startInfo = new ProcessStartInfo(resolved.ExecutablePath)
             {
                 UseShellExecute = false,
                 CreateNoWindow = false,

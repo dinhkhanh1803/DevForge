@@ -81,9 +81,9 @@ public sealed class WindowsIdeLauncherTests
 
     private sealed class FixedExecutableResolver(string executablePath) : ITrustedExecutableResolver
     {
-        public string Resolve(ExecutableIdentity executable)
+        public TrustedExecutableLaunch Resolve(ExecutableIdentity executable)
         {
-            return executablePath;
+            return new TrustedExecutableLaunch(executablePath, []);
         }
     }
 

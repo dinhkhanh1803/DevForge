@@ -20,6 +20,17 @@ public sealed class WindowsProcessRunner : IProcessRunner
             ?? throw new ArgumentNullException(nameof(executableResolver));
     }
 
+    public Task CheckPreconditionsAsync(
+        CommandSpec command,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        cancellationToken.ThrowIfCancellationRequested();
+        _ = ResolveExecutable(command.Executable);
+        _ = ResolveWorkingDirectory(command);
+        return Task.CompletedTask;
+    }
+
     public async Task<ProcessResult> RunAsync(
         CommandSpec command,
         IProgress<ProcessOutputLine>? progress,
@@ -32,11 +43,11 @@ public sealed class WindowsProcessRunner : IProcessRunner
             return output.CreateResult(ProcessTerminationReason.Cancelled, null);
         }
 
-        var executablePath = ResolveExecutable(command.Executable);
+        var executable = ResolveExecutable(command.Executable);
         var workingDirectory = ResolveWorkingDirectory(command);
         using var process = new Process
         {
-            StartInfo = CreateStartInfo(command, executablePath, workingDirectory),
+            StartInfo = CreateStartInfo(command, executable, workingDirectory),
         };
 
         StartProcess(process);
@@ -75,10 +86,10 @@ public sealed class WindowsProcessRunner : IProcessRunner
 
     private static ProcessStartInfo CreateStartInfo(
         CommandSpec command,
-        string executablePath,
+        TrustedExecutableLaunch executable,
         string workingDirectory)
     {
-        var startInfo = new ProcessStartInfo(executablePath)
+        var startInfo = new ProcessStartInfo(executable.ExecutablePath)
         {
             UseShellExecute = false,
             CreateNoWindow = true,
@@ -86,6 +97,11 @@ public sealed class WindowsProcessRunner : IProcessRunner
             RedirectStandardError = true,
             WorkingDirectory = workingDirectory,
         };
+        foreach (var prefixArgument in executable.PrefixArguments)
+        {
+            startInfo.ArgumentList.Add(prefixArgument);
+        }
+
         foreach (var argument in command.ArgumentList)
         {
             startInfo.ArgumentList.Add(argument);
@@ -105,7 +121,9 @@ public sealed class WindowsProcessRunner : IProcessRunner
         try
         {
             var guard = WorkspacePathGuard.Open(command.Workspace.Root);
-            var workingDirectory = guard.Resolve(command.WorkingDirectory);
+            var workingDirectory = command.UsesWorkspaceRoot
+                ? guard.RootPath
+                : guard.Resolve(command.WorkingDirectory!);
             guard.VerifyExisting(workingDirectory);
             if (!Directory.Exists(workingDirectory))
             {
@@ -128,22 +146,22 @@ public sealed class WindowsProcessRunner : IProcessRunner
         }
     }
 
-    private string ResolveExecutable(ExecutableIdentity executable)
+    private TrustedExecutableLaunch ResolveExecutable(ExecutableIdentity executable)
     {
         try
         {
             var resolved = _executableResolver.Resolve(executable);
-            if (string.IsNullOrWhiteSpace(resolved)
-                || !Path.IsPathFullyQualified(resolved)
-                || resolved.StartsWith(@"\\", StringComparison.Ordinal)
-                || !File.Exists(resolved))
+            if (string.IsNullOrWhiteSpace(resolved.ExecutablePath)
+                || !Path.IsPathFullyQualified(resolved.ExecutablePath)
+                || resolved.ExecutablePath.StartsWith(@"\\", StringComparison.Ordinal)
+                || !File.Exists(resolved.ExecutablePath))
             {
                 throw new InfrastructureOperationException(
                     "DF-PROC-001",
                     "The trusted executable could not be resolved.");
             }
 
-            var attributes = File.GetAttributes(resolved);
+            var attributes = File.GetAttributes(resolved.ExecutablePath);
             if ((attributes & (FileAttributes.Directory | FileAttributes.ReparsePoint)) != 0)
             {
                 throw new InfrastructureOperationException(
@@ -151,7 +169,9 @@ public sealed class WindowsProcessRunner : IProcessRunner
                     "The trusted executable could not be resolved.");
             }
 
-            return Path.GetFullPath(resolved);
+            return new TrustedExecutableLaunch(
+                Path.GetFullPath(resolved.ExecutablePath),
+                resolved.PrefixArguments);
         }
         catch (InfrastructureOperationException)
         {

@@ -102,7 +102,7 @@ public sealed class ProcessOutputRedactionTests
     }
 
     [Fact]
-    public async Task ConcurrentStandardStreamsRemainBoundedAndReportEveryRedactedLine()
+    public async Task ConcurrentStandardStreamsBoundRetentionAndObserverProgress()
     {
         var progress = new RecordingProgress();
         var output = new BoundedProcessOutput([], progress);
@@ -125,7 +125,7 @@ public sealed class ProcessOutputRedactionTests
         await Task.WhenAll(producers);
         var result = output.CreateResult(ProcessTerminationReason.Exited, 0);
 
-        Assert.Equal(producerCount * linesPerProducer, progress.Lines.Count);
+        Assert.Equal(ProcessResult.MaxRetainedOutputLines, progress.Lines.Count);
         Assert.True(result.IsOutputTruncated);
         Assert.Equal(ProcessResult.MaxRetainedOutputLines, result.RetainedLines.Length);
     }

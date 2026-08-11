@@ -32,3 +32,4 @@ All notable DevForge Studio changes are documented here.
 - Exact M5 blueprint reopening through the guarded M4 loader with current trust rechecks, immutable verified execution bytes, cancellation-safe publication, and privacy-safe failures.
 - Closed trust-scoped M5 handler dispatch and bounded one-pass typed runtime placeholder materialization without reflection or direct process access.
 - Guarded M5 create/render/overlay and JSON/YAML/XML handlers with plan-hashed renderer context, strict reparse-before-publish transforms, atomic file replacement, exact `.env` policy, and transient-only retries.
+- Closed M5 process and validator handlers with separated trusted executables/arguments, bounded redacted progress and evidence digests, safe Node-backed package-manager resolution, lifecycle-script suppression, pre/postcondition probing, timeout/cancellation classification, and fresh-staging replay for opaque process mutations.

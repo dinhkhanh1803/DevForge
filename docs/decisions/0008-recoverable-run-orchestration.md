@@ -24,6 +24,9 @@ M5 must execute immutable M4 plans without creating a half-finished target, pers
 - Mandatory validator or secret-scan failure prevents finalization and transitions to `ValidationFailed`. Optional validators become ordered report warnings. M5 ends a successful local generation at `LocalReady`; Git/GitHub completion remains M8.
 - Git/GitHub handlers stay reserved but non-executable in M5. They are composed only after local quality gates in M8.
 - File transforms publish only through guarded sibling-temporary atomic replacement after serialization is reparsed. Exact `.env` path segments are forbidden while benign names such as `.env.example` remain available; automatic retry is limited to classified I/O failures, never malformed content or template policy failures.
+- The M4 trust matrix remains authoritative: BuiltIn and TrustedLocal packages may request whitelisted process actions, but M5 narrows those actions to closed `dotnet` build/restore/test/format verbs and dependency restore/install verbs. Node/Npx, `dotnet run/exec/tool`, raw script modes, shell shims, and package lifecycle scripts are rejected. Node-backed package managers resolve to a verified `node.exe` plus a fixed CLI script prefix and still use separated `ArgumentList` entries.
+- Process mutations have no declared per-step output set. They therefore declare `ReplayFromFreshStaging`; retry or recovery must replace owned staging and replay the immutable plan from the beginning. A direct cleanup request against dirty staging fails closed with `DF-EXEC-003`.
+- Process output is always drained, redacted, retained, and reported through the same line/character bounds. Resume re-runs validators, while mutating process steps can never be skipped or repeated against an existing staging payload.
 
 ## Consequences
 

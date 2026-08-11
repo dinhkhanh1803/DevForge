@@ -1,14 +1,29 @@
 # DevForge Studio Implementation Status
 
 **Current milestone:** M5 - Orchestrator, Staging, Retry/Resume, and Finalizer
-**Status:** M4 complete; M5 Tasks 1-7 implemented and verified
+**Status:** M4 complete; M5 Tasks 1-8 implemented and verified
 **Last updated:** 2026-08-11
 
 ## Current M5 scope
 
 The approved design is `docs/superpowers/specs/2026-08-11-m5-recoverable-orchestration-design.md`, the executable TDD plan is `docs/superpowers/plans/2026-08-11-m5-recoverable-orchestration.md`, and ADR-0008 fixes checkpoint, marker, retry/resume, interruption, validation, and finalization decisions. M5 is limited to the execution engine and recovery boundary. WPF composition, Git/GitHub, production blueprints, release packaging, and catalog expansion remain deferred.
 
-Tasks 1-7 are implemented locally. Domain provides explicit bounded retry modes, canonical attempt output digests, interruption normalization, guarded resume, staging-cleanup eligibility, warning validation evidence, retry-mode-aware plan hashing, and deterministic template context snapshots. Application carries exact blueprint provenance and immutable guarded execution/checkpoint/staging/handler/finalization/recovery contracts; a handler request must now carry the exact plan instance that owns its step and derives renderer context only from that hashed plan. Infrastructure persists complete canonical checkpoints, manages atomic run-owned staging, reopens exact verified M4 blueprint bytes, dispatches only the closed ordinal M5 handler set, and implements guarded create/render/overlay plus closed JSON/YAML/XML handlers. Structured transforms are bounded, strictly reparsed before atomic publication, reject unsafe syntax and exact `.env` segments, and classify only I/O/`DF-FS-002` failures as retryable. Task 8 trusted process and validator handlers is the next active scope.
+Tasks 1-8 are implemented locally. Domain provides explicit bounded retry modes, canonical attempt output digests, interruption normalization, guarded resume, staging-cleanup eligibility, warning validation evidence, retry-mode-aware plan hashing, and deterministic template context snapshots. Application carries exact blueprint provenance and immutable guarded execution/checkpoint/staging/handler/finalization/recovery contracts; a handler request carries the exact plan-owned step or validator and exposes an explicit resume mode. Infrastructure persists complete canonical checkpoints, manages atomic run-owned staging, reopens exact verified M4 blueprint bytes, dispatches only the closed ordinal M5 handler set, implements guarded file transforms, and now executes closed trusted process/package/validator operations. Process execution uses separated arguments, guarded workspaces, bounded redacted evidence, safe Node-backed package resolution without a shell, and fresh-staging replay for opaque mutations. Task 9 checkpointed retry/resume orchestration is the next active scope.
+
+## M5 Task 8 checkpoint evidence
+
+Fresh local verification on 2026-08-11 used workspace-local .NET SDK 10.0.302:
+
+| Gate | Command | Exact result |
+| --- | --- | --- |
+| Locked restore | `dotnet restore DevForge.sln --locked-mode --verbosity minimal` | Exit 0; all projects were up-to-date from pinned lock files. |
+| Format | `dotnet format DevForge.sln --verify-no-changes --no-restore --verbosity minimal` | Exit 0; no formatting diagnostics. |
+| Release build | `dotnet build DevForge.sln --configuration Release --no-restore --verbosity minimal` | Exit 0; all 12 projects built; 0 warnings, 0 errors. |
+| Full solution test | `dotnet test DevForge.sln --configuration Release --no-build --no-restore --verbosity minimal` | Exit 0; UnitTests 433, BlueprintTests 108, IntegrationTests 350; total 891 passed, 0 failed, 0 skipped. The future E2E host contains no tests. |
+| Focused Task 8 unit | `dotnet test tests/DevForge.UnitTests/DevForge.UnitTests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~ProcessContractTests\|FullyQualifiedName~ProcessSecurityReviewTests\|FullyQualifiedName~RecoverableExecutionContractTests"` | Exit 0; 61 passed, 0 failed, 0 skipped. |
+| Focused Task 8 integration | `dotnet test tests/DevForge.IntegrationTests/DevForge.IntegrationTests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~ProcessExecutionHandlerTests\|FullyQualifiedName~WindowsProcessRunnerTests\|FullyQualifiedName~ProcessOutputRedactionTests\|FullyQualifiedName~BlueprintActionPolicyTests"` | Exit 0; 89 passed, 0 failed, 0 skipped. |
+
+Task 8 coverage includes plan-item ownership; handler-kind separation; executable/argument/environment bounds; all-position raw-mode rejection; guarded root and relative working directories; trusted tool preflight; allowed/disallowed exits; timeout and cancellation; bounded redacted progress and deterministic digests; validator revalidation; package-manager and lifecycle-script policy; production Node/script-prefix resolution without shell execution; and fail-closed fresh-staging replay for mutating process retry/recovery. Task 9 must replace owned staging and replay the immutable plan when it sees `ReplayFromFreshStaging`.
 
 ## M5 Task 7 checkpoint evidence
 

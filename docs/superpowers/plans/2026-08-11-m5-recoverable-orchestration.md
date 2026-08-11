@@ -50,9 +50,9 @@
 
 ## Task 8: Implement trusted process and validator handlers
 
-- [ ] RED tests for executable/ArgumentList separation, working-directory containment, allowed exit codes, timeout, cancellation/tree kill, bounded redacted progress/digest, package install, postcondition failure, and retry classification.
-- [ ] Adapt typed plan payloads to `CommandSpec` and `IProcessRunner`; never accept a shell string.
-- [ ] GREEN real process/security tests; commit `feat(infrastructure): execute trusted process handlers`.
+- [x] RED tests for executable/ArgumentList separation, working-directory containment, allowed exit codes, timeout, cancellation/tree kill, bounded redacted progress/digest, package install, postcondition failure, and retry classification.
+- [x] Adapt typed plan payloads to `CommandSpec` and `IProcessRunner`; never accept a shell string.
+- [x] GREEN real process/security tests; commit `feat(infrastructure): execute trusted process handlers`.
 
 ## Task 9: Implement retry/resume orchestration and checkpoints
 

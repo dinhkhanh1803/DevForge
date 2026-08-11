@@ -243,6 +243,14 @@ public sealed record ProcessOutputLine
 
 public sealed class CommandSpec
 {
+    public const int MaxArgumentCount = 256;
+    public const int MaxArgumentLength = 8_192;
+    public const int MaxTotalArgumentLength = 32_767;
+    public const int MaxEnvironmentVariables = 128;
+    public const int MaxAllowedExitCodes = 32;
+    public const int MaxRedactionNeedles = 64;
+    public static readonly TimeSpan MaxTimeout = TimeSpan.FromHours(1);
+
     private static readonly ImmutableDictionary<ExecutableTool, ImmutableHashSet<string>> _forbiddenRawModes =
         new Dictionary<ExecutableTool, ImmutableHashSet<string>>
         {
@@ -265,7 +273,8 @@ public sealed class CommandSpec
         ExecutableIdentity executable,
         ImmutableArray<string> argumentList,
         IWorkspaceFileSystem workspace,
-        WorkspaceRelativePath workingDirectory,
+        WorkspaceRelativePath? workingDirectory,
+        bool usesWorkspaceRoot,
         ImmutableDictionary<string, ProcessEnvironmentValue> environmentVariables,
         TimeSpan timeout,
         ImmutableHashSet<int> allowedExitCodes,
@@ -275,6 +284,7 @@ public sealed class CommandSpec
         ArgumentList = argumentList;
         Workspace = workspace;
         WorkingDirectory = workingDirectory;
+        UsesWorkspaceRoot = usesWorkspaceRoot;
         EnvironmentVariables = environmentVariables;
         Timeout = timeout;
         AllowedExitCodes = allowedExitCodes;
@@ -287,7 +297,9 @@ public sealed class CommandSpec
 
     public IWorkspaceFileSystem Workspace { get; }
 
-    public WorkspaceRelativePath WorkingDirectory { get; }
+    public WorkspaceRelativePath? WorkingDirectory { get; }
+
+    public bool UsesWorkspaceRoot { get; }
 
     public ImmutableDictionary<string, ProcessEnvironmentValue> EnvironmentVariables { get; }
 
@@ -307,11 +319,87 @@ public sealed class CommandSpec
         IEnumerable<int>? allowedExitCodes,
         IEnumerable<SensitiveProcessValue?>? redactionNeedles)
     {
-        var argumentSnapshot = argumentList?.ToImmutableArray() ?? [];
-        var environmentSnapshot = environmentVariables?.ToImmutableArray() ?? [];
-        var exitCodeSnapshot = allowedExitCodes?.ToImmutableArray() ?? [];
-        var needleSnapshot = redactionNeedles?.ToImmutableArray() ?? [];
+        return CreateCore(
+            executable,
+            argumentList,
+            workspace,
+            workingDirectory,
+            usesWorkspaceRoot: false,
+            environmentVariables,
+            timeout,
+            allowedExitCodes,
+            redactionNeedles);
+    }
+
+    public static ValidationResult<CommandSpec> CreateAtWorkspaceRoot(
+        ExecutableIdentity? executable,
+        IEnumerable<string?>? argumentList,
+        IWorkspaceFileSystem? workspace,
+        IEnumerable<KeyValuePair<string, ProcessEnvironmentValue?>>? environmentVariables,
+        TimeSpan timeout,
+        IEnumerable<int>? allowedExitCodes,
+        IEnumerable<SensitiveProcessValue?>? redactionNeedles)
+    {
+        return CreateCore(
+            executable,
+            argumentList,
+            workspace,
+            null,
+            usesWorkspaceRoot: true,
+            environmentVariables,
+            timeout,
+            allowedExitCodes,
+            redactionNeedles);
+    }
+
+    private static ValidationResult<CommandSpec> CreateCore(
+        ExecutableIdentity? executable,
+        IEnumerable<string?>? argumentList,
+        IWorkspaceFileSystem? workspace,
+        WorkspaceRelativePath? workingDirectory,
+        bool usesWorkspaceRoot,
+        IEnumerable<KeyValuePair<string, ProcessEnvironmentValue?>>? environmentVariables,
+        TimeSpan timeout,
+        IEnumerable<int>? allowedExitCodes,
+        IEnumerable<SensitiveProcessValue?>? redactionNeedles)
+    {
+        var argumentSnapshot = SnapshotBounded(argumentList, MaxArgumentCount);
+        var environmentSnapshot = SnapshotBounded(environmentVariables, MaxEnvironmentVariables);
+        var exitCodeSnapshot = SnapshotBounded(allowedExitCodes, MaxAllowedExitCodes);
+        var needleSnapshot = SnapshotBounded(redactionNeedles, MaxRedactionNeedles);
         var issues = new List<ValidationIssue>();
+
+        if (argumentSnapshot.Length > MaxArgumentCount)
+        {
+            issues.Add(new ValidationIssue(
+                "process.argument.too-many",
+                "The process argument list exceeds the supported bound.",
+                "argumentList"));
+        }
+
+        if (environmentSnapshot.Length > MaxEnvironmentVariables)
+        {
+            issues.Add(new ValidationIssue(
+                "process.environment.too-many",
+                "The process environment exceeds the supported entry bound.",
+                "environmentVariables"));
+        }
+
+        if (exitCodeSnapshot.Length > MaxAllowedExitCodes)
+        {
+            issues.Add(new ValidationIssue(
+                "process.allowed-exit-codes.too-many",
+                "The allowed exit-code set exceeds the supported bound.",
+                "allowedExitCodes"));
+        }
+
+        if (needleSnapshot.Length > MaxRedactionNeedles)
+        {
+            issues.Add(new ValidationIssue(
+                "process.redaction-needles.too-many",
+                "The redaction needle set exceeds the supported bound.",
+                "redactionNeedles"));
+        }
 
         if (executable is null)
         {
@@ -322,6 +410,7 @@ public sealed class CommandSpec
                     "executable"));
         }
 
+        long totalArgumentLength = 0;
         for (var index = 0; index < argumentSnapshot.Length; index++)
         {
             var argument = argumentSnapshot[index];
@@ -333,21 +422,34 @@ public sealed class CommandSpec
                         "Process arguments cannot contain null values.",
                         "argumentList[" + index + "]"));
             }
+            else if (argument.Length > MaxArgumentLength)
+            {
+                issues.Add(new ValidationIssue(
+                    "process.argument.too-large",
+                    "A process argument exceeds the supported length.",
+                    "argumentList[" + index + "]"));
+            }
             else if (!RedactedText.FromTrustedRedaction(argument).IsValid)
             {
                 issues.Add(
                     new ValidationIssue(
                         "process.argument.secret-shaped",
                         "Process arguments cannot carry secret-shaped values.",
-                        "argumentList[" + index + "]"));
+                    "argumentList[" + index + "]"));
             }
+
+            totalArgumentLength += argument?.Length ?? 0;
         }
 
-        if (executable is not null
-            && argumentSnapshot.Length > 0
-            && argumentSnapshot[0] is not null
-            && _forbiddenRawModes.TryGetValue(executable.Tool, out var forbiddenModes)
-            && forbiddenModes.Contains(argumentSnapshot[0]!))
+        if (totalArgumentLength > MaxTotalArgumentLength)
+        {
+            issues.Add(new ValidationIssue(
+                "process.argument.total-too-large",
+                "The combined process argument text exceeds the supported length.",
+                "argumentList"));
+        }
+
+        if (executable is not null && ContainsForbiddenRawMode(executable.Tool, argumentSnapshot))
         {
             issues.Add(
                 new ValidationIssue(
@@ -365,7 +467,7 @@ public sealed class CommandSpec
                     "workspace"));
         }
 
-        if (workingDirectory is null)
+        if (!usesWorkspaceRoot && workingDirectory is null)
         {
             issues.Add(
                 new ValidationIssue(
@@ -426,6 +528,13 @@ public sealed class CommandSpec
                     "The process timeout must be positive.",
                     "timeout"));
         }
+        else if (timeout > MaxTimeout)
+        {
+            issues.Add(new ValidationIssue(
+                "process.timeout.too-large",
+                "The process timeout exceeds the supported bound.",
+                "timeout"));
+        }
 
         if (exitCodeSnapshot.IsEmpty)
         {
@@ -474,11 +583,53 @@ public sealed class CommandSpec
                 executable!,
                 [.. argumentSnapshot.Select(argument => argument!)],
                 workspace!,
-                workingDirectory!,
+                workingDirectory,
+                usesWorkspaceRoot,
                 normalizedEnvironment.ToImmutableDictionary(StringComparer.OrdinalIgnoreCase),
                 timeout,
                 exitCodeSnapshot.ToImmutableHashSet(),
                 [.. needleSnapshot.Select(needle => needle!)]));
+    }
+
+    private static ImmutableArray<T> SnapshotBounded<T>(IEnumerable<T>? source, int maximum)
+    {
+        if (source is null)
+        {
+            return [];
+        }
+
+        var snapshot = ImmutableArray.CreateBuilder<T>(maximum + 1);
+        using var enumerator = source.GetEnumerator();
+        while (snapshot.Count <= maximum && enumerator.MoveNext())
+        {
+            snapshot.Add(enumerator.Current);
+        }
+
+        return snapshot.ToImmutable();
+    }
+
+    private static bool ContainsForbiddenRawMode(
+        ExecutableTool tool,
+        ImmutableArray<string?> arguments)
+    {
+        if (!_forbiddenRawModes.TryGetValue(tool, out var forbiddenModes))
+        {
+            return false;
+        }
+
+        return arguments.Where(argument => argument is not null).Any(argument =>
+            forbiddenModes.Contains(argument!)
+            || tool == ExecutableTool.Node
+                && (argument!.StartsWith("--eval=", StringComparison.OrdinalIgnoreCase)
+                    || argument.StartsWith("--print=", StringComparison.OrdinalIgnoreCase)
+                    || argument.StartsWith("-e", StringComparison.OrdinalIgnoreCase)
+                        && argument.Length > 2
+                    || argument.StartsWith("-p", StringComparison.OrdinalIgnoreCase)
+                        && argument.Length > 2)
+            || tool == ExecutableTool.Npx
+                && (argument!.StartsWith("--call=", StringComparison.OrdinalIgnoreCase)
+                    || argument.StartsWith("-c", StringComparison.OrdinalIgnoreCase)
+                        && argument.Length > 2));
     }
 
     public override string ToString()
@@ -620,6 +771,10 @@ public sealed class ProcessResult
 
 public interface IProcessRunner
 {
+    Task CheckPreconditionsAsync(
+        CommandSpec command,
+        CancellationToken cancellationToken);
+
     Task<ProcessResult> RunAsync(
         CommandSpec command,
         IProgress<ProcessOutputLine>? progress,

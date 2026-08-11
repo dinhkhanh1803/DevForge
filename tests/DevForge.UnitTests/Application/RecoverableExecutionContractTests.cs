@@ -234,16 +234,35 @@ public sealed class RecoverableExecutionContractTests
     {
         var planProperty = typeof(ExecutionHandlerRequest).GetProperty(
             nameof(ExecutionHandlerRequest.Plan));
-        var factory = typeof(ExecutionHandlerRequest).GetMethods()
-            .Single(method => method.Name == nameof(ExecutionHandlerRequest.Create));
+        var handlerProperty = typeof(ExecutionHandlerRequest).GetProperty(
+            nameof(ExecutionHandlerRequest.HandlerId));
+        var inputProperty = typeof(ExecutionHandlerRequest).GetProperty(
+            nameof(ExecutionHandlerRequest.Inputs));
+        var factories = typeof(ExecutionHandlerRequest).GetMethods()
+            .Where(method => method.Name == nameof(ExecutionHandlerRequest.Create))
+            .ToArray();
 
         Assert.NotNull(planProperty);
         Assert.Equal(typeof(ExecutionPlan), planProperty.PropertyType);
-        Assert.Contains(factory.GetParameters(), parameter => parameter.ParameterType == typeof(ExecutionPlan));
-        Assert.DoesNotContain(
-            factory.GetParameters(),
-            parameter => parameter.ParameterType.IsGenericType
-                && parameter.ParameterType.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+        Assert.NotNull(handlerProperty);
+        Assert.NotNull(inputProperty);
+        Assert.Equal(2, factories.Length);
+        Assert.All(
+            factories,
+            factory =>
+            {
+                Assert.Contains(
+                    factory.GetParameters(),
+                    parameter => parameter.ParameterType == typeof(ExecutionPlan));
+                Assert.DoesNotContain(
+                    factory.GetParameters(),
+                    parameter => parameter.ParameterType.IsGenericType
+                        && parameter.ParameterType.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+            });
+        Assert.Contains(
+            factories,
+            factory => factory.GetParameters().Any(
+                parameter => parameter.ParameterType == typeof(ExecutionValidator)));
     }
 
     [Fact]

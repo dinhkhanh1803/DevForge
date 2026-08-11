@@ -101,10 +101,10 @@ public sealed class WindowsEnvironmentDoctorTests
 
     private sealed class FixedDotNetResolver(string executablePath) : ITrustedExecutableResolver
     {
-        public string Resolve(ExecutableIdentity executable)
+        public TrustedExecutableLaunch Resolve(ExecutableIdentity executable)
         {
             return executable.Tool == ExecutableTool.DotNet
-                ? executablePath
+                ? new TrustedExecutableLaunch(executablePath, [])
                 : throw new InfrastructureOperationException(
                     "DF-PROC-001",
                     "The trusted executable could not be resolved.");
@@ -113,6 +113,14 @@ public sealed class WindowsEnvironmentDoctorTests
 
     private sealed class RecordingProcessRunner(ExecutableTool? missingTool = null) : IProcessRunner
     {
+        public Task CheckPreconditionsAsync(
+            CommandSpec command,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.CompletedTask;
+        }
+
         public List<CommandSpec> Commands { get; } = [];
 
         public Task<ProcessResult> RunAsync(

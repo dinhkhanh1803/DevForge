@@ -17,6 +17,8 @@ internal abstract class FileExecutionHandlerBase(string id) : IExecutionHandler
 
     public string Id { get; } = id;
 
+    public ExecutionResumeBehavior ResumeBehavior => ExecutionResumeBehavior.RevalidatePostcondition;
+
     public Task<ExecutionHandlerResult> PrepareAsync(
         ExecutionHandlerRequest request,
         CancellationToken cancellationToken) => RunPhaseAsync(
@@ -185,7 +187,7 @@ internal abstract class FileExecutionHandlerBase(string id) : IExecutionHandler
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            if (!StringComparer.Ordinal.Equals(request.Step.Handler, Id))
+            if (!StringComparer.Ordinal.Equals(request.HandlerId, Id) || request.IsValidator)
             {
                 throw new HandlerInputException();
             }
@@ -202,7 +204,7 @@ internal abstract class FileExecutionHandlerBase(string id) : IExecutionHandler
             }
 
             var materialized = RuntimePlanValueMaterializer.Materialize(
-                request.Step.Inputs.Select(item =>
+                request.Inputs.Select(item =>
                     KeyValuePair.Create<string, PlanValue?>(item.Key, item.Value)),
                 runtime.Value,
                 cancellationToken);
