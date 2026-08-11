@@ -274,10 +274,10 @@ internal interface ICompatibilityRuleEngine
 }
 ```
 
-- [ ] **Step 1: Write lexer/parser RED tests** for precedence, parentheses, `==`, `!=`, `in`, `not-in`, `satisfies`, string/Boolean/Int64/list literals, fixed identifiers, EOF, token/depth/input limits, and forbidden calls/member reflection/assignment/interpolation/regex.
-- [ ] **Step 2: Write evaluator RED tests** for exact typed comparison, list membership, SemVer ranges, missing known context, unknown identifier, type mismatch, blocking aggregation, warning order, and cancellation.
-- [ ] **Step 3: Implement immutable typed AST**, bounded hand-written lexer/parser, and evaluator over a closed `PlanningRuleContext`; no reflection, dynamic, regex, environment, file, process, or network access.
-- [ ] **Step 4: GREEN twice**, format, commit `feat(application): evaluate closed compatibility rules`.
+- [x] **Step 1: Write lexer/parser RED tests** for precedence, parentheses, `==`, `!=`, `in`, `not-in`, `satisfies`, string/Boolean/Int64/list literals, fixed identifiers, EOF, token/depth/input limits, and forbidden calls/member reflection/assignment/interpolation/regex.
+- [x] **Step 2: Write evaluator RED tests** for exact typed comparison, list membership, SemVer ranges, missing known context, unknown identifier, type mismatch, blocking aggregation, warning order, and cancellation.
+- [x] **Step 3: Implement immutable typed AST**, bounded hand-written lexer/parser, and evaluator over a closed `PlanningRuleContext`; no reflection, dynamic, regex, environment, file, process, or network access.
+- [x] **Step 4: GREEN twice**, format, commit `feat(application): evaluate closed compatibility rules`.
 
 ## Task 8: Validate effective recipe inputs and planning variables
 

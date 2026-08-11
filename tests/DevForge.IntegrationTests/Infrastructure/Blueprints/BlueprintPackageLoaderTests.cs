@@ -138,6 +138,33 @@ public sealed class BlueprintPackageLoaderTests
         Assert.Equal("project-name", Assert.Single(resolved.InputSchema).Id);
     }
 
+    [Theory]
+    [InlineData("environment.PATH == \"value\"", "Compatibility requirement was not satisfied.")]
+    [InlineData("runtime.os == \"windows\"", "Bearer abcdefghijklmnop")]
+    public async Task LoadQuarantinesUnsupportedOrUnsafeCompatibilityRules(
+        string condition,
+        string message)
+    {
+        await using var fixture = await PackageFixture.CreateAsync(BlueprintSourceProvenance.BuiltIn);
+        var rules = $"""
+            - id: guarded-rule
+              condition: {condition}
+              severity: blocking
+              message: {message}
+              remediation: Choose a compatible option.
+              override: none
+            """;
+        var packageDirectory = await fixture.WriteValidPackageAsync(rules: rules);
+
+        var result = await new BlueprintPackageLoader().LoadAsync(
+            fixture.Source,
+            packageDirectory,
+            CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Equal("DF-BP-001", Assert.Single(result.Inspection.Issues).Code);
+    }
+
     private sealed class PackageFixture : IAsyncDisposable
     {
         private const string DefaultManifest = """
@@ -223,7 +250,8 @@ public sealed class BlueprintPackageLoaderTests
             string? manifest = null,
             string actionPath = "src",
             bool includeRules = true,
-            bool corruptManifestChecksum = false)
+            bool corruptManifestChecksum = false,
+            string? rules = null)
         {
             var package = Relative(directoryName);
             await Workspace.CreateDirectoryAsync(package, CancellationToken.None);
@@ -236,7 +264,7 @@ public sealed class BlueprintPackageLoaderTests
             };
             if (includeRules)
             {
-                files["rules.yaml"] = Encoding.UTF8.GetBytes(Rules);
+                files["rules.yaml"] = Encoding.UTF8.GetBytes(rules ?? Rules);
             }
 
             foreach (var file in files)

@@ -1,7 +1,9 @@
 using System.Collections.Immutable;
 using System.Globalization;
 using DevForge.Application.Contracts;
+using DevForge.Application.Planning.CompatibilityRules;
 using DevForge.Blueprints.Abstractions.Models;
+using DevForge.Domain.Privacy;
 
 namespace DevForge.Infrastructure.Blueprints;
 
@@ -96,6 +98,22 @@ internal sealed class BlueprintPackageLoader : IBlueprintPackageLoader
             if (!manifestResult.IsValid)
             {
                 return Failure(source, packageDirectory, StructureIssue());
+            }
+
+            var ruleParser = new CompatibilityRuleParser();
+            foreach (var rule in manifestResult.Value.CompatibilityRules)
+            {
+                var parsed = ruleParser.Parse(rule.Expression);
+                var message = RedactedText.FromTrustedRedaction(rule.Message);
+                var remediation = rule.Remediation is null
+                    ? null
+                    : RedactedText.FromTrustedRedaction(rule.Remediation);
+                if (!parsed.IsValid
+                    || !message.IsValid
+                    || remediation is { IsValid: false })
+                {
+                    return Failure(source, packageDirectory, StructureIssue());
+                }
             }
 
             var policyTrust = assignedTrust == BlueprintTrust.BuiltIn
