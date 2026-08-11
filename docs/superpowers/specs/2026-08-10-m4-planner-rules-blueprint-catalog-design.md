@@ -6,9 +6,7 @@
 
 ## Context
 
-M0-M2 are complete, and the implemented M3 core already provides immutable recipe, manifest, execution-plan, environment, persistence, guarded workspace, process, secret-scanning, and IDE contracts. M4 turns those contracts into a deterministic planning boundary without executing a step.
-
-During the final source-of-truth review, the detailed DOCX exposed one missing M3 exit item: `ITemplateRenderer` exists, but its restricted Scriban implementation and tests do not. No M4 production implementation may begin until that M3 closure is implemented, verified, and recorded. This document may be reviewed independently while the prerequisite is closed.
+M0-M3 are complete, including the restricted Scriban renderer closure and its six-boundary exit gate. The implemented baseline provides immutable recipe, manifest, execution-plan, environment, persistence, guarded workspace, process, secret-scanning, IDE, and template-rendering contracts. M4 turns those contracts into a deterministic planning boundary without executing a step.
 
 The official specification requires M4 to deliver catalog loading, manifest/schema validation, compatibility evaluation, an immutable plan preview, and plan hashing. Invalid or malicious blueprint packages must be blocked before execution and snapshot tests must prove deterministic output.
 
@@ -131,7 +129,7 @@ The loader never enables arbitrary type construction or reflection-based tags. P
 
 References, remote schemas, regex patterns supplied by a package, conditionals, custom formats, and unevaluated properties are not supported in M4. Unsupported keywords quarantine the package rather than being ignored.
 
-Blueprint, input, feature, action, validator, and rule identifiers retain the existing M1 canonical policy: lowercase ASCII segments separated by dots or hyphens. The camelCase identifiers in the specification appendix are illustrative data, not a second identifier grammar. This choice is recorded in ADR-0006 so M9 authors have one unambiguous convention.
+Blueprint, input, feature, action, validator, and rule identifiers retain the existing M1 canonical policy: lowercase ASCII segments separated by dots or hyphens. The camelCase identifiers in the specification appendix are illustrative data, not a second identifier grammar. This choice is recorded in ADR-0007 so M9 authors have one unambiguous convention.
 
 Feature definitions are a separate manifest collection with a stable ID and optional default-enabled state. Every `ProjectRecipe.Features` entry must resolve to one declared feature. Feature-specific settings remain ordinary typed input-schema properties; enabling a feature does not create a second untyped value channel.
 
@@ -403,7 +401,7 @@ M4 is complete only when:
 - catalog refresh exposes no partial state;
 - no production blueprint is added;
 - locked restore, format verification, Release build, full solution tests, focused Blueprint tests, and focused M4 unit/integration/security tests all exit 0 with zero skipped M4 test;
-- `docs/implementation-plan.md`, `docs/implementation-status.md`, ADR-0006, and `CHANGELOG.md` contain exact evidence.
+- `docs/implementation-plan.md`, `docs/implementation-status.md`, ADR-0007, and `CHANGELOG.md` contain exact evidence.
 
 ## Deferred work
 
