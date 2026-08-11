@@ -2,7 +2,7 @@
 
 **Goal:** Load guarded blueprint packages and produce deterministic immutable hashed plans without executing steps.
 
-**Status:** Approved design and executable TDD plan; implementation starting.
+**Status:** Complete; all M4 implementation tasks and exit gates passed on 2026-08-11.
 
 **Architecture:** Infrastructure owns guarded package discovery/parsing and atomic catalog snapshots. Application owns closed rules, schema validation, previews, canonical serialization, and hashing. Domain and Blueprint abstractions own immutable dependency-free values.
 
@@ -31,14 +31,16 @@ M4 excludes execution, staging, orchestration, WPF workflows, Git/GitHub behavio
 
 ## Tasks
 
-- [ ] Add immutable typed plan values and complete SemVer/package contracts.
-- [ ] Evolve catalog/filesystem/planner contracts.
-- [ ] Parse and verify bounded blueprint packages through guarded roots.
-- [ ] Publish atomic trusted/quarantined catalog snapshots.
-- [ ] Implement closed compatibility rules and input/variable validation.
-- [ ] Produce deterministic previews, canonical serialization, and plan hashes.
-- [ ] Run the complete M4 exit gate and record exact evidence.
+- [x] Add immutable typed plan values and complete SemVer/package contracts.
+- [x] Evolve catalog/filesystem/planner contracts.
+- [x] Parse and verify bounded blueprint packages through guarded roots.
+- [x] Publish atomic trusted/quarantined catalog snapshots.
+- [x] Implement closed compatibility rules and input/variable validation.
+- [x] Produce deterministic previews, canonical serialization, and plan hashes.
+- [x] Run the complete M4 exit gate and record exact evidence.
 
 ## Exit gate
 
 M4 passes only when valid built-in/trusted-local fixtures load, malicious/invalid packages quarantine deterministically, non-executable trust states cannot resolve, rule/schema/tool/engine failures are covered, plan/hash snapshots are stable and mutation-sensitive, refresh is atomic, no production blueprint is added, and all locked restore/format/build/full/focused gates pass with zero skipped M4 tests.
+
+All conditions passed. The next specification milestone is M5 - Orchestrator, staging, retry/resume, and finalizer.

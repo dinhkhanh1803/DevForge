@@ -27,6 +27,10 @@ M4 must turn versioned blueprint packages into immutable execution plans without
 
 Planning is deterministic, previewable, and safe to persist or compare. Package authors have a deliberately narrow schema and rule/action vocabulary. Local modifications require renewed trust. Schema or grammar expansion requires explicit contract/security tests and a decision update rather than permissive parsing.
 
+## Implemented outcome
+
+M4 implements this decision with guarded package readers and checksums, atomic catalog snapshots, a closed typed compatibility grammar, schema/default validation, single-pass variable resolution, immutable execution validators and steps, privacy-safe preview evidence, canonical `Utf8JsonWriter` serialization, and lowercase `sha256:` hashes. Snapshot tests prove stability across culture, target root, detection timestamp, tool detection, warning text, map insertion order, and concurrent planning; mutation tests cover package checksum, inputs, ordered actions, tools, dependencies, artifacts, validators, Git, completion, and team policy. No M4 planner code performs direct file or process operations.
+
 ## Rejected alternatives
 
 - Trust declared inside a manifest or source-order shadowing of duplicate packages.

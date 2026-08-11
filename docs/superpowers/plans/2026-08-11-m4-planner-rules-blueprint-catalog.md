@@ -328,19 +328,19 @@ internal sealed class PlanHasher(ICanonicalPlanSerializer serializer)
 }
 ```
 
-- [ ] **Step 1: Write planner RED tests** for exact catalog resolution, engine/tool checks, features, blocking/warning rules, ordered steps/validators/requirements/dependencies/artifacts, cancellation between stages, aggregation, and no direct I/O/process behavior.
-- [ ] **Step 2: Write canonical hash RED snapshots**: identical normalized inputs across culture/enumeration/machine paths yield identical bytes/hash; every effect-bearing mutation changes hash; warning/tool-detection/timestamp/absolute-root mutations do not; ordered step/argument reordering changes hash.
-- [ ] **Step 3: Implement `CanonicalPlanSerializer`** with fixed property order and ordinal object keys using `Utf8JsonWriter`; no timestamp, random ID, detected path/version, indentation, or BOM.
-- [ ] **Step 4: Implement `PlanHasher`** using `SHA256.HashData` and lowercase `sha256:` output.
-- [ ] **Step 5: Implement `ProjectPlanner`** with injected catalog, environment doctor, engine version provider, schema/rule/variable services; construct `PlannedProject` only when no blocking issue exists.
-- [ ] **Step 6: GREEN twice**, culture/concurrency tests, architecture tests, commit `feat(application): create deterministic hashed execution plans`.
+- [x] **Step 1: Write planner RED tests** for exact catalog resolution, engine/tool checks, features, blocking/warning rules, ordered steps/validators/requirements/dependencies/artifacts, cancellation between stages, aggregation, and no direct I/O/process behavior.
+- [x] **Step 2: Write canonical hash RED snapshots**: identical normalized inputs across culture/enumeration/machine paths yield identical bytes/hash; every effect-bearing mutation changes hash; warning/tool-detection/timestamp/absolute-root mutations do not; ordered step/argument reordering changes hash.
+- [x] **Step 3: Implement `CanonicalPlanSerializer`** with fixed property order and ordinal object keys using `Utf8JsonWriter`; no timestamp, random ID, detected path/version, indentation, or BOM.
+- [x] **Step 4: Implement `PlanHasher`** using `SHA256.HashData` and lowercase `sha256:` output.
+- [x] **Step 5: Implement `ProjectPlanner`** with injected catalog, environment doctor, engine version provider, schema/rule/variable services; construct `PlannedProject` only when no blocking issue exists.
+- [x] **Step 6: GREEN twice**, culture/concurrency tests, architecture tests, commit `feat(application): create deterministic hashed execution plans`.
 
 ## Task 10: Record and verify M4 completion
 
 **Files:** ADR-0007, implementation plan/status, M4 plan, CHANGELOG.
 
-- [ ] **Step 1: Update docs** with exact delivered scope and retain M3 historical evidence.
-- [ ] **Step 2: Run fresh exit gate:**
+- [x] **Step 1: Update docs** with exact delivered scope and retain M3 historical evidence.
+- [x] **Step 2: Run fresh exit gate:**
 
 ```powershell
 E:\MyProjects\DevForge\.tools\dotnet\dotnet.exe restore DevForge.sln --locked-mode --verbosity minimal
@@ -352,8 +352,8 @@ E:\MyProjects\DevForge\.tools\dotnet\dotnet.exe test tests\DevForge.UnitTests\De
 E:\MyProjects\DevForge\.tools\dotnet\dotnet.exe test tests\DevForge.IntegrationTests\DevForge.IntegrationTests.csproj -c Release --no-build --no-restore --filter FullyQualifiedName~Blueprints
 ```
 
-- [ ] **Step 3: Record exact counts/results**, mark M4 complete only when all commands exit 0 with 0 warning/error and 0 skipped M4 tests.
-- [ ] **Step 4: Commit** `docs: complete M4 planner and blueprint catalog milestone`; require clean worktree and no push.
+- [x] **Step 3: Record exact counts/results**, mark M4 complete only when all commands exit 0 with 0 warning/error and 0 skipped M4 tests.
+- [x] **Step 4: Commit** `docs: complete M4 planner and blueprint catalog milestone`; require clean worktree and no push.
 
 ## Deferred after M4
 

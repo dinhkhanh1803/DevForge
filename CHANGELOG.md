@@ -25,3 +25,6 @@ All notable DevForge Studio changes are documented here.
 - Bounded workspace secret scanning, fixed environment probes, and trusted non-elevated IDE handoff.
 - M3 adversarial coverage for real junctions, locked files, structured credentials, output-observer failures, and continuous-output cancellation.
 - Restricted Scriban 7.2.5 template rendering with a closed conditional grammar, string-only isolated contexts, bounded AST/output, cancellation, deterministic concurrency/culture behavior, and scrubbed failures.
+- M4 guarded blueprint package loading with bounded YAML/JSON parsing, complete checksums, trust/quarantine policy, and atomic catalog snapshots.
+- Closed typed compatibility rules, deterministic input/default validation, single-pass planning variables, and privacy-safe tool/process preview evidence.
+- Immutable ordered execution plans and validators with canonical UTF-8 JSON plus mutation-sensitive lowercase SHA-256 plan hashes.

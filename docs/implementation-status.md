@@ -1,14 +1,33 @@
 # DevForge Studio Implementation Status
 
-**Current milestone:** M4 - Planner, Rules, and Blueprint Catalog
-**Status:** Active implementation; M4 Tasks 1-8 complete
+**Current milestone:** M5 - Orchestrator, Staging, Retry/Resume, and Finalizer
+**Status:** M4 complete; M5 design and implementation not started
 **Last updated:** 2026-08-11
 
-## Current M4 scope
+## M4 completed scope
 
-M0-M3 remain complete and green. M4 is now the only active milestone. The approved design is `docs/superpowers/specs/2026-08-10-m4-planner-rules-blueprint-catalog-design.md`, the executable TDD plan is `docs/superpowers/plans/2026-08-11-m4-planner-rules-blueprint-catalog.md`, and ADR-0007 fixes deterministic catalog/trust/rule/hash decisions before production code.
+M0-M4 are complete and green. The approved M4 design is `docs/superpowers/specs/2026-08-10-m4-planner-rules-blueprint-catalog-design.md`, the completed TDD plan is `docs/superpowers/plans/2026-08-11-m4-planner-rules-blueprint-catalog.md`, and ADR-0007 records the deterministic catalog/trust/rule/hash boundary.
 
-M4 Tasks 1-8 are complete. Domain has bounded immutable typed plan values; Blueprint abstractions provide SemVer 2.0 and normalized package contracts; Application exposes opaque catalog/planning contracts, a bounded typed compatibility engine, deterministic effective-input validation, and a single-pass typed variable resolver; Infrastructure owns exact YamlDotNet 18.1.0, bounded closed YAML/JSON readers, guarded checksum verification, the shared closed variable/action policy, normalized package loading, and atomic catalog publication. Package fixtures reject incomplete, duplicate, mismatched, self-referential, traversal, rooted, device, backslash, `.env`, oversized, junction-escaping, trust-forbidden, malformed-rule, and unsafe-rule-message content with scrubbed stable issues. Verified control bytes are snapshotted during hashing and parsed without reopening package-controlled files, closing the checksum-to-parse TOCTOU boundary. Catalog refresh enumerates guarded source roots, preserves the prior snapshot on cancellation/source/metadata failure, reconciles persisted trust and disabled state read-only, quarantines conflicts, carries the immutable input schema into exact resolved results, and publishes only complete snapshots to concurrent readers. The compatibility engine uses an immutable AST, a fixed identifier catalog, exact typed operands, SemVer ranges, ordered redacted findings, 16,384-character/512-token/depth-64/list-128 bounds, and no reflection, regex, environment, file, process, or network access. Effective recipe validation applies defaults only when absent, aggregates unknown/required/type/range/choice/feature/privacy issues, and returns an ordinal typed map plus stable enabled features. Variable resolution preserves exact typed values, emits explicit map placeholders for M5-owned target/staging/run values, rejects mixed placeholder text and malformed/unknown/secret-shaped references, bounds tokens/output, and never reparses replacement content. The latest Task 8 checkpoint passed format verification, Release build with 0 warnings/errors, a 261-test Application/architecture slice, and 722 solution tests (381 Unit, 108 Blueprint, 233 Integration) with 0 failed/0 skipped; the future E2E host remains empty. Tasks 9-10 and the full M4 exit gate remain open. M5-M11 remain deferred until the M4 exit gate passes.
+All ten M4 tasks are complete. Domain provides bounded immutable typed plan values plus ordered execution validators; Blueprint abstractions provide SemVer 2.0 and normalized package contracts; Application provides exact catalog/planning contracts, the closed compatibility engine, effective-input validation, single-pass typed variables, deterministic planner orchestration, enriched privacy-safe previews, canonical UTF-8 serialization, and lowercase SHA-256 hashes. Infrastructure owns exact YamlDotNet 18.1.0, bounded closed readers, verified control-byte snapshots, guarded checksums/action policy, normalized package loading, and atomic catalog publication. Invalid, conflicting, disabled, untrusted, changed-checksum, traversal, `.env`, oversized, junction-escaping, malformed-rule, and unsafe packages remain inspect-only with stable scrubbed issues. M4 adds no production blueprint and executes no generation action.
+
+Plan hashes include every tested effect-bearing structural policy and exclude target-machine roots, staging/run paths, timestamps, detected tool versions/paths, and warning outcomes. Exact snapshot, culture, map-order, concurrent-planning, mutation, privacy, cancellation, aggregation, and no-direct-I/O/process tests pass.
+
+## M4 exit gate evidence
+
+Fresh local verification on 2026-08-11 used workspace-local .NET SDK 10.0.302:
+
+| Gate | Command | Exact result |
+| --- | --- | --- |
+| SDK | `dotnet --version` | Exit 0; `10.0.302`. |
+| Locked restore | `dotnet restore DevForge.sln --locked-mode --verbosity minimal` | Exit 0; all 12 projects restored from pinned lock files. |
+| Format | `dotnet format DevForge.sln --verify-no-changes --no-restore --verbosity minimal` | Exit 0; no formatting diagnostics. |
+| Release build | `dotnet build DevForge.sln --configuration Release --no-restore --verbosity minimal` | Exit 0; all 12 projects built; 0 warnings, 0 errors. |
+| Full solution test | `dotnet test DevForge.sln --configuration Release --no-build --no-restore` | Exit 0; UnitTests 395, BlueprintTests 108, IntegrationTests 233; total 736 passed, 0 failed, 0 skipped. The future E2E host contains no tests. |
+| Blueprint contracts | `dotnet test tests/DevForge.BlueprintTests/DevForge.BlueprintTests.csproj --configuration Release --no-build --no-restore` | Exit 0; 108 passed, 0 failed, 0 skipped. |
+| Planning/Blueprint/Architecture | `dotnet test tests/DevForge.UnitTests/DevForge.UnitTests.csproj --configuration Release --no-build --no-restore --filter "FullyQualifiedName~Planning\|FullyQualifiedName~Blueprint\|FullyQualifiedName~Architecture"` | Exit 0; 117 passed, 0 failed, 0 skipped. |
+| Blueprint integration/security | `dotnet test tests/DevForge.IntegrationTests/DevForge.IntegrationTests.csproj --configuration Release --no-build --no-restore --filter FullyQualifiedName~Blueprints` | Exit 0; 82 passed, 0 failed, 0 skipped. |
+
+The next specification milestone is M5. Execution, staging, retry/resume, rollback/finalization, and run orchestration remain deferred to that milestone.
 
 ## Current M3 scope
 
@@ -123,10 +142,10 @@ Verification used the workspace-local SDK at `.tools/dotnet/dotnet.exe` with `DO
 
 - The Windows GitHub Actions workflow mirrors the mandatory quality gates, but CI was not run remotely in this task.
 - The E2E host remains empty because end-to-end desktop workflows belong to later milestones.
-- Environment probing and IDE launch support only the fixed M3 catalog; catalog compatibility and planning belong to M4.
+- Environment probing and IDE launch support only the fixed trusted tool catalog; arbitrary executable discovery remains intentionally unsupported.
 - SQLite's online backup API is synchronous during the copy itself; cancellation is honored immediately before and after the bounded call, and recovery always completes before post-mutation cancellation is propagated.
 - Production startup composition and safe-mode UI remain assigned to M6.
 
 ## Milestone progression
 
-The recommended next milestone is M4 - Planner, Rules, and Blueprint Catalog, limited to catalog loading, compatibility evaluation, deterministic planner rules, and plan hashing defined by the specification.
+The recommended next milestone is M5 - Orchestrator, staging, retry/resume, and finalizer, limited to executing the immutable M4 plan through existing guarded file/process abstractions.
