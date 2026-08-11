@@ -253,6 +253,14 @@ public sealed class RecoverableExecutionContractTests
         Assert.Equal(typeof(Task<RunCheckpoint>), execute.ReturnType);
         Assert.Equal(typeof(ExecutionRequest), execute.GetParameters()[0].ParameterType);
         Assert.Equal(typeof(CancellationToken), execute.GetParameters()[^1].ParameterType);
+
+        var createStaging = typeof(IStagingWorkspaceManager).GetMethod(
+            nameof(IStagingWorkspaceManager.CreateAsync));
+        Assert.NotNull(createStaging);
+        Assert.Equal(
+            typeof(Task<ExecutionOperationResult<IStagingWorkspaceLease>>),
+            createStaging.ReturnType);
+        Assert.True(typeof(IAsyncDisposable).IsAssignableFrom(typeof(IStagingWorkspaceLease)));
     }
 
     [Fact]

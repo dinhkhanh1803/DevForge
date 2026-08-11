@@ -28,3 +28,4 @@ All notable DevForge Studio changes are documented here.
 - M4 guarded blueprint package loading with bounded YAML/JSON parsing, complete checksums, trust/quarantine policy, and atomic catalog snapshots.
 - Closed typed compatibility rules, deterministic input/default validation, single-pass planning variables, and privacy-safe tool/process preview evidence.
 - Immutable ordered execution plans and validators with canonical UTF-8 JSON plus mutation-sensitive lowercase SHA-256 plan hashes.
+- Recoverable M5 run checkpoints and run-owned staging with atomic ownership claims, canonical privacy-safe markers, cross-run leases, guarded resume validation, and cleanup race protection.

@@ -26,9 +26,9 @@
 
 ## Task 4: Implement owned staging and cleanup guards
 
-- [ ] RED real-workspace tests for create-new marker, exact identity validation, target-exists refusal, junction/symlink escape, spoofed/malformed marker, finalized cleanup refusal, cancellation, and concurrent lease.
-- [ ] Add guarded subworkspace support and staging manager under Infrastructure.
-- [ ] GREEN twice; commit `feat(infrastructure): manage run-owned staging workspaces`.
+- [x] RED real-workspace tests for create-new marker, exact identity validation, target-exists refusal, junction/symlink escape, spoofed/malformed marker, finalized cleanup refusal, cancellation, and concurrent lease.
+- [x] Add guarded subworkspace support and staging manager under Infrastructure.
+- [x] GREEN twice; commit `feat(infrastructure): manage run-owned staging workspaces`.
 
 ## Task 5: Reopen exact blueprint content for execution
 

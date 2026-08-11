@@ -1,50 +1,42 @@
-# Milestone M4 Planner, Rules, and Blueprint Catalog Implementation Plan
+# Milestone M5 Recoverable Orchestration Implementation Plan
 
-**Goal:** Load guarded blueprint packages and produce deterministic immutable hashed plans without executing steps.
+**Goal:** Execute immutable M4 plans inside owned staging with transactional checkpoints, bounded retry/resume, validation evidence, and no-overwrite finalization.
 
-**Status:** Complete; all M4 implementation tasks and exit gates passed on 2026-08-11.
+**Status:** Tasks 1-4 implemented and verified locally; Task 5 is next.
 
-**Architecture:** Infrastructure owns guarded package discovery/parsing and atomic catalog snapshots. Application owns closed rules, schema validation, previews, canonical serialization, and hashing. Domain and Blueprint abstractions own immutable dependency-free values.
+**Architecture:** Application owns lifecycle and orchestration decisions. Infrastructure owns guarded staging, exact blueprint reopening, handlers, reports, finalization, and concrete checkpoint persistence. Domain remains immutable and I/O-free.
 
-**Tech stack:** .NET SDK 10.0.302, C# 14, Windows BCL APIs, xUnit 2.9.3.
+**Tech stack:** .NET SDK 10.0.302, C# 14, WPF/.NET 10, EF Core SQLite, Windows BCL/native guarded filesystem APIs, xUnit 2.9.3.
 
 ## Source and detailed plan
 
-- Design: `docs/superpowers/specs/2026-08-10-m4-planner-rules-blueprint-catalog-design.md`
-- Task plan: `docs/superpowers/plans/2026-08-11-m4-planner-rules-blueprint-catalog.md`
-- Decision: `docs/decisions/0007-deterministic-blueprint-planning.md`
+- Design: `docs/superpowers/specs/2026-08-11-m5-recoverable-orchestration-design.md`
+- Task plan: `docs/superpowers/plans/2026-08-11-m5-recoverable-orchestration.md`
+- Decision: `docs/decisions/0008-recoverable-run-orchestration.md`
 
 ## Scope
 
-M4 includes catalog discovery, checksum/trust/quarantine, bounded manifest/schema/rule loading, action and variable policy, exact compatibility evaluation, immutable previews, canonical serialization, and SHA-256 plan hashes.
+M5 includes execution lifecycle/checkpoints, owned staging, exact blueprint reopening, a closed handler registry, guarded file/template/patch/process handlers, retry/resume orchestration, validation, reporting, atomic no-overwrite finalization, and interrupted-run recovery.
 
-M4 excludes execution, staging, orchestration, WPF workflows, Git/GitHub behavior, production blueprints, packaging, cloud backends, and AI APIs.
+M5 excludes WPF workflow composition, Git/GitHub behavior, production blueprints, packaging, cloud backends, AI APIs, and V1 catalog expansion.
 
-## Planned files
+## Progress
 
-- Add typed plan values under Domain and normalized package models under Blueprint abstractions.
-- Add catalog/planning contracts and rule/schema/hash services under Application.
-- Add guarded blueprint loaders and atomic catalog snapshots under Infrastructure.
-- Extend guarded workspace directory enumeration without direct Application filesystem access.
-- Add Blueprint contract, Application unit, Infrastructure integration, architecture, failure, and security tests.
-- Update ADR-0007, status, plan, and changelog with verified evidence.
+- [x] Model recoverable Domain lifecycle and retry invariants.
+- [x] Define execution, checkpoint, staging, handler, finalization, and recovery ports.
+- [x] Persist complete canonical run checkpoints through EF Core SQLite.
+- [x] Implement atomic run-owned staging, exact markers, cross-run leases, resume checks, and guarded cleanup.
+- [ ] Reopen exact verified blueprint content for execution.
+- [ ] Build the closed handler registry and typed value materialization.
+- [ ] Implement guarded file, template, overlay, and structured patch handlers.
+- [ ] Implement trusted process and validator handlers.
+- [ ] Implement checkpointed retry/resume orchestration.
+- [ ] Implement validation, report persistence, and atomic finalization.
+- [ ] Implement interrupted-run recovery.
+- [ ] Run and record the complete M5 exit gate.
 
-## Tasks
+## Current exit gate
 
-- [x] Add immutable typed plan values and complete SemVer/package contracts.
-- [x] Evolve catalog/filesystem/planner contracts.
-- [x] Parse and verify bounded blueprint packages through guarded roots.
-- [x] Publish atomic trusted/quarantined catalog snapshots.
-- [x] Implement closed compatibility rules and input/variable validation.
-- [x] Produce deterministic previews, canonical serialization, and plan hashes.
-- [x] Run the complete M4 exit gate and record exact evidence.
+Task 4 requires create-new canonical markers, exact run/checkpoint/path binding, atomic ownership proof, single target-parent lease, target no-overwrite checks, full-tree reparse rejection, cancellation cleanup only for proven ownership, cleanup exclusion through deletion, real Windows tests, locked restore, format, Release build with zero warnings/errors, and full regression tests.
 
-## Exit gate
-
-M4 passes only when valid built-in/trusted-local fixtures load, malicious/invalid packages quarantine deterministically, non-executable trust states cannot resolve, rule/schema/tool/engine failures are covered, plan/hash snapshots are stable and mutation-sensitive, refresh is atomic, no production blueprint is added, and all locked restore/format/build/full/focused gates pass with zero skipped M4 tests.
-
-All conditions passed. The next specification milestone is M5 - Orchestrator, staging, retry/resume, and finalizer.
-
-## Active M5 plan
-
-M5 is governed by `docs/superpowers/specs/2026-08-11-m5-recoverable-orchestration-design.md`, `docs/superpowers/plans/2026-08-11-m5-recoverable-orchestration.md`, and ADR-0008. Work is divided into Domain lifecycle, execution contracts, checkpoint persistence, owned staging, exact blueprint reopening, closed handlers, retry/resume orchestration, validation/finalization/reporting, interrupted-run recovery, and the final exit gate. No M6 UI or M8 Git/GitHub behavior is included.
+M5 completes only after all remaining tasks pass kill/resume and failure-injection coverage, target absence on every pre-finalization failure, verified no-overwrite finalization, report/checkpoint persistence before cleanup, and all full/focused gates with zero skipped M5 tests.

@@ -293,6 +293,16 @@ public interface IWorkspaceFileSystem
         CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// Adds an atomic create-if-absent operation for infrastructure that must prove ownership of a new directory.
+/// </summary>
+public interface IAtomicWorkspaceFileSystem : IWorkspaceFileSystem
+{
+    Task<bool> TryCreateDirectoryAsync(
+        WorkspaceRelativePath path,
+        CancellationToken cancellationToken);
+}
+
 public interface IFileSystem
 {
     Task<IWorkspaceFileSystem> OpenWorkspaceAsync(

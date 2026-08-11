@@ -149,6 +149,11 @@ public sealed class StagingWorkspace
     }
 }
 
+public interface IStagingWorkspaceLease : IAsyncDisposable
+{
+    StagingWorkspace Workspace { get; }
+}
+
 public sealed class ExecutionHandlerRequest
 {
     private ExecutionHandlerRequest(
@@ -491,11 +496,11 @@ public interface IRunCheckpointStore
 
 public interface IStagingWorkspaceManager
 {
-    Task<ExecutionOperationResult<StagingWorkspace>> CreateAsync(
+    Task<ExecutionOperationResult<IStagingWorkspaceLease>> CreateAsync(
         ExecutionRequest request,
         CancellationToken cancellationToken);
 
-    Task<ExecutionOperationResult<StagingWorkspace>> ValidateOwnershipAsync(
+    Task<ExecutionOperationResult<IStagingWorkspaceLease>> ValidateOwnershipAsync(
         RunCheckpoint checkpoint,
         IWorkspaceFileSystem targetParentWorkspace,
         CancellationToken cancellationToken);

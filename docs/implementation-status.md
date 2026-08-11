@@ -1,14 +1,29 @@
 # DevForge Studio Implementation Status
 
 **Current milestone:** M5 - Orchestrator, Staging, Retry/Resume, and Finalizer
-**Status:** M4 complete; M5 Tasks 1-3 implemented and verified
+**Status:** M4 complete; M5 Tasks 1-4 implemented and verified
 **Last updated:** 2026-08-11
 
 ## Current M5 scope
 
 The approved design is `docs/superpowers/specs/2026-08-11-m5-recoverable-orchestration-design.md`, the executable TDD plan is `docs/superpowers/plans/2026-08-11-m5-recoverable-orchestration.md`, and ADR-0008 fixes checkpoint, marker, retry/resume, interruption, validation, and finalization decisions. M5 is limited to the execution engine and recovery boundary. WPF composition, Git/GitHub, production blueprints, release packaging, and catalog expansion remain deferred.
 
-Tasks 1-3 are implemented locally. Domain provides explicit bounded retry modes, canonical attempt output digests, interruption normalization, guarded resume, staging-cleanup eligibility, warning validation evidence, and retry-mode-aware plan hashing. Application carries exact blueprint provenance and immutable guarded execution/checkpoint/staging/handler/finalization/recovery contracts. Infrastructure adds migration `20260811051654_AddExecutionCheckpoints` and an atomic SQLite checkpoint store for the complete plan, independent plan-body checksum, fingerprint, opaque roots, owned paths/marker, ordered attempts/evidence, and finalization/report states. Canonical closed JSON rejects unknown, duplicate, noncanonical, oversized, secret-shaped, or checksum-mismatched data without echoing content; legacy M2 rows survive upgrade and cannot overwrite complete M5 checkpoints. Fresh verification passes locked restore, format, Release build with 0 warnings/errors, full tests 778/778, focused persistence 37/37, and EF reports no pending model changes. Task 4 owned staging is the next active scope.
+Tasks 1-4 are implemented locally. Domain provides explicit bounded retry modes, canonical attempt output digests, interruption normalization, guarded resume, staging-cleanup eligibility, warning validation evidence, and retry-mode-aware plan hashing. Application carries exact blueprint provenance and immutable guarded execution/checkpoint/staging/handler/finalization/recovery contracts. Infrastructure persists complete canonical checkpoints and now manages run-owned staging through an atomic create-if-absent Windows directory capability, a target-parent global lease, bounded create-new ownership markers, exact descriptor/checkpoint validation, complete guarded-tree reparse checks, and cleanup that retains exclusion through deletion. Cancellation during marker persistence removes only a container whose atomic ownership was proven; losing an ownership race never deletes foreign content. Task 5 exact blueprint reopening is the next active scope.
+
+Task 4 focused coverage includes target directories and files, target and payload junctions, nested reparse entries, copied/spoofed/noncanonical/malformed markers, cross-run lease contention, cleanup/reopen contention, mid-write cancellation, finalized cleanup refusal, exact run-path binding, and atomic ownership-loss preservation. Final checkpoint evidence is recorded after the fresh Task 4 quality gate below.
+
+## M5 Task 4 checkpoint evidence
+
+Fresh local verification on 2026-08-11 used workspace-local .NET SDK 10.0.302:
+
+| Gate | Command | Exact result |
+| --- | --- | --- |
+| Locked restore | `dotnet restore DevForge.sln --locked-mode --verbosity minimal` | Exit 0; all 12 projects were up-to-date from pinned lock files. |
+| Format | `dotnet format DevForge.sln --verify-no-changes --no-restore --verbosity minimal` | Exit 0; no formatting diagnostics after CRLF normalization. |
+| Release build | `dotnet build DevForge.sln --configuration Release --no-restore --verbosity minimal` | Exit 0; all 12 projects built; 0 warnings, 0 errors. |
+| Full solution test | `dotnet test DevForge.sln --configuration Release --no-build --no-restore --verbosity minimal` | Exit 0; UnitTests 428, BlueprintTests 108, IntegrationTests 264; total 800 passed, 0 failed, 0 skipped. The future E2E host contains no tests. |
+| Focused staging/atomic integration | `dotnet test tests/DevForge.IntegrationTests/DevForge.IntegrationTests.csproj --configuration Release --no-build --no-restore --filter "FullyQualifiedName~OwnedStagingWorkspaceManagerTests\|FullyQualifiedName~AtomicDirectoryCreation"` | Exit 0; 21 passed, 0 failed, 0 skipped. |
+| Focused filesystem/execution contracts | `dotnet test tests/DevForge.UnitTests/DevForge.UnitTests.csproj --configuration Release --no-build --no-restore --filter "FullyQualifiedName~RecoverableExecutionContractTests\|FullyQualifiedName~FileSystemContractTests"` | Exit 0; 29 passed, 0 failed, 0 skipped. |
 
 ## M4 completed scope
 

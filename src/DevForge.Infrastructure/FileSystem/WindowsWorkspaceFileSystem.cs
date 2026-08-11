@@ -1,10 +1,13 @@
 using System.Collections.Immutable;
+using System.Runtime.InteropServices;
 using DevForge.Application.Contracts;
 
 namespace DevForge.Infrastructure.FileSystem;
 
-internal sealed class WindowsWorkspaceFileSystem : IWorkspaceFileSystem
+internal sealed class WindowsWorkspaceFileSystem : IAtomicWorkspaceFileSystem
 {
+    private const int ErrorFileExists = 80;
+    private const int ErrorAlreadyExists = 183;
     private readonly WorkspacePathGuard _guard;
 
     public WindowsWorkspaceFileSystem(WorkspaceRoot root, WorkspacePathGuard guard)
@@ -43,6 +46,37 @@ internal sealed class WindowsWorkspaceFileSystem : IWorkspaceFileSystem
                 var fullPath = _guard.Resolve(path);
                 Directory.CreateDirectory(fullPath);
                 _guard.VerifyExisting(fullPath);
+            },
+            cancellationToken);
+    }
+
+    public Task<bool> TryCreateDirectoryAsync(
+        WorkspaceRelativePath path,
+        CancellationToken cancellationToken)
+    {
+        return ExecuteAsync(
+            () =>
+            {
+                var fullPath = _guard.Resolve(path);
+                if (CreateDirectoryNative(fullPath, IntPtr.Zero))
+                {
+                    var verifiedPath = _guard.Resolve(path);
+                    if (!StringComparer.OrdinalIgnoreCase.Equals(fullPath, verifiedPath))
+                    {
+                        throw new IOException();
+                    }
+
+                    _guard.VerifyExisting(fullPath);
+                    return true;
+                }
+
+                var error = Marshal.GetLastWin32Error();
+                if (error is ErrorFileExists or ErrorAlreadyExists)
+                {
+                    return false;
+                }
+
+                throw new IOException();
             },
             cancellationToken);
     }
@@ -330,4 +364,19 @@ internal sealed class WindowsWorkspaceFileSystem : IWorkspaceFileSystem
                 "The guarded workspace operation could not be completed.");
         }
     }
+
+    // DllImport is intentionally isolated here so Infrastructure does not enable unsafe code assembly-wide.
+#pragma warning disable SYSLIB1054
+    [DllImport(
+        "kernel32.dll",
+        EntryPoint = "CreateDirectoryW",
+        SetLastError = true,
+        CharSet = CharSet.Unicode,
+        ExactSpelling = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool CreateDirectoryNative(
+        string path,
+        IntPtr securityAttributes);
+#pragma warning restore SYSLIB1054
 }

@@ -6,6 +6,18 @@ namespace DevForge.UnitTests.Application;
 public sealed class FileSystemContractTests
 {
     [Fact]
+    public void AtomicWorkspaceCapabilityExposesCreateDirectoryIfAbsent()
+    {
+        var method = typeof(IAtomicWorkspaceFileSystem).GetMethod(
+            nameof(IAtomicWorkspaceFileSystem.TryCreateDirectoryAsync));
+
+        Assert.NotNull(method);
+        Assert.Equal(typeof(Task<bool>), method.ReturnType);
+        Assert.Equal(typeof(WorkspaceRelativePath), method.GetParameters()[0].ParameterType);
+        Assert.Equal(typeof(CancellationToken), method.GetParameters()[1].ParameterType);
+    }
+
+    [Fact]
     public void WorkspaceExposesGuardedImmediateChildDirectoryEnumeration()
     {
         var method = typeof(IWorkspaceFileSystem).GetMethod(

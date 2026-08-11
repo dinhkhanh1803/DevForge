@@ -12,6 +12,44 @@ namespace DevForge.IntegrationTests.Infrastructure.FileSystem;
 public sealed partial class WindowsWorkspaceFileSystemTests
 {
     [Fact]
+    public async Task AtomicDirectoryCreationReportsExclusiveOwnership()
+    {
+        await using var fixture = await WorkspaceFixture.CreateAsync();
+        var atomic = Assert.IsAssignableFrom<IAtomicWorkspaceFileSystem>(fixture.Workspace);
+
+        var first = await atomic.TryCreateDirectoryAsync(
+            Relative("owned"),
+            CancellationToken.None);
+        var second = await atomic.TryCreateDirectoryAsync(
+            Relative("owned"),
+            CancellationToken.None);
+
+        Assert.True(first);
+        Assert.False(second);
+        Assert.True(await fixture.Workspace.DirectoryExistsAsync(
+            Relative("owned"),
+            CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task AtomicDirectoryCreationRejectsJunctionParentWithoutOutsideMutation()
+    {
+        await using var fixture = await WorkspaceFixture.CreateAsync();
+        var atomic = Assert.IsAssignableFrom<IAtomicWorkspaceFileSystem>(fixture.Workspace);
+        var outside = fixture.CreateOutsideDirectory();
+        fixture.CreateJunction("linked", outside);
+
+        var exception = await Assert.ThrowsAsync<InfrastructureOperationException>(
+            () => atomic.TryCreateDirectoryAsync(
+                Relative("linked\\escaped"),
+                CancellationToken.None));
+
+        Assert.Equal("DF-FS-003", exception.Code);
+        Assert.False(Directory.Exists(Path.Combine(outside, "escaped")));
+    }
+
+
+    [Fact]
     public async Task EnumerateRootDirectoriesReturnsOnlyImmediateChildrenInStableOrder()
     {
         await using var fixture = await WorkspaceFixture.CreateAsync();
