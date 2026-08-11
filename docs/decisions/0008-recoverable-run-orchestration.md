@@ -29,10 +29,12 @@ M5 must execute immutable M4 plans without creating a half-finished target, pers
 - Process mutations have no declared per-step output set. They therefore declare `ReplayFromFreshStaging`; retry or recovery must replace owned staging and replay the immutable plan from the beginning. A direct cleanup request against dirty staging fails closed with `DF-EXEC-003`.
 - Fresh-staging replay prepares and verifies a sibling container before mutation, then performs a recoverable rename sequence. An exact marker-verified previous container restores an interrupted swap; replay siblings are removed only after ownership validation and are included in final staging cleanup.
 - Process output is always drained, redacted, retained, and reported through the same line/character bounds. Resume re-runs validators, while mutating process steps can never be skipped or repeated against an existing staging payload.
+- `finalize-workspace` is an immutable orchestration boundary, not a normal handler dispatch. Required validators, optional warnings, whole-payload secret scanning, finalization, canonical report persistence, `LocalReady`, lease release, and exact finalized cleanup execute in that order; retained cleanup debt carries the durable completed checkpoint.
+- Startup recovery and execution share one process-wide activity gate. Recovery reloads each checkpoint from the authoritative store before mutation, closes only a persisted running `Executing` attempt once, and never accepts a caller snapshot as the state to overwrite.
 
 ## Consequences
 
-Execution can be killed and recovered without trusting stale process state or UI-supplied paths. Target creation is all-or-nothing, retry is evidence-based, and journal/report evidence precedes staging cleanup. M5 adds persistence/schema work for immutable checkpoints but does not expand the blueprint catalog or implement Git/GitHub behavior.
+Execution can be killed and recovered without trusting stale process state or UI-supplied paths. Target creation is all-or-nothing, retry is evidence-based, and journal/report evidence precedes exact marker-owned staging cleanup. The completed M5 model and migrations are consistent, but M5 does not expand the blueprint catalog, compose WPF startup, or implement Git/GitHub behavior.
 
 ## Rejected alternatives
 

@@ -2,7 +2,7 @@
 
 **Goal:** Execute immutable M4 plans inside owned staging with transactional checkpoints, bounded retry/resume, validation evidence, and no-overwrite finalization.
 
-**Status:** Tasks 1-11 implemented and verified locally; Task 12 M5 closure is next.
+**Status:** M5 complete and verified locally; M6 WPF shell, settings, and environment doctor is next.
 
 **Architecture:** Application owns lifecycle and orchestration decisions. Infrastructure owns guarded staging, exact blueprint reopening, handlers, reports, finalization, and concrete checkpoint persistence. Domain remains immutable and I/O-free.
 
@@ -33,11 +33,11 @@ M5 excludes WPF workflow composition, Git/GitHub behavior, production blueprints
 - [x] Implement checkpointed retry/resume orchestration.
 - [x] Implement validation, report persistence, and atomic finalization.
 - [x] Implement interrupted-run recovery.
-- [ ] Run and record the complete M5 exit gate.
+- [x] Run and record the complete M5 exit gate.
 
 ## Current exit gate
 
-Task 11 now enumerates authoritative SQLite checkpoints at startup under the same process-wide activity gate as execution, closes only persisted running attempts with retryable `DF-EXEC-003` evidence, and delegates explicit resume/cleanup through the existing marker, fingerprint, blueprint, and cleanup guards. Stale caller snapshots cannot overwrite newer persisted state, and finalized-cleanup debt preserves its durable checkpoint. Task 12 is limited to the complete M5 documentation and exit gate.
+M5 is complete. Task 11 enumerates authoritative SQLite checkpoints at startup under the same process-wide activity gate as execution, closes only persisted running attempts with retryable `DF-EXEC-003` evidence, and delegates explicit resume/cleanup through the existing marker, fingerprint, blueprint, and cleanup guards. Stale caller snapshots cannot overwrite newer persisted state, finalized-cleanup debt preserves its durable checkpoint, and the complete M5 exit gate is green. M6 is the next specification milestone.
 
 ### Task 10 implementation boundary
 

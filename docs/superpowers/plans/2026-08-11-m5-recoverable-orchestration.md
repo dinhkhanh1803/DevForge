@@ -74,9 +74,9 @@
 
 ## Task 12: Close M5
 
-- [ ] Update ADR, implementation plan/status, changelog, and exact test evidence.
-- [ ] Run SDK, locked restore, format verify, Release build, full solution, focused M5 unit/integration/security, migration consistency, and zero-skipped gates.
-- [ ] Commit `docs: complete M5 recoverable orchestration milestone`; require clean worktree and no push.
+- [x] Update ADR, implementation plan/status, changelog, and exact test evidence.
+- [x] Run SDK, locked restore, format verify, Release build, full solution, focused M5 unit/integration/security, migration consistency, and zero-skipped gates.
+- [x] Commit `docs: complete M5 recoverable orchestration milestone`; require clean worktree and no push.
 
 ## M5 exit gate
 
