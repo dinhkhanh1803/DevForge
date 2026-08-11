@@ -139,6 +139,15 @@ internal sealed class CanonicalPlanSerializer : ICanonicalPlanSerializer
             writer.WriteNumber("timeoutTicks", step.Timeout.Ticks);
             writer.WritePropertyName("retry");
             writer.WriteStartObject();
+            writer.WriteString(
+                "mode",
+                step.RetryPolicy.Mode switch
+                {
+                    RetryMode.None => "none",
+                    RetryMode.Manual => "manual",
+                    RetryMode.AutomaticLimited => "automaticLimited",
+                    _ => throw new InvalidOperationException("The retry mode is not supported."),
+                });
             writer.WriteNumber("maxAttempts", step.RetryPolicy.MaxAttempts);
             writer.WriteNumber("delayTicks", step.RetryPolicy.Delay.Ticks);
             writer.WriteNumber("backoffMultiplier", step.RetryPolicy.BackoffMultiplier);

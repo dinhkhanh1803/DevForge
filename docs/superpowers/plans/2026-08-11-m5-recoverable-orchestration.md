@@ -8,9 +8,9 @@
 
 ## Task 1: Evolve Domain execution and recovery invariants
 
-- [ ] RED tests for explicit retry modes, bounded automatic/manual policy, attempt output digest, interruption closure, cancelled/validation-failed resume, terminal/finalized cleanup guards, and warning validation status.
-- [ ] Implement immutable guarded Domain values without I/O dependencies.
-- [ ] GREEN Domain tests; commit `feat(domain): model recoverable execution lifecycle`.
+- [x] RED tests for explicit retry modes, bounded automatic/manual policy, attempt output digest, interruption closure, cancelled/validation-failed resume, terminal/finalized cleanup guards, and warning validation status.
+- [x] Implement immutable guarded Domain values without I/O dependencies.
+- [x] GREEN Domain tests; commit `feat(domain): model recoverable execution lifecycle`.
 
 ## Task 2: Define execution, checkpoint, staging, and handler ports
 

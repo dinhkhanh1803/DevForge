@@ -35,7 +35,8 @@ public sealed class StepAttempt
         DateTimeOffset? completedAt,
         StepAttemptOutcome outcome,
         int? exitCode,
-        DevForgeError? error)
+        DevForgeError? error,
+        string? outputDigest)
     {
         StepId = stepId;
         AttemptNumber = attemptNumber;
@@ -44,6 +45,7 @@ public sealed class StepAttempt
         Outcome = outcome;
         ExitCode = exitCode;
         Error = error;
+        OutputDigest = outputDigest;
     }
 
     public string StepId { get; }
@@ -60,6 +62,8 @@ public sealed class StepAttempt
 
     public DevForgeError? Error { get; }
 
+    public string? OutputDigest { get; }
+
     public static ValidationResult<StepAttempt> Start(
         string? stepId,
         int attemptNumber,
@@ -72,6 +76,7 @@ public sealed class StepAttempt
             null,
             StepAttemptOutcome.Running,
             null,
+            null,
             null);
     }
 
@@ -83,6 +88,27 @@ public sealed class StepAttempt
         StepAttemptOutcome outcome,
         int? exitCode,
         DevForgeError? error)
+    {
+        return Rehydrate(
+            stepId,
+            attemptNumber,
+            startedAt,
+            completedAt,
+            outcome,
+            exitCode,
+            error,
+            null);
+    }
+
+    public static ValidationResult<StepAttempt> Rehydrate(
+        string? stepId,
+        int attemptNumber,
+        DateTimeOffset startedAt,
+        DateTimeOffset? completedAt,
+        StepAttemptOutcome outcome,
+        int? exitCode,
+        DevForgeError? error,
+        string? outputDigest)
     {
         var issues = new List<ValidationIssue>();
         if (string.IsNullOrWhiteSpace(stepId))
@@ -112,10 +138,15 @@ public sealed class StepAttempt
         {
             switch (outcome)
             {
-                case StepAttemptOutcome.Running when completedAt is not null || exitCode is not null || error is not null:
+                case StepAttemptOutcome.Running when completedAt is not null
+                    || exitCode is not null
+                    || error is not null
+                    || outputDigest is not null:
                     issues.Add(
                         new ValidationIssue(
-                            "attempt.running.inconsistent",
+                            outputDigest is null
+                                ? "attempt.running.inconsistent"
+                                : "attempt.running.output-digest-unexpected",
                             "A running attempt cannot have completion data.",
                             "outcome"));
                     break;
@@ -169,6 +200,15 @@ public sealed class StepAttempt
             }
         }
 
+        if (outputDigest is not null && !IsCanonicalDigest(outputDigest))
+        {
+            issues.Add(
+                new ValidationIssue(
+                    "attempt.output-digest.invalid",
+                    "An attempt output digest must be a canonical lowercase SHA-256 value.",
+                    "outputDigest"));
+        }
+
         return issues.Count == 0
             ? ValidationResult.Success(
                 new StepAttempt(
@@ -178,8 +218,29 @@ public sealed class StepAttempt
                     completedAt,
                     outcome,
                     exitCode,
-                    error))
+                    error,
+                    outputDigest))
             : ValidationResult.Failure<StepAttempt>(issues);
+    }
+
+    private static bool IsCanonicalDigest(string value)
+    {
+        const string prefix = "sha256:";
+        if (value.Length != prefix.Length + 64
+            || !value.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        foreach (var character in value.AsSpan(prefix.Length))
+        {
+            if (character is not (>= '0' and <= '9') and not (>= 'a' and <= 'f'))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
 
@@ -245,6 +306,10 @@ public sealed class ProjectRun
     public ImmutableArray<StepAttempt> Attempts { get; }
 
     public ImmutableArray<DevForgeError> Errors { get; }
+
+    public bool AllowsStagingCleanup => Status is RunStatus.ValidationFailed
+        or RunStatus.Cancelled
+        or RunStatus.Failed;
 
     public static ValidationResult<ProjectRun> Create(string? id, string? recipeId)
     {
@@ -313,6 +378,25 @@ public sealed class ProjectRun
         int? exitCode,
         DevForgeError? error)
     {
+        return CompleteAttempt(
+            stepId,
+            attemptNumber,
+            outcome,
+            completedAt,
+            exitCode,
+            error,
+            null);
+    }
+
+    public ValidationResult<ProjectRun> CompleteAttempt(
+        string? stepId,
+        int attemptNumber,
+        StepAttemptOutcome outcome,
+        DateTimeOffset completedAt,
+        int? exitCode,
+        DevForgeError? error,
+        string? outputDigest)
+    {
         if (Status != RunStatus.Executing)
         {
             return ValidationResult.Failure<ProjectRun>(
@@ -358,7 +442,8 @@ public sealed class ProjectRun
             completedAt,
             outcome,
             exitCode,
-            error);
+            error,
+            outputDigest);
         return completed.IsValid
             ? ValidationResult.Success(
                 new ProjectRun(
@@ -369,6 +454,100 @@ public sealed class ProjectRun
                     Attempts.SetItem(index, completed.Value),
                     Errors))
             : ValidationResult.Failure<ProjectRun>(completed.Issues);
+    }
+
+    public ValidationResult<ProjectRun> InterruptCurrentAttempt(
+        DateTimeOffset completedAt,
+        DevForgeError? error,
+        string? outputDigest)
+    {
+        var running = Attempts.FirstOrDefault(attempt =>
+            attempt.Outcome == StepAttemptOutcome.Running
+            && string.Equals(attempt.StepId, CurrentStepId, StringComparison.Ordinal));
+        if (Status != RunStatus.Executing || running is null)
+        {
+            return ValidationResult.Failure<ProjectRun>(
+            [
+                new ValidationIssue(
+                    "run.interruption.attempt-required",
+                    "An executing running attempt is required for interruption recovery.",
+                    "attempts"),
+            ]);
+        }
+
+        if (error is null
+            || !error.IsRetryable
+            || !string.Equals(error.Code, "DF-EXEC-003", StringComparison.Ordinal)
+            || !string.Equals(error.StepId, running.StepId, StringComparison.Ordinal))
+        {
+            return ValidationResult.Failure<ProjectRun>(
+            [
+                new ValidationIssue(
+                    "run.interruption.error.invalid",
+                    "Interruption recovery requires matching retryable DF-EXEC-003 evidence.",
+                    "error"),
+            ]);
+        }
+
+        var completed = StepAttempt.Rehydrate(
+            running.StepId,
+            running.AttemptNumber,
+            running.StartedAt,
+            completedAt,
+            StepAttemptOutcome.Failed,
+            null,
+            error,
+            outputDigest);
+        if (!completed.IsValid)
+        {
+            return ValidationResult.Failure<ProjectRun>(completed.Issues);
+        }
+
+        var index = Attempts.IndexOf(running);
+        return ValidationResult.Success(new ProjectRun(
+            Id,
+            RecipeId,
+            Status,
+            null,
+            Attempts.SetItem(index, completed.Value),
+            Errors.Add(error)));
+    }
+
+    public ValidationResult<ProjectRun> ResumeExecution()
+    {
+        var hasRunningAttempt = CurrentStepId is not null
+            || Attempts.Any(attempt => attempt.Outcome == StepAttemptOutcome.Running);
+        var lastAttempt = Attempts.LastOrDefault();
+        var isInterrupted = Status == RunStatus.Executing
+            && lastAttempt is
+            {
+                Outcome: StepAttemptOutcome.Failed,
+                Error.Code: "DF-EXEC-003",
+                Error.IsRetryable: true,
+            }
+            && Errors.Any(error =>
+                string.Equals(error.Code, lastAttempt.Error.Code, StringComparison.Ordinal)
+                && string.Equals(error.StepId, lastAttempt.StepId, StringComparison.Ordinal));
+        if (hasRunningAttempt
+            || Status is not (RunStatus.Cancelled or RunStatus.ValidationFailed)
+                && !isInterrupted)
+        {
+            return ValidationResult.Failure<ProjectRun>(
+            [
+                new ValidationIssue(
+                    "run.resume.status.invalid",
+                    "The run is not in a safely resumable state.",
+                    "status"),
+            ]);
+        }
+
+        return ValidationResult.Success(new ProjectRun(
+            Id,
+            RecipeId,
+            RunStatus.Executing,
+            null,
+            Attempts,
+            Errors));
     }
 
     public ValidationResult<ProjectRun> AppendError(DevForgeError? error)

@@ -1,14 +1,14 @@
 # DevForge Studio Implementation Status
 
 **Current milestone:** M5 - Orchestrator, Staging, Retry/Resume, and Finalizer
-**Status:** M4 complete; M5 design approved and implementation starting
+**Status:** M4 complete; M5 Task 1 implemented and verified
 **Last updated:** 2026-08-11
 
 ## Current M5 scope
 
 The approved design is `docs/superpowers/specs/2026-08-11-m5-recoverable-orchestration-design.md`, the executable TDD plan is `docs/superpowers/plans/2026-08-11-m5-recoverable-orchestration.md`, and ADR-0008 fixes checkpoint, marker, retry/resume, interruption, validation, and finalization decisions. M5 is limited to the execution engine and recovery boundary. WPF composition, Git/GitHub, production blueprints, release packaging, and catalog expansion remain deferred.
 
-Implementation has not begun. The first task is the Domain lifecycle/retry model; its exit gate requires guarded immutable states and no Domain dependency on filesystem, process, persistence, or UI APIs.
+Task 1 is implemented locally: explicit bounded retry modes, canonical attempt output digests, interruption normalization, guarded resume, staging-cleanup eligibility, warning validation evidence, and retry-mode-aware plan hashing. Focused recovery tests pass 23/23, full UnitTests pass 418/418, format verification exits 0, and the Release solution build succeeds with 0 warnings and 0 errors. Task 2 is the next active scope: recoverable execution, checkpoint, staging, handler, finalizer, and recovery contracts without implementation behavior.
 
 ## M4 completed scope
 

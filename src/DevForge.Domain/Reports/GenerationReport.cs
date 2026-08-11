@@ -7,9 +7,10 @@ namespace DevForge.Domain.Reports;
 
 public enum ValidationCheckStatus
 {
-    Passed,
-    Failed,
-    Skipped,
+    Passed = 1,
+    Failed = 2,
+    Skipped = 3,
+    Warning = 4,
 }
 
 public sealed record ValidationCheck(
