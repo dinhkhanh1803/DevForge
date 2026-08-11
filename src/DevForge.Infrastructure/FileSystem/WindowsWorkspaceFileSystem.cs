@@ -143,6 +143,15 @@ internal sealed class WindowsWorkspaceFileSystem : IWorkspaceFileSystem
             cancellationToken);
     }
 
+    public Task<ImmutableArray<WorkspaceRelativePath>> EnumerateDirectoriesAsync(
+        WorkspaceRelativePath directory,
+        CancellationToken cancellationToken)
+    {
+        return ExecuteAsync(
+            () => EnumerateDirectories(_guard.Resolve(directory), cancellationToken),
+            cancellationToken);
+    }
+
     public Task DeleteDirectoryAsync(
         WorkspaceRelativePath path,
         DirectoryCleanupIntent intent,
@@ -244,6 +253,29 @@ internal sealed class WindowsWorkspaceFileSystem : IWorkspaceFileSystem
         }
 
         return files
+            .OrderBy(path => path.Value, StringComparer.OrdinalIgnoreCase)
+            .ToImmutableArray();
+    }
+
+    private ImmutableArray<WorkspaceRelativePath> EnumerateDirectories(
+        string directory,
+        CancellationToken cancellationToken)
+    {
+        _guard.VerifyExisting(directory);
+        if (!Directory.Exists(directory))
+        {
+            throw new IOException();
+        }
+
+        var directories = ImmutableArray.CreateBuilder<WorkspaceRelativePath>();
+        foreach (var child in Directory.EnumerateDirectories(directory))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            _guard.VerifyExisting(child);
+            directories.Add(_guard.ToRelative(child));
+        }
+
+        return directories
             .OrderBy(path => path.Value, StringComparer.OrdinalIgnoreCase)
             .ToImmutableArray();
     }

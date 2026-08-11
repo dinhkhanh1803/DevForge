@@ -1,10 +1,10 @@
 namespace DevForge.Blueprints.Abstractions.Validation;
 
-internal static class BlueprintIdentifierValidator
+public static class BlueprintIdentifierValidator
 {
     internal const int MaximumLength = 128;
 
-    internal static bool IsValid(string? value)
+    public static bool IsValid(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {

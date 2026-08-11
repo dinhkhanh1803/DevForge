@@ -269,6 +269,10 @@ public sealed class ProcessSecurityReviewTests
             bool recursive,
             CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<ImmutableArray<WorkspaceRelativePath>> EnumerateDirectoriesAsync(
+            WorkspaceRelativePath directory,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task DeleteDirectoryAsync(
             WorkspaceRelativePath path,
             DirectoryCleanupIntent intent,

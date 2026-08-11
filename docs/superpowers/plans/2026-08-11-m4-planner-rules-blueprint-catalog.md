@@ -142,8 +142,8 @@ public sealed record BlueprintActionDefinition(
 
 **Files:** Application contracts, Windows workspace, contract tests.
 
-- [ ] **Step 1: Write RED tests** for `EnumerateDirectoriesAsync`, `BlueprintPackageSource`, provenance, `BlueprintFingerprint`, `BlueprintInspection`, immutable `BlueprintCatalogSnapshot`, `ResolvedBlueprint`, exact `RefreshAsync/InspectAsync/ListAsync/FindAsync`, `PlanPreview`, and `PlannedProject`.
-- [ ] **Step 2: Specify exact APIs:**
+- [x] **Step 1: Write RED tests** for `EnumerateDirectoriesAsync`, `BlueprintPackageSource`, provenance, `BlueprintFingerprint`, `BlueprintInspection`, immutable `BlueprintCatalogSnapshot`, `ResolvedBlueprint`, exact `RefreshAsync/InspectAsync/ListAsync/FindAsync`, `PlanPreview`, and `PlannedProject`.
+- [x] **Step 2: Specify exact APIs:**
 
 ```csharp
 public interface IBlueprintCatalog
@@ -162,10 +162,10 @@ public interface IProjectPlanner
 }
 ```
 
-- [ ] **Step 3: Run RED** focused on Application/FileSystem contract tests.
-- [ ] **Step 4: Implement guarded factories and immutable snapshots**; catalog paths remain opaque and never expose absolute values.
-- [ ] **Step 5: Implement immediate-child directory enumeration** in `WindowsWorkspaceFileSystem` using the existing canonical/reparse guard; update all test stubs.
-- [ ] **Step 6: GREEN** contracts and real filesystem tests; commit `feat(application): define M4 catalog and planning contracts`.
+- [x] **Step 3: Run RED** focused on Application/FileSystem contract tests.
+- [x] **Step 4: Implement guarded factories and immutable snapshots**; catalog paths remain opaque and never expose absolute values.
+- [x] **Step 5: Implement immediate-child directory enumeration** in `WindowsWorkspaceFileSystem` using the existing canonical/reparse guard; update all test stubs.
+- [x] **Step 6: GREEN** contracts and real filesystem tests; commit `feat(application): define M4 catalog and planning contracts`.
 
 ## Task 4: Pin YAML and guard the parsing boundary
 

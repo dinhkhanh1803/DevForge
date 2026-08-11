@@ -274,6 +274,10 @@ public interface IWorkspaceFileSystem
         bool recursive,
         CancellationToken cancellationToken);
 
+    Task<ImmutableArray<WorkspaceRelativePath>> EnumerateDirectoriesAsync(
+        WorkspaceRelativePath directory,
+        CancellationToken cancellationToken);
+
     Task DeleteDirectoryAsync(
         WorkspaceRelativePath path,
         DirectoryCleanupIntent intent,

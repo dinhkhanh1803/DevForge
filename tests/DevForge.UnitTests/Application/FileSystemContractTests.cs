@@ -6,6 +6,17 @@ namespace DevForge.UnitTests.Application;
 public sealed class FileSystemContractTests
 {
     [Fact]
+    public void WorkspaceExposesGuardedImmediateChildDirectoryEnumeration()
+    {
+        var method = typeof(IWorkspaceFileSystem).GetMethod(
+            "EnumerateDirectoriesAsync",
+            [typeof(WorkspaceRelativePath), typeof(CancellationToken)]);
+
+        Assert.NotNull(method);
+        Assert.Equal(typeof(Task<ImmutableArray<WorkspaceRelativePath>>), method.ReturnType);
+    }
+
+    [Fact]
     public void WorkspaceSupportsWholeRootEnumerationWithoutExposingRootPath()
     {
         var method = typeof(IWorkspaceFileSystem).GetMethod(

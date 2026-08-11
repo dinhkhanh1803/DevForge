@@ -81,6 +81,10 @@ public sealed class WorkspaceSecurityReviewTests
             typeof(bool),
             typeof(CancellationToken));
         AssertMethod(
+            nameof(IWorkspaceFileSystem.EnumerateDirectoriesAsync),
+            typeof(WorkspaceRelativePath),
+            typeof(CancellationToken));
+        AssertMethod(
             nameof(IWorkspaceFileSystem.DeleteDirectoryAsync),
             typeof(WorkspaceRelativePath),
             typeof(DirectoryCleanupIntent),
@@ -178,6 +182,10 @@ public sealed class WorkspaceSecurityReviewTests
         public Task<ImmutableArray<WorkspaceRelativePath>> EnumerateFilesAsync(
             WorkspaceRelativePath directory,
             bool recursive,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<ImmutableArray<WorkspaceRelativePath>> EnumerateDirectoriesAsync(
+            WorkspaceRelativePath directory,
             CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task DeleteDirectoryAsync(
