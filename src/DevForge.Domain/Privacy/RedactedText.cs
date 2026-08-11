@@ -86,7 +86,7 @@ public sealed record RedactedText
         }
 
         var trimmed = value.Trim();
-        if (LooksSecretShaped(trimmed))
+        if (IsSecretShapedValue(trimmed))
         {
             return ValidationResult.Failure<RedactedText>(
             [
@@ -110,6 +110,16 @@ public sealed record RedactedText
         var normalized = string.Concat(key.Where(char.IsLetterOrDigit));
         return _secretKeyFragments.Any(
             fragment => normalized.Contains(fragment, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public static bool IsSecretShapedValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        return LooksSecretShaped(value);
     }
 
     private static bool LooksSecretShaped(string value)

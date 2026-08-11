@@ -74,4 +74,18 @@ public sealed class PrivacyTests
     {
         Assert.True(RedactedText.IsSecretShapedKey(key));
     }
+
+    [Theory]
+    [InlineData("Authorization: Bearer abcdefghijklmnop", true)]
+    [InlineData("ghp_1234567890abcdef", true)]
+    [InlineData("   ", false)]
+    [InlineData("monkey=value", false)]
+    [InlineData("Foreign key: FK_ProjectRun", false)]
+    [InlineData("The .env file was not read", false)]
+    public void SecretShapedValuesCanBeClassifiedWithoutCreatingRedactedText(
+        string value,
+        bool expected)
+    {
+        Assert.Equal(expected, RedactedText.IsSecretShapedValue(value));
+    }
 }
