@@ -1,14 +1,14 @@
 # DevForge Studio Implementation Status
 
 **Current milestone:** M3 - Core Infrastructure
-**Status:** Renderer closure planned; implementation pending
+**Status:** Renderer closure implemented; verification in progress
 **Last updated:** 2026-08-11
 
 ## Current M3 scope
 
-The original five-boundary M3 checkpoint is green, but the full DOCX audit found one unimplemented M3 exit item: the restricted Scriban template renderer. Its approved design is `docs/superpowers/specs/2026-08-10-m3-restricted-template-renderer-closure-design.md` and its executable TDD plan is `docs/superpowers/plans/2026-08-11-m3-restricted-template-renderer-closure.md`. M3 remains open until that plan and a fresh six-boundary exit gate pass.
+The original five-boundary M3 checkpoint is green, but the full DOCX audit found one omitted M3 exit item: the restricted Scriban template renderer. The renderer implementation, contract hardening, exact dependency pin, closed AST policy, and focused security tests are now present. Its approved design is `docs/superpowers/specs/2026-08-10-m3-restricted-template-renderer-closure-design.md`, its executable TDD plan is `docs/superpowers/plans/2026-08-11-m3-restricted-template-renderer-closure.md`, and the accepted runtime boundary is ADR-0006. M3 remains open until the fresh six-boundary exit gate passes.
 
-Delivered scope is currently limited to the guarded workspace file system, trusted process runner, bounded secret scanner, typed environment doctor, trusted IDE handoff, and their unit/integration/security tests. The template-renderer port exists but has no production implementation yet. Planner/catalog, orchestration, UI composition, production templates, Git, GitHub, packaging, cloud backends, and AI APIs remain out of scope.
+Delivered scope now includes the guarded workspace file system, trusted process runner, bounded secret scanner, typed environment doctor, trusted IDE handoff, the restricted Scriban renderer, and their unit/integration/security tests. Planner/catalog, orchestration, UI composition, production templates, Git, GitHub, packaging, cloud backends, and AI APIs remain out of scope.
 
 ## M3 delivered
 
@@ -16,6 +16,7 @@ Delivered scope is currently limited to the guarded workspace file system, trust
 - Process execution resolves only typed trusted tools, uses `ArgumentList` with no shell or elevation, drains bounded redacted stdout/stderr, and terminates the complete child tree on timeout or cancellation.
 - Secret scanning is bounded by file size, line length, text extensions, and regex timeouts; findings contain only categories, guarded paths, line numbers, and redacted descriptions.
 - Environment inspection runs fixed probes for the supported M3 tools. IDE launch accepts only the closed trusted catalog and performs a non-elevated detached handoff.
+- Template rendering uses Scriban 7.2.5 only inside Infrastructure, an empty strict runtime, frozen string-only context objects, a closed conditional grammar, bounded AST/output, cancellation, and stable scrubbed failures.
 - Adversarial tests exercise real Windows processes and junctions, structured JSON/XML credentials, argument metacharacters, locked files, throwing progress observers, continuous-output cancellation, and privacy-safe failure paths with no skipped Infrastructure test.
 
 ## M3 exit gate evidence

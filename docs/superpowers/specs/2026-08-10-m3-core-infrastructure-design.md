@@ -1,12 +1,12 @@
 # M3 Core Infrastructure Design
 
-**Status:** Approved for implementation planning
+**Status:** Approved; renderer closure verification in progress
 **Date:** 2026-08-10
 **Milestone:** M3 - Core Infrastructure
 
 ## Purpose
 
-Implement the Windows-native infrastructure boundary required by the DevForge Studio specification: safe external-process execution, a workspace-scoped guarded file system, secret scanning, environment inspection, and trusted IDE launch. M3 turns the Application contracts delivered in M1 into production implementations without adding planning, orchestration, Git/GitHub automation, blueprint catalog behavior, or significant WPF UI.
+Implement the Windows-native infrastructure boundary required by the DevForge Studio specification: safe external-process execution, a workspace-scoped guarded file system, secret scanning, environment inspection, trusted IDE launch, and restricted template rendering. M3 turns the Application contracts delivered in M1 into production implementations without adding planning, orchestration, Git/GitHub automation, blueprint catalog behavior, or significant WPF UI.
 
 ## Source requirements
 
@@ -19,26 +19,29 @@ This design implements the infrastructure and security requirements in `DevForge
 - Every workspace file operation crosses `IFileSystem`/`IWorkspaceFileSystem` and remains contained by a validated local Windows root.
 - Traversal, rooted/device/UNC paths, alternate data streams, reserved names, symbolic-link and junction escapes, unsafe overwrite, and deletion outside a run-owned scope fail closed.
 - Secret scanning never returns or persists the detected secret value.
+- Template rendering uses the specification-selected Scriban engine through a closed, bounded, string-only runtime with no file, process, network, environment, reflection, or loader access.
 - The happy path does not require Administrator privileges.
 - Unit, integration, contract, architecture, and security tests accompany the implementations.
 
 ## Chosen approach
 
-Build four focused Infrastructure components behind the existing Application contracts:
+Build six focused Infrastructure components behind the existing Application contracts:
 
 1. `WindowsProcessRunner` for process creation, monitoring, output redaction, and termination.
 2. `WindowsWorkspaceFileSystem` plus its factory for guarded workspace operations.
 3. `WorkspaceSecretScanner` for bounded, content-aware secret detection through the guarded file-system port.
-4. `WindowsEnvironmentDoctor` and `WindowsIdeLauncher` for tool/IDE discovery and launch through typed process operations.
+4. `WindowsEnvironmentDoctor` for fixed typed tool probes.
+5. `WindowsIdeLauncher` for trusted non-elevated IDE handoff.
+6. `RestrictedScribanTemplateRenderer` for deterministic string-only variable and conditional rendering.
 
-This is preferred over a monolithic infrastructure service because process trust, path containment, content privacy, and environment discovery need separate invariants and focused tests. Implementing only the process and file-system portions would leave the milestone incomplete and force later features to duplicate unsafe probing behavior.
+This is preferred over a monolithic infrastructure service because process trust, path containment, content privacy, environment discovery, and template-language isolation need separate invariants and focused tests. Implementing only the process and file-system portions would leave the milestone incomplete and force later features to duplicate unsafe probing behavior.
 
 ## Architecture
 
 ### Dependency direction
 
-- `DevForge.Application` continues to own `IProcessRunner`, `IFileSystem`, `IWorkspaceFileSystem`, `ISecretScanner`, `IEnvironmentDoctor`, `IIdeLauncher`, and their immutable request/result contracts.
-- `DevForge.Infrastructure` implements those ports under focused `Processes`, `FileSystem`, `Security`, `Environment`, and `Ide` namespaces.
+- `DevForge.Application` continues to own `IProcessRunner`, `IFileSystem`, `IWorkspaceFileSystem`, `ISecretScanner`, `IEnvironmentDoctor`, `IIdeLauncher`, `ITemplateRenderer`, and their immutable request/result contracts.
+- `DevForge.Infrastructure` implements those ports under focused `Processes`, `FileSystem`, `Security`, `Environment`, `Ide`, and `Templates` namespaces.
 - `DevForge.Domain` remains independent of Infrastructure and operating-system APIs.
 - `DevForge.Desktop` will eventually compose these implementations through the Generic Host in M6; M3 does not add direct process or file-system access to Desktop.
 - Real Windows behavior is verified in `DevForge.IntegrationTests`; contract/value behavior remains in `DevForge.UnitTests`.
@@ -58,6 +61,8 @@ Application request
 ```
 
 Infrastructure exceptions do not cross the boundary with raw paths, command text, environment data, output, or secrets. Expected invalid input is rejected by guarded factories; operating-system failures are mapped to stable, scrubbed diagnostics at the Infrastructure boundary.
+
+Template requests follow the same boundary but remain pure: after guarded construction, Infrastructure parses and validates a closed AST, renders through a fresh empty runtime into bounded output, and returns no engine diagnostic or partial result on failure.
 
 ## Process runner
 
@@ -155,6 +160,14 @@ The workspace path is passed as one argument. No workspace content becomes comma
 
 If the current `IProcessRunner` lifecycle contract is unsuitable for long-lived detached IDE handoff, M3 must first capture that mismatch with a contract test and add the smallest dedicated Infrastructure-safe launch abstraction or result semantic. It must not fake launch success or force the bounded runner to retain an IDE for its full lifetime.
 
+## Restricted template renderer
+
+`RestrictedScribanTemplateRenderer` is the sole production implementation of `ITemplateRenderer`. Scriban 7.2.5 is pinned centrally and referenced directly only by Infrastructure. Every render uses a fresh context with empty built-ins, strict lookup, all relaxed access disabled, no loader, and a frozen ordinal-sorted graph containing strings and nested `ScriptObject` values only.
+
+Before evaluation, `RestrictedTemplatePolicy` accepts only raw text, scalar/dotted output, string/Boolean literals, `if`/`else if`/`else`, `==`, `!=`, `&&`, `||`, `!`, and parentheses. It rejects assignment, loops, calls, built-ins, pipes, eval, includes/imports, loaders, arrays/objects, indexers, optional access, arithmetic, alternate escape modes, and every unrecognized semantic node.
+
+The Application request bounds template/context dimensions and rejects secret-shaped names or credential-shaped values. Infrastructure bounds semantic traversal to 10,000 visits, depth to 64, and output to 4 MiB. Cancellation is checked across parse, policy, Scriban context, output writes, and return. Failures expose fixed code/message pairs only, attach no engine exception, and never contain template fragments, context data, source spans, or partial output. ADR-0006 records the complete decision.
+
 ## Error handling
 
 - Contract preconditions remain guarded by `ValidationResult` factories.
@@ -173,6 +186,7 @@ If the current `IProcessRunner` lifecycle contract is unsuitable for long-lived 
 - Path-guard tests cover traversal, rooted/UNC/device paths, alternate data streams, reserved names, case-insensitive containment, root targeting, and overwrite intent.
 - Secret-scanner classifier tests cover credential families, `.env` content, binary/oversized inputs, and descriptions that cannot contain the secret.
 - Environment/IDE tests cover fixed probes, missing tools, unsupported IDs, cancellation, and no-elevation launch settings.
+- Renderer tests cover the closed grammar, every forbidden AST family, request/AST/output bounds, cancellation, concurrency, culture determinism, and privacy-safe failures.
 
 ### Windows integration tests
 
@@ -193,24 +207,26 @@ Test roots are explicit, resolved paths created by test fixtures. Cleanup verifi
 - Add guarded workspace components under `src/DevForge.Infrastructure/FileSystem/`.
 - Add the scanner under `src/DevForge.Infrastructure/Security/`.
 - Add environment and IDE components under `src/DevForge.Infrastructure/Environment/` and `src/DevForge.Infrastructure/Ide/`.
+- Add the restricted renderer under `src/DevForge.Infrastructure/Templates/` and pin Scriban exactly in central package management.
 - Add focused contract/unit tests under `tests/DevForge.UnitTests/Infrastructure/` and architecture tests under the existing architecture suite.
 - Add real Windows tests and a deterministic process helper under `tests/DevForge.IntegrationTests/Infrastructure/` and a test-helper project only if required.
-- Add ADR-0005 for guarded Windows infrastructure boundaries.
+- Add ADR-0005 for guarded Windows infrastructure boundaries and ADR-0006 for the restricted Scriban runtime.
 - Update `docs/implementation-plan.md`, `docs/implementation-status.md`, and `CHANGELOG.md` only with evidence actually produced.
 
-No package is added unless the implementation plan proves the BCL/Windows APIs are insufficient. Any required package must be centrally pinned in `Directory.Packages.props` with an exact version and lock files updated.
+Scriban 7.2.5 is the specification-selected renderer dependency and is centrally pinned with consistent lock files. No other package is added unless the implementation plan proves the BCL/Windows APIs are insufficient; any future package must also use an exact central pin.
 
 ## Exit gate
 
 M3 is complete only when:
 
-1. The production implementations of all five M3 ports exist and the Application/Desktop layers contain no external-process or unguarded workspace I/O implementation.
+1. The production implementations of all six M3 boundaries exist and the Application/Desktop layers contain no external-process or unguarded workspace I/O implementation.
 2. Process tests prove argument separation, non-shell execution, output bounds/redaction, timeout, cancellation, and descendant-tree termination.
 3. File-system tests prove canonical containment, no-overwrite behavior, reparse-point escape rejection, safe enumeration, run-owned cleanup guards, and atomic no-overwrite finalization.
 4. Secret-scanner tests prove supported detection, bounded scanning, fail-closed completeness, and absence of secret values in findings/output/persistence.
 5. Environment and IDE tests prove only typed trusted probes/launches, guarded workspace arguments, cancellation, and non-elevated behavior.
-6. Locked restore, formatting verification, Release build, full tests, and focused unit/integration/security suites pass with zero warnings and zero errors.
-7. ADR-0005, `docs/implementation-plan.md`, `docs/implementation-status.md`, and `CHANGELOG.md` record exact final scope and command evidence.
+6. Renderer tests prove the closed language, empty runtime, bounded input/AST/output, cancellation, deterministic concurrency/culture behavior, and scrubbed failures with no skipped security case.
+7. Locked restore, formatting verification, Release build, full tests, and focused unit/integration/security suites pass with zero warnings and zero errors.
+8. ADR-0005, ADR-0006, `docs/implementation-plan.md`, `docs/implementation-status.md`, and `CHANGELOG.md` record exact final scope and command evidence.
 
 ## Deferred scope
 

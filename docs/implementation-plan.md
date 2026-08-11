@@ -2,7 +2,7 @@
 
 **Goal:** Deliver the Windows-native Infrastructure implementations required before planning and generation workflows.
 
-**Status:** Renderer closure approved and planned on 2026-08-11; production implementation has not started.
+**Status:** Renderer closure implemented; full six-boundary verification is in progress.
 
 **Architecture:** Application retains its validated contracts. Infrastructure owns Windows process/file/security/environment/IDE effects and returns only contained, bounded, redacted results. Domain and Desktop remain free of OS implementation details.
 
@@ -15,6 +15,7 @@
 - Renderer closure design: `docs/superpowers/specs/2026-08-10-m3-restricted-template-renderer-closure-design.md`
 - Renderer closure plan: `docs/superpowers/plans/2026-08-11-m3-restricted-template-renderer-closure.md`
 - Decision: `docs/decisions/0005-guarded-windows-infrastructure-boundaries.md`
+- Renderer decision: `docs/decisions/0006-restricted-scriban-template-runtime.md`
 
 ## Scope
 
@@ -31,7 +32,7 @@ M3 excludes blueprint catalog/planner work, orchestration, WPF composition/UI, p
 - Add the restricted Scriban renderer under `src/DevForge.Infrastructure/Templates/` and harden its Application request contract.
 - Add source-policy architecture tests under `tests/DevForge.UnitTests/` without adding an Infrastructure reference.
 - Add real Windows tests and a deterministic helper under `tests/DevForge.IntegrationTests/` and `tests/DevForge.ProcessTestHelper/` if required by RED tests.
-- Update ADR-0005, status, plan, and changelog only with verified evidence.
+- Update ADR-0005/ADR-0006, status, plan, and changelog only with verified evidence.
 
 ## Tasks
 
@@ -43,7 +44,7 @@ M3 excludes blueprint catalog/planner work, orchestration, WPF composition/UI, p
 - [x] Harden injection, traversal, link-race, cancellation, locked-file, and privacy behavior.
 - [x] Run locked restore, format, Release build, full tests, and focused M3 security suites.
 - [x] Record exact evidence and mark M3 complete only after every gate is green.
-- [ ] Implement the restricted template renderer closure through the approved TDD plan.
+- [x] Implement the restricted template renderer closure through the approved TDD plan.
 - [ ] Rerun the full M3 exit gate and replace the earlier five-port completion claim with fresh six-port evidence.
 
 ## Exit gate

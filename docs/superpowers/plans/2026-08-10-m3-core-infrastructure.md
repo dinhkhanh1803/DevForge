@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Deliver production Windows implementations for guarded workspace I/O, safe process execution, secret scanning, environment inspection, and trusted IDE launch.
+**Goal:** Deliver production Infrastructure implementations for guarded workspace I/O, safe process execution, secret scanning, environment inspection, trusted IDE launch, and restricted template rendering.
 
-**Architecture:** Application retains the immutable security contracts created in M1. Infrastructure implements those contracts with Windows/BCL APIs, fails closed when executable trust or path containment cannot be proven, and returns only bounded redacted results. Integration tests exercise real processes and test-owned filesystem roots.
+**Architecture:** Application retains the immutable security contracts created in M1. Infrastructure implements those contracts with Windows/BCL APIs and a closed Scriban runtime, fails closed when executable trust, path containment, scan completeness, or template policy cannot be proven, and returns only bounded redacted results. Integration tests exercise real processes, test-owned filesystem roots, and the isolated renderer.
 
-**Tech Stack:** .NET SDK 10.0.302, C# 14, WPF-compatible Windows APIs, `System.Diagnostics.Process`, `System.IO`, xUnit 2.9.3; no new runtime package unless a RED test proves the BCL insufficient.
+**Tech Stack:** .NET SDK 10.0.302, C# 14, WPF-compatible Windows APIs, `System.Diagnostics.Process`, `System.IO`, Scriban 7.2.5, xUnit 2.9.3. Scriban is the exact centrally pinned specification dependency; no other runtime package is added without a RED test.
 
 ---
 
@@ -22,6 +22,8 @@
 - `src/DevForge.Infrastructure/Security/WorkspaceSecretScanner.cs`: bounded text scanning with redacted findings.
 - `src/DevForge.Infrastructure/Environment/WindowsEnvironmentDoctor.cs`: typed fixed version probes.
 - `src/DevForge.Infrastructure/Ide/WindowsIdeLauncher.cs`: trusted non-elevated IDE handoff.
+- `src/DevForge.Infrastructure/Templates/RestrictedScribanTemplateRenderer.cs`: closed, bounded string-only rendering.
+- `src/DevForge.Infrastructure/Templates/RestrictedTemplatePolicy.cs`: semantic AST allowlist and depth/node limits.
 - `tests/DevForge.UnitTests/Architecture/InfrastructureBoundaryTests.cs`: dependency and forbidden-API enforcement.
 - `tests/DevForge.IntegrationTests/Infrastructure/**/*.cs`: focused policy tests and real Windows process/filesystem/scanner tests; Infrastructure implementation tests stay out of UnitTests to preserve its approved project-reference boundary.
 - `tests/DevForge.ProcessTestHelper/Program.cs`: deterministic child process used only by integration tests.
@@ -412,9 +414,23 @@ git add docs/decisions/0005-guarded-windows-infrastructure-boundaries.md docs/im
 git commit -m "docs: complete M3 core infrastructure milestone"
 ```
 
-## Exit gate
+## 2026-08-11 restricted-renderer closure
 
-M3 passes only when all five Infrastructure ports are production-backed; process execution proves separated arguments, no shell/elevation, bounded redacted output, timeout/cancellation, and descendant termination; workspace tests prove canonical/reparse containment and no-overwrite semantics; scanner findings contain no secret values; environment/IDE behavior is typed and guarded; and locked restore, format, Release build, full tests, and focused security suites are freshly green with exact evidence.
+The 2026-08-10 execution above is preserved as the historical five-boundary checkpoint. A full DOCX audit subsequently proved that M3 also required the existing `ITemplateRenderer` port to have a production restricted Scriban implementation. The additive closure is designed in `docs/superpowers/specs/2026-08-10-m3-restricted-template-renderer-closure-design.md`, executed from `docs/superpowers/plans/2026-08-11-m3-restricted-template-renderer-closure.md`, and governed by ADR-0006.
+
+- [x] Harden and extract the immutable bounded `TemplateRenderRequest` contract.
+- [x] Pin Scriban 7.2.5 centrally and enforce Infrastructure-only direct ownership.
+- [x] Implement a fresh empty runtime, frozen string-only context, and 4 MiB bounded output.
+- [x] Enforce the closed variable/conditional AST grammar and permanent forbidden-family matrix.
+- [x] Prove request/AST/depth/output limits, cancellation, concurrency, culture determinism, and scrubbed failures.
+- [x] Correct the architecture decision and milestone documentation without rewriting historical command evidence.
+- [ ] Run the complete fresh six-boundary restore/format/build/test exit gate and record exact results.
+
+Implementation commits for the closure are additive; the earlier five-boundary checkpoint remains unchanged and is not represented as final M3 evidence.
+
+## Final exit gate
+
+M3 passes only when all six Infrastructure boundaries are production-backed; process execution proves separated arguments, no shell/elevation, bounded redacted output, timeout/cancellation, and descendant termination; workspace tests prove canonical/reparse containment and no-overwrite semantics; scanner findings contain no secret values; environment/IDE behavior is typed and guarded; template rendering proves its closed grammar, empty runtime, bounds, cancellation, deterministic behavior, and scrubbed failures; and locked restore, format, Release build, full tests, and focused security suites are freshly green with exact evidence.
 
 ## Explicitly deferred
 

@@ -24,3 +24,4 @@ All notable DevForge Studio changes are documented here.
 - Trusted Windows process execution with separated arguments, bounded redacted streaming output, timeout/cancellation, and descendant-tree termination.
 - Bounded workspace secret scanning, fixed environment probes, and trusted non-elevated IDE handoff.
 - M3 adversarial coverage for real junctions, locked files, structured credentials, output-observer failures, and continuous-output cancellation.
+- Restricted Scriban 7.2.5 template rendering with a closed conditional grammar, string-only isolated contexts, bounded AST/output, cancellation, deterministic concurrency/culture behavior, and scrubbed failures.
