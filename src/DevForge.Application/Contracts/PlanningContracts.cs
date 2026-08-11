@@ -447,19 +447,26 @@ public sealed class PlanPreview
 
 public sealed class PlannedProject
 {
-    private PlannedProject(ExecutionPlan plan, PlanPreview preview)
+    private PlannedProject(
+        ExecutionPlan plan,
+        PlanPreview preview,
+        BlueprintFingerprint blueprintFingerprint)
     {
         Plan = plan;
         Preview = preview;
+        BlueprintFingerprint = blueprintFingerprint;
     }
 
     public ExecutionPlan Plan { get; }
 
     public PlanPreview Preview { get; }
 
+    public BlueprintFingerprint BlueprintFingerprint { get; }
+
     public static ValidationResult<PlannedProject> Create(
         ExecutionPlan? plan,
-        PlanPreview? preview)
+        PlanPreview? preview,
+        BlueprintFingerprint? blueprintFingerprint)
     {
         var issues = new List<ValidationIssue>();
         if (plan is null)
@@ -478,8 +485,26 @@ public sealed class PlannedProject
                 "preview"));
         }
 
+        if (blueprintFingerprint is null)
+        {
+            issues.Add(new ValidationIssue(
+                "planned-project.blueprint-fingerprint.required",
+                "The exact blueprint fingerprint is required.",
+                "blueprintFingerprint"));
+        }
+
+        if (plan is not null
+            && preview is not null
+            && !StringComparer.Ordinal.Equals(plan.Id, preview.PlanHash))
+        {
+            issues.Add(new ValidationIssue(
+                "planned-project.hash.mismatch",
+                "The execution plan and preview hashes must match exactly.",
+                "preview.planHash"));
+        }
+
         return issues.Count == 0
-            ? ValidationResult.Success(new PlannedProject(plan!, preview!))
+            ? ValidationResult.Success(new PlannedProject(plan!, preview!, blueprintFingerprint!))
             : ValidationResult.Failure<PlannedProject>(issues);
     }
 }

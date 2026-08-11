@@ -270,7 +270,7 @@ public sealed class ProjectPlanner : IProjectPlanner
             return HashFailure<PlannedProject>();
         }
 
-        return PlannedProject.Create(plan.Value, preview.Value);
+        return PlannedProject.Create(plan.Value, preview.Value, blueprint.Fingerprint);
     }
 
     private static ImmutableArray<PlanPreviewToolStatus> CreateToolStatuses(

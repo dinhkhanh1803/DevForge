@@ -165,7 +165,8 @@ public sealed class M4CatalogContractTests
             [],
             TimeSpan.FromMinutes(1),
             RetryPolicy.None).Value;
-        var plan = ExecutionPlan.Create("plan", [step]).Value;
+        var planHash = $"sha256:{new string('c', 64)}";
+        var plan = ExecutionPlan.Create(planHash, [step]).Value;
         var reference = BlueprintReference.Create("desktop.csharp-wpf-tool", "1.0.0").Value;
         var previewSteps = new List<PlanPreviewStep?>
         {
@@ -178,12 +179,18 @@ public sealed class M4CatalogContractTests
             [new BlueprintDependency("microsoft.extensions.hosting", "10.0.0")],
             [new BlueprintArtifact("src/App.csproj")],
             [],
-            $"sha256:{new string('c', 64)}");
+            planHash);
         Assert.True(preview.IsValid);
         previewSteps.Clear();
 
-        var planned = PlannedProject.Create(plan, preview.Value);
+        var fingerprint = BlueprintFingerprint.Create(
+            "built-in",
+            WorkspaceRelativePath.Create("desktop.csharp-wpf-tool\\1.0.0").Value,
+            BlueprintTrust.BuiltIn,
+            $"sha256:{new string('b', 64)}").Value;
+        var planned = PlannedProject.Create(plan, preview.Value, fingerprint);
         Assert.True(planned.IsValid);
+        Assert.Same(fingerprint, planned.Value.BlueprintFingerprint);
         Assert.Same(plan, planned.Value.Plan);
         Assert.Single(planned.Value.Preview.Steps);
     }

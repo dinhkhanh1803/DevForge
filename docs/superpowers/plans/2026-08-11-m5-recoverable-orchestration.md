@@ -14,9 +14,9 @@
 
 ## Task 2: Define execution, checkpoint, staging, and handler ports
 
-- [ ] RED contract/reflection/null/immutability tests for execution requests, checkpoint snapshots, blueprint provenance, staging descriptors, handler lifecycle/results, finalizer/report writer, recovery and cleanup APIs.
-- [ ] Evolve `IExecutionOrchestrator`, `IRunJournalStore`, filesystem subworkspace operations, and `PlannedProject` provenance while preserving dependency direction.
-- [ ] GREEN Application/architecture tests; commit `feat(application): define recoverable execution contracts`.
+- [x] RED contract/reflection/null/immutability tests for execution requests, checkpoint snapshots, blueprint provenance, staging descriptors, handler lifecycle/results, finalizer/report writer, recovery and cleanup APIs.
+- [x] Evolve `IExecutionOrchestrator`, add the full `IRunCheckpointStore` successor boundary, define guarded workspace descriptors, and carry exact `PlannedProject` provenance while preserving dependency direction.
+- [x] GREEN Application/architecture tests; commit `feat(application): define recoverable execution contracts`.
 
 ## Task 3: Persist complete run checkpoints
 

@@ -48,9 +48,8 @@ public sealed class ExecutionProgressLine
 
 public interface IExecutionOrchestrator
 {
-    Task<ProjectRun> ExecuteAsync(
-        ExecutionPlan plan,
-        ProjectRun run,
+    Task<RunCheckpoint> ExecuteAsync(
+        ExecutionRequest request,
         IProgress<ExecutionProgressLine>? progress,
         CancellationToken cancellationToken);
 }
