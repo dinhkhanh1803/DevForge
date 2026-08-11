@@ -87,6 +87,9 @@ public sealed class RequestContractTests
         public Task<ImmutableArray<WorkspaceRelativePath>> EnumerateAllFilesAsync(
             CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<ImmutableArray<WorkspaceRelativePath>> EnumerateRootDirectoriesAsync(
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public WorkspaceRoot Root { get; } = WorkspaceRoot.Create("C:\\work").Value;
 
         public Task<bool> FileExistsAsync(WorkspaceRelativePath path, CancellationToken cancellationToken) =>

@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Globalization;
 using DevForge.Blueprints.Abstractions.Models;
 using DevForge.Blueprints.Abstractions.Validation;
 using DevForge.Domain.Privacy;
@@ -224,20 +225,28 @@ public sealed record BlueprintFingerprint
 
 public sealed class ResolvedBlueprint
 {
-    private ResolvedBlueprint(BlueprintManifest manifest, BlueprintFingerprint fingerprint)
+    private ResolvedBlueprint(
+        BlueprintManifest manifest,
+        ImmutableArray<BlueprintInputPropertyDefinition> inputSchema,
+        BlueprintFingerprint fingerprint)
     {
         Manifest = manifest;
+        InputSchema = inputSchema;
         Fingerprint = fingerprint;
     }
 
     public BlueprintManifest Manifest { get; }
 
+    public ImmutableArray<BlueprintInputPropertyDefinition> InputSchema { get; }
+
     public BlueprintFingerprint Fingerprint { get; }
 
     public static ValidationResult<ResolvedBlueprint> Create(
         BlueprintManifest? manifest,
+        IEnumerable<BlueprintInputPropertyDefinition?>? inputSchema,
         BlueprintFingerprint? fingerprint)
     {
+        var schemaSnapshot = inputSchema?.ToImmutableArray() ?? [];
         var issues = new List<ValidationIssue>();
         if (manifest is null)
         {
@@ -245,6 +254,48 @@ public sealed class ResolvedBlueprint
                 "blueprint.resolved.manifest.required",
                 "A normalized blueprint manifest is required.",
                 "manifest"));
+        }
+
+        if (inputSchema is null)
+        {
+            issues.Add(new ValidationIssue(
+                "blueprint.resolved.schema.required",
+                "A normalized blueprint input schema is required.",
+                "inputSchema"));
+        }
+        else
+        {
+            var identifiers = new HashSet<string>(StringComparer.Ordinal);
+            for (var index = 0; index < schemaSnapshot.Length; index++)
+            {
+                var property = schemaSnapshot[index];
+                if (property is null)
+                {
+                    issues.Add(new ValidationIssue(
+                        "blueprint.resolved.schema.item.required",
+                        "A normalized blueprint input property is required.",
+                        $"inputSchema[{index}]"));
+                }
+                else if (!identifiers.Add(property.Id))
+                {
+                    issues.Add(new ValidationIssue(
+                        "blueprint.resolved.schema.id.duplicate",
+                        "Resolved blueprint input identifiers must be unique.",
+                        $"inputSchema[{index}].id"));
+                }
+            }
+
+            if (manifest is not null
+                && schemaSnapshot.All(item => item is not null)
+                && !SchemaMatchesManifest(
+                    manifest.Inputs,
+                    [.. schemaSnapshot.Select(item => item!)]))
+            {
+                issues.Add(new ValidationIssue(
+                    "blueprint.resolved.schema.mismatch",
+                    "The resolved input schema must match the normalized manifest inputs.",
+                    "inputSchema"));
+            }
         }
 
         if (fingerprint is null)
@@ -272,8 +323,48 @@ public sealed class ResolvedBlueprint
         }
 
         return issues.Count == 0
-            ? ValidationResult.Success(new ResolvedBlueprint(manifest!, fingerprint!))
+            ? ValidationResult.Success(new ResolvedBlueprint(
+                manifest!,
+                [.. schemaSnapshot.Select(item => item!)],
+                fingerprint!))
             : ValidationResult.Failure<ResolvedBlueprint>(issues);
+    }
+
+    private static bool SchemaMatchesManifest(
+        ImmutableArray<InputDefinition> inputs,
+        ImmutableArray<BlueprintInputPropertyDefinition> schema)
+    {
+        if (inputs.Length != schema.Length)
+        {
+            return false;
+        }
+
+        var properties = new Dictionary<string, BlueprintInputPropertyDefinition>(StringComparer.Ordinal);
+        foreach (var property in schema)
+        {
+            if (!properties.TryAdd(property.Id, property))
+            {
+                return false;
+            }
+        }
+
+        return inputs.All(input =>
+            properties.TryGetValue(input.Id, out var property)
+            && property.Kind == input.Kind
+            && property.Required == input.Required
+            && StringComparer.Ordinal.Equals(input.DefaultValue, FormatDefault(property.DefaultValue)));
+    }
+
+    private static string? FormatDefault(BlueprintValue? value)
+    {
+        return value?.Kind switch
+        {
+            null => null,
+            BlueprintValueKind.Text => value.StringValue,
+            BlueprintValueKind.Boolean => value.BooleanValue ? "true" : "false",
+            BlueprintValueKind.WholeNumber => value.IntegerValue.ToString(CultureInfo.InvariantCulture),
+            _ => null,
+        };
     }
 }
 
@@ -322,12 +413,14 @@ public sealed class BlueprintInspection
         WorkspaceRelativePath packageDirectory,
         BlueprintReference? reference,
         BlueprintTrust trust,
+        bool isDisabled,
         ImmutableArray<BlueprintInspectionIssue> issues)
     {
         SourceId = sourceId;
         PackageDirectory = packageDirectory;
         Reference = reference;
         Trust = trust;
+        IsDisabled = isDisabled;
         Issues = issues;
     }
 
@@ -339,6 +432,8 @@ public sealed class BlueprintInspection
 
     public BlueprintTrust Trust { get; }
 
+    public bool IsDisabled { get; }
+
     public ImmutableArray<BlueprintInspectionIssue> Issues { get; }
 
     public static ValidationResult<BlueprintInspection> Create(
@@ -346,7 +441,8 @@ public sealed class BlueprintInspection
         WorkspaceRelativePath? packageDirectory,
         BlueprintReference? reference,
         BlueprintTrust trust,
-        IEnumerable<BlueprintInspectionIssue?>? issues)
+        IEnumerable<BlueprintInspectionIssue?>? issues,
+        bool isDisabled = false)
     {
         var snapshot = issues?.ToImmutableArray() ?? [];
         var validationIssues = new List<ValidationIssue>();
@@ -381,6 +477,7 @@ public sealed class BlueprintInspection
                 packageDirectory!,
                 reference,
                 trust,
+                isDisabled,
                 [.. snapshot.Select(issue => issue!)]))
             : ValidationResult.Failure<BlueprintInspection>(validationIssues);
     }

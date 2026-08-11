@@ -1,14 +1,14 @@
 # DevForge Studio Implementation Status
 
 **Current milestone:** M4 - Planner, Rules, and Blueprint Catalog
-**Status:** Active implementation; M4 Tasks 1-5 complete
+**Status:** Active implementation; M4 Tasks 1-6 complete
 **Last updated:** 2026-08-11
 
 ## Current M4 scope
 
 M0-M3 remain complete and green. M4 is now the only active milestone. The approved design is `docs/superpowers/specs/2026-08-10-m4-planner-rules-blueprint-catalog-design.md`, the executable TDD plan is `docs/superpowers/plans/2026-08-11-m4-planner-rules-blueprint-catalog.md`, and ADR-0007 fixes deterministic catalog/trust/rule/hash decisions before production code.
 
-M4 Tasks 1-5 are complete. Domain has bounded immutable typed plan values; Blueprint abstractions provide SemVer 2.0 and normalized package contracts; Application exposes opaque catalog/planning contracts; Infrastructure owns exact YamlDotNet 18.1.0, bounded closed YAML/JSON readers, guarded checksum verification, the closed action/variable policy, and normalized package loading. Package fixtures reject incomplete, duplicate, mismatched, self-referential, traversal, rooted, device, backslash, `.env`, oversized, junction-escaping, and trust-forbidden content with scrubbed stable issues. Verified control bytes are snapshotted during hashing and parsed without reopening package-controlled files, closing the checksum-to-parse TOCTOU boundary. The latest Task 5 checkpoint passed format verification, Release build with 0 warnings/errors, a 73-test Blueprint Infrastructure security slice, and 655 solution tests (324 Unit, 108 Blueprint, 223 Integration) with 0 failed/0 skipped; the future E2E host remains empty. Tasks 6-10 and the full M4 exit gate remain open. M5-M11 remain deferred until the M4 exit gate passes.
+M4 Tasks 1-6 are complete. Domain has bounded immutable typed plan values; Blueprint abstractions provide SemVer 2.0 and normalized package contracts; Application exposes opaque catalog/planning contracts; Infrastructure owns exact YamlDotNet 18.1.0, bounded closed YAML/JSON readers, guarded checksum verification, the closed action/variable policy, normalized package loading, and atomic catalog publication. Package fixtures reject incomplete, duplicate, mismatched, self-referential, traversal, rooted, device, backslash, `.env`, oversized, junction-escaping, and trust-forbidden content with scrubbed stable issues. Verified control bytes are snapshotted during hashing and parsed without reopening package-controlled files, closing the checksum-to-parse TOCTOU boundary. Catalog refresh enumerates guarded source roots, preserves the prior snapshot on cancellation/source/metadata failure, reconciles persisted trust and disabled state read-only, quarantines conflicts, carries the immutable input schema into exact resolved results, and publishes only complete snapshots to concurrent readers. The latest Task 6 checkpoint passed format verification, Release build with 0 warnings/errors, a 20-test catalog/loader/persistence slice, and 665 solution tests (326 Unit, 108 Blueprint, 231 Integration) with 0 failed/0 skipped; the future E2E host remains empty. Tasks 7-10 and the full M4 exit gate remain open. M5-M11 remain deferred until the M4 exit gate passes.
 
 ## Current M3 scope
 

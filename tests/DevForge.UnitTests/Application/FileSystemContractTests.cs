@@ -17,6 +17,17 @@ public sealed class FileSystemContractTests
     }
 
     [Fact]
+    public void WorkspaceExposesGuardedRootDirectoryEnumerationWithoutASyntheticPath()
+    {
+        var method = typeof(IWorkspaceFileSystem).GetMethod(
+            "EnumerateRootDirectoriesAsync",
+            [typeof(CancellationToken)]);
+
+        Assert.NotNull(method);
+        Assert.Equal(typeof(Task<ImmutableArray<WorkspaceRelativePath>>), method.ReturnType);
+    }
+
+    [Fact]
     public void WorkspaceSupportsWholeRootEnumerationWithoutExposingRootPath()
     {
         var method = typeof(IWorkspaceFileSystem).GetMethod(

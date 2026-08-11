@@ -12,6 +12,19 @@ namespace DevForge.IntegrationTests.Infrastructure.FileSystem;
 public sealed partial class WindowsWorkspaceFileSystemTests
 {
     [Fact]
+    public async Task EnumerateRootDirectoriesReturnsOnlyImmediateChildrenInStableOrder()
+    {
+        await using var fixture = await WorkspaceFixture.CreateAsync();
+        await fixture.Workspace.CreateDirectoryAsync(Relative("zeta\\nested"), CancellationToken.None);
+        await fixture.Workspace.CreateDirectoryAsync(Relative("alpha"), CancellationToken.None);
+        await fixture.WriteTextAsync(Relative("ignored.txt"), "not a directory");
+
+        var directories = await fixture.Workspace.EnumerateRootDirectoriesAsync(CancellationToken.None);
+
+        Assert.Equal(["alpha", "zeta"], directories.Select(path => path.Value));
+    }
+
+    [Fact]
     public async Task EnumerateDirectoriesReturnsOnlyImmediateChildrenInStableOrder()
     {
         await using var fixture = await WorkspaceFixture.CreateAsync();

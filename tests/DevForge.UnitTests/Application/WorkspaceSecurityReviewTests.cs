@@ -85,6 +85,9 @@ public sealed class WorkspaceSecurityReviewTests
             typeof(WorkspaceRelativePath),
             typeof(CancellationToken));
         AssertMethod(
+            nameof(IWorkspaceFileSystem.EnumerateRootDirectoriesAsync),
+            typeof(CancellationToken));
+        AssertMethod(
             nameof(IWorkspaceFileSystem.DeleteDirectoryAsync),
             typeof(WorkspaceRelativePath),
             typeof(DirectoryCleanupIntent),
@@ -155,6 +158,9 @@ public sealed class WorkspaceSecurityReviewTests
     private sealed class StubWorkspaceFileSystem : IWorkspaceFileSystem
     {
         public Task<ImmutableArray<WorkspaceRelativePath>> EnumerateAllFilesAsync(
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<ImmutableArray<WorkspaceRelativePath>> EnumerateRootDirectoriesAsync(
             CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public WorkspaceRoot Root { get; } = WorkspaceRoot.Create("C:\\work").Value;

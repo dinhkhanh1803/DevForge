@@ -269,6 +269,9 @@ public interface IWorkspaceFileSystem
     Task<ImmutableArray<WorkspaceRelativePath>> EnumerateAllFilesAsync(
         CancellationToken cancellationToken);
 
+    Task<ImmutableArray<WorkspaceRelativePath>> EnumerateRootDirectoriesAsync(
+        CancellationToken cancellationToken);
+
     Task<ImmutableArray<WorkspaceRelativePath>> EnumerateFilesAsync(
         WorkspaceRelativePath directory,
         bool recursive,

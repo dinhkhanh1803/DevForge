@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using DevForge.Application.Contracts;
+using DevForge.Application.Contracts.Persistence;
 using DevForge.Blueprints.Abstractions.Models;
 using DevForge.Infrastructure.Blueprints;
 using DevForge.Infrastructure.FileSystem;
@@ -121,6 +122,20 @@ public sealed class BlueprintPackageLoaderTests
         Assert.Equal("DF-BP-003", issue.Code);
         Assert.DoesNotContain(".env", issue.Summary, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(fixture.RootPath, issue.Summary, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task PublicCatalogRefreshesARealGuardedPackageThroughTheProductionLoader()
+    {
+        await using var fixture = await PackageFixture.CreateAsync(BlueprintSourceProvenance.BuiltIn);
+        await fixture.WriteValidPackageAsync();
+        using var catalog = new BlueprintCatalog([fixture.Source], new EmptyMetadataStore());
+
+        await catalog.RefreshAsync(CancellationToken.None);
+
+        var resolved = Assert.Single(await catalog.ListAsync(CancellationToken.None));
+        Assert.Equal("sample.blueprint", resolved.Manifest.Id);
+        Assert.Equal("project-name", Assert.Single(resolved.InputSchema).Id);
     }
 
     private sealed class PackageFixture : IAsyncDisposable
@@ -332,6 +347,9 @@ public sealed class BlueprintPackageLoaderTests
         public Task<System.Collections.Immutable.ImmutableArray<WorkspaceRelativePath>> EnumerateAllFilesAsync(
             CancellationToken cancellationToken) => inner.EnumerateAllFilesAsync(cancellationToken);
 
+        public Task<System.Collections.Immutable.ImmutableArray<WorkspaceRelativePath>> EnumerateRootDirectoriesAsync(
+            CancellationToken cancellationToken) => inner.EnumerateRootDirectoriesAsync(cancellationToken);
+
         public Task<System.Collections.Immutable.ImmutableArray<WorkspaceRelativePath>> EnumerateFilesAsync(
             WorkspaceRelativePath directory,
             bool recursive,
@@ -355,5 +373,28 @@ public sealed class BlueprintPackageLoaderTests
                 destination,
                 intent,
                 cancellationToken);
+    }
+
+    private sealed class EmptyMetadataStore : IBlueprintMetadataStore
+    {
+        public Task<System.Collections.Immutable.ImmutableArray<BlueprintMetadataRecord>> ListAsync(
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(System.Collections.Immutable.ImmutableArray<BlueprintMetadataRecord>.Empty);
+        }
+
+        public Task<BlueprintMetadataRecord?> GetAsync(
+            string id,
+            string version,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task UpsertAsync(BlueprintMetadataRecord blueprint, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<bool> RemoveAsync(
+            string id,
+            string version,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 }

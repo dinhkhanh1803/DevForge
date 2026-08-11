@@ -99,7 +99,7 @@ public sealed class M4CatalogContractTests
             trust,
             $"sha256:{new string('d', 64)}").Value;
 
-        var result = ResolvedBlueprint.Create(ValidManifest(trust), fingerprint);
+        var result = ResolvedBlueprint.Create(ValidManifest(trust), ValidInputSchema(), fingerprint);
 
         Assert.Equal("blueprint.resolved.trust.not-executable", Assert.Single(result.Issues).Code);
     }
@@ -112,7 +112,7 @@ public sealed class M4CatalogContractTests
             Relative("desktop.csharp-wpf-tool\\1.0.0"),
             BlueprintTrust.BuiltIn,
             $"sha256:{new string('b', 64)}").Value;
-        var resolved = ResolvedBlueprint.Create(ValidManifest(), fingerprint).Value;
+        var resolved = ResolvedBlueprint.Create(ValidManifest(), ValidInputSchema(), fingerprint).Value;
         var inspectionIssue = BlueprintInspectionIssue.Create(
             "DF-BP-001",
             "The package is malformed.").Value;
@@ -132,6 +132,26 @@ public sealed class M4CatalogContractTests
 
         Assert.Same(resolved, Assert.Single(result.Value.ExecutableBlueprints));
         Assert.Same(inspection, Assert.Single(result.Value.Inspections));
+    }
+
+    [Fact]
+    public void ResolvedBlueprintSnapshotsAndRequiresSchemaMatchingTheManifest()
+    {
+        var manifest = ValidManifest();
+        var fingerprint = BlueprintFingerprint.Create(
+            "built-in",
+            Relative("desktop.csharp-wpf-tool\\1.0.0"),
+            BlueprintTrust.BuiltIn,
+            $"sha256:{new string('b', 64)}").Value;
+        var schema = ValidInputSchema().Cast<BlueprintInputPropertyDefinition?>().ToList();
+
+        var result = ResolvedBlueprint.Create(manifest, schema, fingerprint);
+        schema.Clear();
+        var mismatched = ResolvedBlueprint.Create(manifest, [], fingerprint);
+
+        Assert.True(result.IsValid);
+        Assert.Equal("framework", Assert.Single(result.Value.InputSchema).Id);
+        Assert.Equal("blueprint.resolved.schema.mismatch", Assert.Single(mismatched.Issues).Code);
     }
 
     [Fact]
@@ -182,6 +202,24 @@ public sealed class M4CatalogContractTests
             new BlueprintTrustAssignment(trust)).Value;
     }
 
+    private static ImmutableArray<BlueprintInputPropertyDefinition> ValidInputSchema()
+    {
+        return
+        [
+            BlueprintInputPropertyDefinition.Create(
+                new BlueprintInputPropertyDraft(
+                    "framework",
+                    BlueprintInputKind.Text,
+                    true,
+                    BlueprintValue.FromString("net10.0").Value,
+                    [],
+                    1,
+                    40,
+                    null,
+                    null)).Value,
+        ];
+    }
+
     private static WorkspaceRelativePath Relative(string value)
     {
         return WorkspaceRelativePath.Create(value).Value;
@@ -212,6 +250,9 @@ public sealed class M4CatalogContractTests
             Task.CompletedTask;
 
         public Task<ImmutableArray<WorkspaceRelativePath>> EnumerateAllFilesAsync(
+            CancellationToken cancellationToken) => Task.FromResult(ImmutableArray<WorkspaceRelativePath>.Empty);
+
+        public Task<ImmutableArray<WorkspaceRelativePath>> EnumerateRootDirectoriesAsync(
             CancellationToken cancellationToken) => Task.FromResult(ImmutableArray<WorkspaceRelativePath>.Empty);
 
         public Task<ImmutableArray<WorkspaceRelativePath>> EnumerateFilesAsync(

@@ -143,6 +143,14 @@ internal sealed class WindowsWorkspaceFileSystem : IWorkspaceFileSystem
             cancellationToken);
     }
 
+    public Task<ImmutableArray<WorkspaceRelativePath>> EnumerateRootDirectoriesAsync(
+        CancellationToken cancellationToken)
+    {
+        return ExecuteAsync(
+            () => EnumerateDirectories(_guard.RootPath, cancellationToken),
+            cancellationToken);
+    }
+
     public Task<ImmutableArray<WorkspaceRelativePath>> EnumerateDirectoriesAsync(
         WorkspaceRelativePath directory,
         CancellationToken cancellationToken)

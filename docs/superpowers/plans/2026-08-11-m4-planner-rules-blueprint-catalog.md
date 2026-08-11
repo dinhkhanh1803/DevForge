@@ -245,10 +245,10 @@ public sealed class BlueprintCatalog : IBlueprintCatalog
 }
 ```
 
-- [ ] **Step 1: Write RED tests** for built-in trust, local untrusted default, persisted exact-checksum TrustedLocal, changed-checksum downgrade, disabled state, malformed inspect-only entries, conflicts, deterministic order, exact lookup, cancellation/source failure/metadata failure retaining the prior snapshot, and 32 concurrent readers during refresh.
-- [ ] **Step 2: Implement refresh pipeline** in the documented 1–9 order. Build a complete candidate snapshot locally and publish with one atomic reference exchange only after all sources finish.
-- [ ] **Step 3: Reconcile metadata read-only**; discovery never writes trust. Local packages never become BuiltIn. Untrusted/quarantined/disabled/conflicting entries never appear in executable list/find.
-- [ ] **Step 4: GREEN twice**, run persistence metadata regressions, commit `feat(infrastructure): load atomic blueprint catalog snapshots`.
+- [x] **Step 1: Write RED tests** for built-in trust, local untrusted default, persisted exact-checksum TrustedLocal, changed-checksum downgrade, disabled state, malformed inspect-only entries, conflicts, deterministic order, exact lookup, cancellation/source failure/metadata failure retaining the prior snapshot, and 32 concurrent readers during refresh.
+- [x] **Step 2: Implement refresh pipeline** in the documented 1–9 order. Build a complete candidate snapshot locally and publish with one atomic reference exchange only after all sources finish.
+- [x] **Step 3: Reconcile metadata read-only**; discovery never writes trust. Local packages never become BuiltIn. Untrusted/quarantined/disabled/conflicting entries never appear in executable list/find.
+- [x] **Step 4: GREEN twice**, run persistence metadata regressions, commit `feat(infrastructure): load atomic blueprint catalog snapshots`.
 
 ## Task 7: Parse and evaluate the closed compatibility grammar
 
