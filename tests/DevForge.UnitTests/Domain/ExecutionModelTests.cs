@@ -18,7 +18,10 @@ public sealed class ExecutionModelTests
     [Fact]
     public void ExecutionPlanSnapshotsStepsAndStepInputs()
     {
-        var stepInputs = new Dictionary<string, string> { ["configuration"] = "Release" };
+        var stepInputs = new Dictionary<string, PlanValue?>
+        {
+            ["configuration"] = PlanValue.FromString("Release").Value,
+        };
         var steps = new List<ExecutionStep>
         {
             ExecutionStep.Create(
@@ -31,11 +34,11 @@ public sealed class ExecutionModelTests
         };
 
         var plan = ExecutionPlan.Create("plan-1", steps).Value;
-        stepInputs["configuration"] = "Debug";
+        stepInputs["configuration"] = PlanValue.FromString("Debug").Value;
         steps.Clear();
 
         Assert.Single(plan.Steps);
-        Assert.Equal("Release", plan.Steps[0].Inputs["configuration"]);
+        Assert.Equal("Release", plan.Steps[0].Inputs["configuration"].StringValue);
     }
 
     [Fact]

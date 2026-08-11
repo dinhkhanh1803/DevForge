@@ -73,19 +73,19 @@
 Required public shape:
 
 ```csharp
-public enum PlanValueKind { String = 1, Boolean = 2, Integer = 3, Array = 4, Object = 5 }
+public enum PlanValueKind { Text = 1, Boolean = 2, WholeNumber = 3, Sequence = 4, Map = 5 }
 
 public sealed class PlanValue
 {
     public const int MaximumDepth = 64;
     public PlanValueKind Kind { get; }
-    public string StringValue { get; }
+    public string? StringValue { get; }
     public bool BooleanValue { get; }
     public long IntegerValue { get; }
     public ImmutableArray<PlanValue> ArrayValue { get; }
     public ImmutableDictionary<string, PlanValue> ObjectValue { get; }
 
-    public static ValidationResult<PlanValue> FromString(string? value, bool allowCredentialShape = false);
+    public static ValidationResult<PlanValue> FromString(string? value);
     public static PlanValue FromBoolean(bool value);
     public static PlanValue FromInteger(long value);
     public static ValidationResult<PlanValue> FromArray(IEnumerable<PlanValue?>? values);
@@ -93,8 +93,8 @@ public sealed class PlanValue
 }
 ```
 
-- [ ] **Step 1: Write RED tests** for string/Boolean/Int64/array/object creation, single enumeration, ordinal object keys, depth 64/65, duplicate keys, null nodes, undefined enum/numeric values, secret-shaped keys, credential-shaped strings, and caller mutation.
-- [ ] **Step 2: Run RED:**
+- [x] **Step 1: Write RED tests** for string/Boolean/Int64/array/object creation, single enumeration, ordinal object keys, depth 64/65, duplicate keys, null nodes, undefined enum/numeric values, secret-shaped keys, credential-shaped strings, and caller mutation.
+- [x] **Step 2: Run RED:**
 
 ```powershell
 E:\MyProjects\DevForge\.tools\dotnet\dotnet.exe test tests\DevForge.UnitTests\DevForge.UnitTests.csproj -c Release --filter FullyQualifiedName~PlanValueTests
@@ -102,9 +102,9 @@ E:\MyProjects\DevForge\.tools\dotnet\dotnet.exe test tests\DevForge.UnitTests\De
 
 Expected: compile failure because `PlanValue` and typed step payload APIs do not exist.
 
-- [ ] **Step 3: Implement** a closed `PlanValueKind` and private-constructor `PlanValue` with guarded factories. Arrays snapshot once; objects snapshot once and reject ordinal duplicates. No implicit conversion or public raw-object constructor exists.
-- [ ] **Step 4: Change `ExecutionStep.Inputs`** from `ImmutableDictionary<string,string>` to `ImmutableDictionary<string,PlanValue>`, preserve guarded creation, and add migrations only to test builders—no persistence schema changes in M4.
-- [ ] **Step 5: GREEN**, full Domain tests, format, and commit `feat(domain): add immutable typed plan values`.
+- [x] **Step 3: Implement** a closed `PlanValueKind` and private-constructor `PlanValue` with guarded factories. Arrays snapshot once; objects snapshot once and reject ordinal duplicates. No implicit conversion or public raw-object constructor exists.
+- [x] **Step 4: Change `ExecutionStep.Inputs`** from `ImmutableDictionary<string,string>` to `ImmutableDictionary<string,PlanValue>`, preserve guarded creation, and add migrations only to test builders—no persistence schema changes in M4.
+- [x] **Step 5: GREEN**, full Domain tests, format, and commit `feat(domain): add immutable typed plan values`.
 
 ## Task 2: Complete SemVer and normalized blueprint contracts
 

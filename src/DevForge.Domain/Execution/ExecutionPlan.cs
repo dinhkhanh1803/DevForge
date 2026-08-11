@@ -9,7 +9,7 @@ public sealed class ExecutionStep
         string id,
         string name,
         string handler,
-        IEnumerable<KeyValuePair<string, string>> inputs,
+        IEnumerable<KeyValuePair<string, PlanValue>> inputs,
         TimeSpan timeout,
         RetryPolicy retryPolicy)
     {
@@ -27,7 +27,7 @@ public sealed class ExecutionStep
 
     public string Handler { get; }
 
-    public ImmutableDictionary<string, string> Inputs { get; }
+    public ImmutableDictionary<string, PlanValue> Inputs { get; }
 
     public TimeSpan Timeout { get; }
 
@@ -37,7 +37,7 @@ public sealed class ExecutionStep
         string? id,
         string? name,
         string? handler,
-        IEnumerable<KeyValuePair<string, string>>? inputs,
+        IEnumerable<KeyValuePair<string, PlanValue?>>? inputs,
         TimeSpan timeout,
         RetryPolicy? retryPolicy)
     {
@@ -76,7 +76,7 @@ public sealed class ExecutionStep
                             "An execution step input name is required.",
                             $"inputs[{index}].name"));
                 }
-                else if (!inputNames.Add(input.Key))
+                else if (!inputNames.Add(input.Key.Trim()))
                 {
                     issues.Add(
                         new ValidationIssue(
@@ -116,7 +116,7 @@ public sealed class ExecutionStep
                     id!.Trim(),
                     name!.Trim(),
                     handler!.Trim(),
-                    inputsSnapshot,
+                    inputsSnapshot.Select(input => KeyValuePair.Create(input.Key.Trim(), input.Value!)),
                     timeout,
                     retryPolicy!))
             : ValidationResult.Failure<ExecutionStep>(issues);
