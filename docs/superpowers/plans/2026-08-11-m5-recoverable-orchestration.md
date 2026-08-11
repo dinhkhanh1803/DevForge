@@ -38,9 +38,9 @@
 
 ## Task 6: Build closed handler registry and value materialization
 
-- [ ] RED matrix for every handler ID, trust restriction, typed placeholder materialization, unavailable target placeholder, bounds, malformed maps, registry duplicates, and no reflection/direct process.
-- [ ] Implement closed registry/context/result/pre/postcondition contracts and trusted materializer.
-- [ ] GREEN architecture/security tests; commit `feat(infrastructure): dispatch closed execution handlers`.
+- [x] RED matrix for every handler ID, trust restriction, typed placeholder materialization, unavailable target placeholder, bounds, malformed maps, registry duplicates, and no reflection/direct process.
+- [x] Implement closed registry/context/result/pre/postcondition contracts and trusted materializer.
+- [x] GREEN architecture/security tests; commit `feat(infrastructure): dispatch closed execution handlers`.
 
 ## Task 7: Implement guarded file/template/patch handlers
 
