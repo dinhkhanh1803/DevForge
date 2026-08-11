@@ -2,7 +2,7 @@
 
 **Goal:** Execute immutable M4 plans inside owned staging with transactional checkpoints, bounded retry/resume, validation evidence, and no-overwrite finalization.
 
-**Status:** Tasks 1-4 implemented and verified locally; Task 5 is next.
+**Status:** Tasks 1-5 implemented and verified locally; Task 6 is next.
 
 **Architecture:** Application owns lifecycle and orchestration decisions. Infrastructure owns guarded staging, exact blueprint reopening, handlers, reports, finalization, and concrete checkpoint persistence. Domain remains immutable and I/O-free.
 
@@ -26,7 +26,7 @@ M5 excludes WPF workflow composition, Git/GitHub behavior, production blueprints
 - [x] Define execution, checkpoint, staging, handler, finalization, and recovery ports.
 - [x] Persist complete canonical run checkpoints through EF Core SQLite.
 - [x] Implement atomic run-owned staging, exact markers, cross-run leases, resume checks, and guarded cleanup.
-- [ ] Reopen exact verified blueprint content for execution.
+- [x] Reopen exact verified blueprint content for execution.
 - [ ] Build the closed handler registry and typed value materialization.
 - [ ] Implement guarded file, template, overlay, and structured patch handlers.
 - [ ] Implement trusted process and validator handlers.
@@ -37,6 +37,6 @@ M5 excludes WPF workflow composition, Git/GitHub behavior, production blueprints
 
 ## Current exit gate
 
-Task 4 requires create-new canonical markers, exact run/checkpoint/path binding, atomic ownership proof, single target-parent lease, target no-overwrite checks, full-tree reparse rejection, cancellation cleanup only for proven ownership, cleanup exclusion through deletion, real Windows tests, locked restore, format, Release build with zero warnings/errors, and full regression tests.
+Task 5 requires exact source/package/identity/checksum/provenance matching, current trust and disabled-state checks before and after content capture, an immutable read-only snapshot of every checksum-declared execution file, cancellation through publication, privacy-safe failures, catalog regressions, locked restore, format, Release build with zero warnings/errors, and full regression tests.
 
 M5 completes only after all remaining tasks pass kill/resume and failure-injection coverage, target absence on every pre-finalization failure, verified no-overwrite finalization, report/checkpoint persistence before cleanup, and all full/focused gates with zero skipped M5 tests.

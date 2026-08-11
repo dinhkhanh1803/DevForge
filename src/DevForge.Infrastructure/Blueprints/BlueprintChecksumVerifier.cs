@@ -19,6 +19,29 @@ internal static class BlueprintChecksumVerifier
     internal static async Task<BlueprintChecksumResult> VerifyAsync(
         IWorkspaceFileSystem workspace,
         WorkspaceRelativePath packageDirectory,
+        CancellationToken cancellationToken) =>
+        await VerifyCoreAsync(
+            workspace,
+            packageDirectory,
+            captureAllContent: false,
+            cancellationToken).ConfigureAwait(false);
+
+    // Captures every checksum-declared execution file. checksums.json remains
+    // verifier metadata and is intentionally not exposed to execution handlers.
+    internal static async Task<BlueprintChecksumResult> VerifyForExecutionAsync(
+        IWorkspaceFileSystem workspace,
+        WorkspaceRelativePath packageDirectory,
+        CancellationToken cancellationToken) =>
+        await VerifyCoreAsync(
+            workspace,
+            packageDirectory,
+            captureAllContent: true,
+            cancellationToken).ConfigureAwait(false);
+
+    private static async Task<BlueprintChecksumResult> VerifyCoreAsync(
+        IWorkspaceFileSystem workspace,
+        WorkspaceRelativePath packageDirectory,
+        bool captureAllContent,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(workspace);
@@ -63,7 +86,7 @@ internal static class BlueprintChecksumVerifier
 
             long totalBytes = 0;
             using var aggregate = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-            var verifiedControlFiles = ImmutableDictionary.CreateBuilder<string, ImmutableArray<byte>>(
+            var verifiedFiles = ImmutableDictionary.CreateBuilder<string, ImmutableArray<byte>>(
                 StringComparer.Ordinal);
             foreach (var declaration in declaredResult.DeclaredHashes.OrderBy(
                          item => item.Key,
@@ -74,7 +97,7 @@ internal static class BlueprintChecksumVerifier
                     workspace,
                     actualPaths[declaration.Key],
                     MaximumDeclaredBytes - totalBytes,
-                    IsControlFile(declaration.Key),
+                    captureAllContent || IsControlFile(declaration.Key),
                     cancellationToken).ConfigureAwait(false);
                 if (contentResult.ExceedsBound)
                 {
@@ -89,7 +112,7 @@ internal static class BlueprintChecksumVerifier
 
                 if (contentResult.Content is not null)
                 {
-                    verifiedControlFiles.Add(
+                    verifiedFiles.Add(
                         declaration.Key,
                         ImmutableArray.CreateRange(contentResult.Content));
                 }
@@ -102,7 +125,7 @@ internal static class BlueprintChecksumVerifier
             return BlueprintChecksumResult.Success(
                 aggregateChecksum,
                 declaredResult.DeclaredHashes,
-                verifiedControlFiles.ToImmutable());
+                verifiedFiles.ToImmutable());
         }
         catch (OperationCanceledException)
         {
@@ -337,7 +360,7 @@ internal static class BlueprintChecksumVerifier
 internal sealed record BlueprintChecksumResult(
     string? AggregateChecksum,
     ImmutableDictionary<string, string> DeclaredHashes,
-    ImmutableDictionary<string, ImmutableArray<byte>> VerifiedControlFiles,
+    ImmutableDictionary<string, ImmutableArray<byte>> VerifiedFiles,
     ImmutableArray<BlueprintInspectionIssue> Issues)
 {
     internal bool IsValid => AggregateChecksum is not null && Issues.IsEmpty;

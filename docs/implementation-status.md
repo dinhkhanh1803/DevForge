@@ -1,16 +1,30 @@
 # DevForge Studio Implementation Status
 
 **Current milestone:** M5 - Orchestrator, Staging, Retry/Resume, and Finalizer
-**Status:** M4 complete; M5 Tasks 1-4 implemented and verified
+**Status:** M4 complete; M5 Tasks 1-5 implemented and verified
 **Last updated:** 2026-08-11
 
 ## Current M5 scope
 
 The approved design is `docs/superpowers/specs/2026-08-11-m5-recoverable-orchestration-design.md`, the executable TDD plan is `docs/superpowers/plans/2026-08-11-m5-recoverable-orchestration.md`, and ADR-0008 fixes checkpoint, marker, retry/resume, interruption, validation, and finalization decisions. M5 is limited to the execution engine and recovery boundary. WPF composition, Git/GitHub, production blueprints, release packaging, and catalog expansion remain deferred.
 
-Tasks 1-4 are implemented locally. Domain provides explicit bounded retry modes, canonical attempt output digests, interruption normalization, guarded resume, staging-cleanup eligibility, warning validation evidence, and retry-mode-aware plan hashing. Application carries exact blueprint provenance and immutable guarded execution/checkpoint/staging/handler/finalization/recovery contracts. Infrastructure persists complete canonical checkpoints and now manages run-owned staging through an atomic create-if-absent Windows directory capability, a target-parent global lease, bounded create-new ownership markers, exact descriptor/checkpoint validation, complete guarded-tree reparse checks, and cleanup that retains exclusion through deletion. Cancellation during marker persistence removes only a container whose atomic ownership was proven; losing an ownership race never deletes foreign content. Task 5 exact blueprint reopening is the next active scope.
+Tasks 1-5 are implemented locally. Domain provides explicit bounded retry modes, canonical attempt output digests, interruption normalization, guarded resume, staging-cleanup eligibility, warning validation evidence, and retry-mode-aware plan hashing. Application carries exact blueprint provenance and immutable guarded execution/checkpoint/staging/handler/finalization/recovery contracts. Infrastructure persists complete canonical checkpoints, manages run-owned staging through atomic ownership and cross-run exclusion, and reopens the exact M4 blueprint source through the existing guarded loader. Execution receives a detached read-only snapshot of every checksum-declared file only after exact source, package, identity, aggregate checksum, provenance, and current trust/disabled state match; cancellation and a final metadata recheck close publication races. Task 6 closed handler dispatch and typed value materialization is the next active scope.
 
 Task 4 focused coverage includes target directories and files, target and payload junctions, nested reparse entries, copied/spoofed/noncanonical/malformed markers, cross-run lease contention, cleanup/reopen contention, mid-write cancellation, finalized cleanup refusal, exact run-path binding, and atomic ownership-loss preservation. Final checkpoint evidence is recorded after the fresh Task 4 quality gate below.
+
+## M5 Task 5 checkpoint evidence
+
+Fresh local verification on 2026-08-11 used workspace-local .NET SDK 10.0.302:
+
+| Gate | Command | Exact result |
+| --- | --- | --- |
+| Locked restore | `dotnet restore DevForge.sln --locked-mode --verbosity minimal` | Exit 0; all 12 projects restored from pinned lock files. |
+| Format | `dotnet format DevForge.sln --verify-no-changes --no-restore --verbosity minimal` | Exit 0; no formatting diagnostics. |
+| Release build | `dotnet build DevForge.sln --configuration Release --no-restore --verbosity minimal` | Exit 0; all 12 projects built; 0 warnings, 0 errors. |
+| Full solution test | `dotnet test DevForge.sln --configuration Release --no-build --no-restore --verbosity minimal` | Exit 0; UnitTests 428, BlueprintTests 108, IntegrationTests 273; total 809 passed, 0 failed, 0 skipped. The future E2E host contains no tests. |
+| Focused exact-reopen/catalog regression | `dotnet test tests/DevForge.IntegrationTests/DevForge.IntegrationTests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~BlueprintExecutionSourceTests\|FullyQualifiedName~BlueprintPackageLoaderTests\|FullyQualifiedName~BlueprintCatalogTests"` | Exit 0; 25 passed, 0 failed, 0 skipped. |
+
+Task 5 coverage includes exact source/package/reference/fingerprint matching, changed and missing packages, built-in disablement, local trust revocation before and during capture, cancellation before and after the final verified read, immutable verified-byte reopening, read-only mutation rejection, and absolute-path redaction.
 
 ## M5 Task 4 checkpoint evidence
 

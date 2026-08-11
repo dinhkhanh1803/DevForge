@@ -50,14 +50,14 @@ internal sealed class BlueprintPackageLoader : IBlueprintPackageLoader
             foreach (var requiredFile in _mandatoryControlFiles)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (!checksum.VerifiedControlFiles.ContainsKey(requiredFile))
+                if (!checksum.VerifiedFiles.ContainsKey(requiredFile))
                 {
                     return Failure(source, packageDirectory, StructureIssue());
                 }
             }
 
             var manifestDocument = await ReadYamlAsync(
-                checksum.VerifiedControlFiles["manifest.yaml"],
+                checksum.VerifiedFiles["manifest.yaml"],
                 BlueprintYamlDocumentKind.Manifest,
                 cancellationToken).ConfigureAwait(false);
             if (!manifestDocument.IsValid)
@@ -66,7 +66,7 @@ internal sealed class BlueprintPackageLoader : IBlueprintPackageLoader
             }
 
             var schemaDocument = await ReadSchemaAsync(
-                checksum.VerifiedControlFiles["inputs.schema.json"],
+                checksum.VerifiedFiles["inputs.schema.json"],
                 cancellationToken).ConfigureAwait(false);
             if (!schemaDocument.IsValid)
             {
@@ -74,7 +74,7 @@ internal sealed class BlueprintPackageLoader : IBlueprintPackageLoader
             }
 
             var rulesDocument = await ReadYamlAsync(
-                checksum.VerifiedControlFiles["rules.yaml"],
+                checksum.VerifiedFiles["rules.yaml"],
                 BlueprintYamlDocumentKind.Rules,
                 cancellationToken).ConfigureAwait(false);
             if (!rulesDocument.IsValid)

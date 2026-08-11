@@ -32,9 +32,9 @@
 
 ## Task 5: Reopen exact blueprint content for execution
 
-- [ ] RED tests for exact source/package/checksum/trust/identity, changed/missing package, cancellation, no absolute path exposure, and verified-byte reopening.
-- [ ] Implement `IBlueprintExecutionSource` through the existing M4 source/loader boundary.
-- [ ] GREEN catalog regressions; commit `feat(infrastructure): reopen verified blueprint content`.
+- [x] RED tests for exact source/package/checksum/trust/identity, changed/missing package, cancellation, no absolute path exposure, and verified-byte reopening.
+- [x] Implement `IBlueprintExecutionSource` through the existing M4 source/loader boundary.
+- [x] GREEN catalog regressions; commit `feat(infrastructure): reopen verified blueprint content`.
 
 ## Task 6: Build closed handler registry and value materialization
 
