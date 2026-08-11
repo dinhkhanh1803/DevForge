@@ -1,14 +1,29 @@
 # DevForge Studio Implementation Status
 
 **Current milestone:** M5 - Orchestrator, Staging, Retry/Resume, and Finalizer
-**Status:** M4 complete; M5 Tasks 1-6 implemented and verified
+**Status:** M4 complete; M5 Tasks 1-7 implemented and verified
 **Last updated:** 2026-08-11
 
 ## Current M5 scope
 
 The approved design is `docs/superpowers/specs/2026-08-11-m5-recoverable-orchestration-design.md`, the executable TDD plan is `docs/superpowers/plans/2026-08-11-m5-recoverable-orchestration.md`, and ADR-0008 fixes checkpoint, marker, retry/resume, interruption, validation, and finalization decisions. M5 is limited to the execution engine and recovery boundary. WPF composition, Git/GitHub, production blueprints, release packaging, and catalog expansion remain deferred.
 
-Tasks 1-6 are implemented locally. Domain provides explicit bounded retry modes, canonical attempt output digests, interruption normalization, guarded resume, staging-cleanup eligibility, warning validation evidence, and retry-mode-aware plan hashing. Application carries exact blueprint provenance and immutable guarded execution/checkpoint/staging/handler/finalization/recovery contracts. Infrastructure persists complete canonical checkpoints, manages atomic run-owned staging, reopens exact verified M4 blueprint bytes, and now dispatches only the closed ordinal M5 handler set. Registry construction fails closed on missing, duplicate, unknown, or trust-incompatible handlers; BuiltIn requires a dedicated finalization implementation while TrustedLocal cannot receive it, and deferred Git/GitHub integrations return stable bounded failures. Runtime placeholders are recursively materialized once with aggregate bounds, secret-shaped key rejection, cancellation, and strict pre/post-finalization target availability. Task 7 guarded file/template/patch handlers is the next active scope.
+Tasks 1-7 are implemented locally. Domain provides explicit bounded retry modes, canonical attempt output digests, interruption normalization, guarded resume, staging-cleanup eligibility, warning validation evidence, retry-mode-aware plan hashing, and deterministic template context snapshots. Application carries exact blueprint provenance and immutable guarded execution/checkpoint/staging/handler/finalization/recovery contracts; a handler request must now carry the exact plan instance that owns its step and derives renderer context only from that hashed plan. Infrastructure persists complete canonical checkpoints, manages atomic run-owned staging, reopens exact verified M4 blueprint bytes, dispatches only the closed ordinal M5 handler set, and implements guarded create/render/overlay plus closed JSON/YAML/XML handlers. Structured transforms are bounded, strictly reparsed before atomic publication, reject unsafe syntax and exact `.env` segments, and classify only I/O/`DF-FS-002` failures as retryable. Task 8 trusted process and validator handlers is the next active scope.
+
+## M5 Task 7 checkpoint evidence
+
+Fresh local verification on 2026-08-11 used workspace-local .NET SDK 10.0.302:
+
+| Gate | Command | Exact result |
+| --- | --- | --- |
+| Locked restore | `dotnet restore DevForge.sln --locked-mode --verbosity minimal` | Exit 0; all projects were up-to-date from pinned lock files. |
+| Format | `dotnet format DevForge.sln --verify-no-changes --no-restore --verbosity minimal` | Exit 0; no formatting diagnostics. |
+| Release build | `dotnet build DevForge.sln --configuration Release --no-restore --verbosity minimal` | Exit 0; all 12 projects built; 0 warnings, 0 errors. |
+| Full solution test | `dotnet test DevForge.sln --configuration Release --no-build --no-restore --verbosity minimal` | Exit 0; UnitTests 429, BlueprintTests 108, IntegrationTests 320; total 857 passed, 0 failed, 0 skipped. The future E2E host contains no tests. |
+| Focused Task 7 unit | `dotnet test tests/DevForge.UnitTests/DevForge.UnitTests.csproj --configuration Release --no-build --no-restore --filter "FullyQualifiedName~ProjectPlannerTests\|FullyQualifiedName~RecoverableExecutionContractTests\|FullyQualifiedName~TemplateRenderRequestTests"` | Exit 0; 28 passed, 0 failed, 0 skipped. |
+| Focused Task 7 integration | `dotnet test tests/DevForge.IntegrationTests/DevForge.IntegrationTests.csproj --configuration Release --no-build --no-restore --filter "FullyQualifiedName~FileExecutionHandlerTests\|FullyQualifiedName~WindowsWorkspaceFileSystemTests.AtomicFileWrite\|FullyQualifiedName~RunCheckpointStoreTests.PlanRoundTrips"` | Exit 0; 24 passed, 0 failed, 0 skipped. |
+
+Task 7 coverage includes create/render/copy lifecycle and postconditions; JSON/YAML/XML set/remove idempotence; JSON duplicates; YAML aliases, anchors, tags, merge keys, and duplicate mappings; XML DTD/entities, namespaces, and invalid names; traversal and exact `.env` rejection with `.env.example` allowed; locked files; cancellation and size bounds; secret-shaped destination keys; declared-output retry cleanup; deterministic context hashing/persistence; and plan-owned handler requests. Development checkpoints written before template context entered the plan hash intentionally fail closed and must be replanned.
 
 Task 4 focused coverage includes target directories and files, target and payload junctions, nested reparse entries, copied/spoofed/noncanonical/malformed markers, cross-run lease contention, cleanup/reopen contention, mid-write cancellation, finalized cleanup refusal, exact run-path binding, and atomic ownership-loss preservation. Final checkpoint evidence is recorded after the fresh Task 4 quality gate below.
 
@@ -194,6 +209,7 @@ Verification used the workspace-local SDK at `.tools/dotnet/dotnet.exe` with `DO
 - Environment probing and IDE launch support only the fixed trusted tool catalog; arbitrary executable discovery remains intentionally unsupported.
 - SQLite's online backup API is synchronous during the copy itself; cancellation is honored immediately before and after the bounded call, and recovery always completes before post-mutation cancellation is propagated.
 - Production startup composition and safe-mode UI remain assigned to M6.
+- Guarded Windows operations remain path-based. M5's owned staging, process-wide lease, detached verified packages, and closed sequential handlers exclude an in-scope blueprint actor from racing ancestor replacement; a future threat model that includes a separate hostile same-user process requires handle-relative no-follow native operations.
 
 ## Milestone progression
 

@@ -20,7 +20,8 @@ internal sealed record PlanHashInput(
     ImmutableArray<ExecutionValidator> Validators,
     ImmutableArray<ToolRequirement> RequiredTools,
     ImmutableArray<BlueprintDependency> Dependencies,
-    ImmutableArray<BlueprintArtifact> Artifacts);
+    ImmutableArray<BlueprintArtifact> Artifacts,
+    ImmutableSortedDictionary<string, string> TemplateContext);
 
 internal interface ICanonicalPlanSerializer
 {
@@ -45,6 +46,7 @@ internal sealed class CanonicalPlanSerializer : ICanonicalPlanSerializer
             writer.WriteString("blueprintChecksum", input.BlueprintChecksum);
             WritePlanValueMap(writer, "effectiveInputs", input.EffectiveInputs);
             WriteStrings(writer, "enabledFeatures", input.EnabledFeatures);
+            WriteStringMap(writer, "templateContext", input.TemplateContext);
             writer.WritePropertyName("teamStandards");
             writer.WriteStartObject();
             foreach (var item in input.TeamStandards.OrderBy(item => item.Key, StringComparer.Ordinal))
@@ -191,6 +193,21 @@ internal sealed class CanonicalPlanSerializer : ICanonicalPlanSerializer
         }
 
         writer.WriteEndArray();
+    }
+
+    private static void WriteStringMap(
+        Utf8JsonWriter writer,
+        string name,
+        IEnumerable<KeyValuePair<string, string>> values)
+    {
+        writer.WritePropertyName(name);
+        writer.WriteStartObject();
+        foreach (var item in values.OrderBy(item => item.Key, StringComparer.Ordinal))
+        {
+            writer.WriteString(item.Key, item.Value);
+        }
+
+        writer.WriteEndObject();
     }
 
     private static void WritePlanValueMap(

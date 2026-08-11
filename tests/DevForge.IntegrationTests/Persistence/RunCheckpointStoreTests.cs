@@ -52,6 +52,8 @@ public sealed class RunCheckpointStoreTests
         Assert.Equal(RetryMode.Manual, step.RetryPolicy.Mode);
         Assert.Equal("src", step.Inputs["path"].StringValue);
         Assert.Equal(checkpoint.Plan.Steps[0].Inputs["metadata"], step.Inputs["metadata"]);
+        Assert.Equal("Sample App", loaded.Plan.TemplateContext["project.name"]);
+        Assert.Equal("net10.0", loaded.Plan.TemplateContext["recipe.input.framework"]);
         Assert.Equal($"sha256:{new string('a', 64)}", Assert.Single(loaded.Run.Attempts).OutputDigest);
     }
 
@@ -362,7 +364,14 @@ public sealed class RunCheckpointStoreTests
             TimeSpan.FromMinutes(1),
             required: true).Value;
         var planHash = $"sha256:{new string('1', 64)}";
-        var plan = ExecutionPlan.Create(planHash, [step], [validator]).Value;
+        var plan = ExecutionPlan.Create(
+            planHash,
+            [step],
+            [validator],
+            [
+                KeyValuePair.Create<string, string?>("project.name", "Sample App"),
+                KeyValuePair.Create<string, string?>("recipe.input.framework", "net10.0"),
+            ]).Value;
         var run = ProjectRun.Create(runId, "recipe-1").Value
             .TransitionTo(RunStatus.Planning).Value
             .TransitionTo(RunStatus.Executing).Value

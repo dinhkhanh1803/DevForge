@@ -212,6 +212,16 @@ public sealed class ProjectPlanner : IProjectPlanner
         cancellationToken.ThrowIfCancellationRequested();
         var stepSnapshot = steps.ToImmutable();
         var validatorSnapshot = validators.ToImmutable();
+        var templateContextResult = stepSnapshot.Any(step => step.Handler == "render-template")
+            ? variableContext.Value.CreateTemplateContext()
+            : ValidationResult.Success(
+                ImmutableSortedDictionary<string, string>.Empty.WithComparers(StringComparer.Ordinal));
+        if (!templateContextResult.IsValid)
+        {
+            return ValidationResult.Failure<PlannedProject>(templateContextResult.Issues);
+        }
+
+        var templateContext = templateContextResult.Value;
         var hashInput = new PlanHashInput(
             blueprint.Manifest.Id,
             blueprint.Manifest.Version,
@@ -225,7 +235,8 @@ public sealed class ProjectPlanner : IProjectPlanner
             validatorSnapshot,
             blueprint.Manifest.Tools,
             blueprint.Manifest.Dependencies,
-            blueprint.Manifest.Artifacts);
+            blueprint.Manifest.Artifacts,
+            templateContext);
         string planHash;
         try
         {
@@ -236,7 +247,11 @@ public sealed class ProjectPlanner : IProjectPlanner
             return HashFailure<PlannedProject>();
         }
 
-        var plan = ExecutionPlan.Create(planHash, stepSnapshot, validatorSnapshot);
+        var plan = ExecutionPlan.Create(
+            planHash,
+            stepSnapshot,
+            validatorSnapshot,
+            templateContext.Select(item => KeyValuePair.Create<string, string?>(item.Key, item.Value)));
         if (!plan.IsValid)
         {
             return HashFailure<PlannedProject>();

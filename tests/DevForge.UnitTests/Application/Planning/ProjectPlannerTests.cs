@@ -45,9 +45,15 @@ public sealed class ProjectPlannerTests
             Assert.Single(result.Value.Preview.Validators).ProcessPreview?.Value);
         Assert.StartsWith("sha256:", result.Value.Preview.PlanHash, StringComparison.Ordinal);
         Assert.Equal(
-            "sha256:adc6685863a086fc1f0eec9b21dad2fb9ede710ce516a1b1b3b59bb91c0ed3f8",
+            "sha256:69b15acea75d45d2129e6b8aa43fde136a362a44ba5486efa37fff51f671677d",
             result.Value.Preview.PlanHash);
         Assert.Equal(result.Value.Preview.PlanHash, result.Value.Plan.Id);
+        Assert.Equal("Sample App", result.Value.Plan.TemplateContext["project.name"]);
+        Assert.Equal("sample-app", result.Value.Plan.TemplateContext["project.safe_name"]);
+        Assert.Equal("net10.0", result.Value.Plan.TemplateContext["recipe.input.framework"]);
+        Assert.Equal("true", result.Value.Plan.TemplateContext["recipe.feature.tests"]);
+        Assert.DoesNotContain("runtime.staging-path", result.Value.Plan.TemplateContext.Keys);
+        Assert.DoesNotContain("project.target-path", result.Value.Plan.TemplateContext.Keys);
         Assert.Equal(1, catalog.FindCalls);
         Assert.Equal(1, doctor.InspectCalls);
     }
@@ -94,9 +100,13 @@ public sealed class ProjectPlannerTests
         var baseline = await PlanHashAsync(CreateBlueprint(), CreateRecipe("C:\\root"));
         var changedInput = await PlanHashAsync(CreateBlueprint(), CreateRecipe("C:\\root", framework: "net10.1"));
         var reversed = await PlanHashAsync(CreateBlueprint(reverseActions: true), CreateRecipe("C:\\root"));
+        var changedProjectName = await PlanHashAsync(
+            CreateBlueprint(),
+            CreateRecipe("C:\\root", projectName: "Different App"));
 
         Assert.NotEqual(baseline, changedInput);
         Assert.NotEqual(baseline, reversed);
+        Assert.NotEqual(baseline, changedProjectName);
     }
 
     [Fact]

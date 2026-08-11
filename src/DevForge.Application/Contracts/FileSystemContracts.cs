@@ -303,6 +303,20 @@ public interface IAtomicWorkspaceFileSystem : IWorkspaceFileSystem
         CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// Writes a complete bounded caller-owned byte snapshot through a guarded sibling file and
+/// publishes it with one same-volume atomic rename. Implementations must never expose a
+/// partially written destination and must preserve an existing destination on failure.
+/// </summary>
+public interface IAtomicFileWorkspaceFileSystem : IWorkspaceFileSystem
+{
+    Task WriteFileAtomicallyAsync(
+        WorkspaceRelativePath path,
+        ReadOnlyMemory<byte> content,
+        bool overwrite,
+        CancellationToken cancellationToken);
+}
+
 public interface IFileSystem
 {
     Task<IWorkspaceFileSystem> OpenWorkspaceAsync(

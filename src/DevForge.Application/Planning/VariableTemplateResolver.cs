@@ -99,6 +99,38 @@ public sealed class PlanningVariableContext
         return _values.TryGetValue(identifier, out value!);
     }
 
+    internal ValidationResult<ImmutableSortedDictionary<string, string>> CreateTemplateContext()
+    {
+        var context = ImmutableSortedDictionary.CreateBuilder<string, string>(StringComparer.Ordinal);
+        foreach (var item in _values.Where(item => !item.Value.IsPlaceholder))
+        {
+            var name = string.Join('.', item.Key.Split('.').Select(segment => segment.Replace('-', '_')));
+            if (!context.TryAdd(name, FormatScalar(item.Value.Value!)))
+            {
+                return ValidationResult.Failure<ImmutableSortedDictionary<string, string>>(
+                [
+                    new ValidationIssue(
+                        "DF-PLAN-001",
+                        "The deterministic template context contains conflicting aliases.",
+                        "templateContext"),
+                ]);
+            }
+        }
+
+        return ValidationResult.Success(context.ToImmutable());
+    }
+
+    private static string FormatScalar(PlanValue value)
+    {
+        return value.Kind switch
+        {
+            PlanValueKind.Text => value.StringValue!,
+            PlanValueKind.Boolean => value.BooleanValue ? "true" : "false",
+            PlanValueKind.WholeNumber => value.IntegerValue.ToString(CultureInfo.InvariantCulture),
+            _ => throw new InvalidOperationException("Planning template context values must be scalar."),
+        };
+    }
+
     private static ValidationIssue Issue()
     {
         return new ValidationIssue(

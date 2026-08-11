@@ -4,7 +4,9 @@ using DevForge.Application.Contracts;
 
 namespace DevForge.Infrastructure.FileSystem;
 
-internal sealed class WindowsWorkspaceFileSystem : IAtomicWorkspaceFileSystem
+internal sealed class WindowsWorkspaceFileSystem :
+    IAtomicWorkspaceFileSystem,
+    IAtomicFileWorkspaceFileSystem
 {
     private const int ErrorFileExists = 80;
     private const int ErrorAlreadyExists = 183;
@@ -140,6 +142,93 @@ internal sealed class WindowsWorkspaceFileSystem : IAtomicWorkspaceFileSystem
             cancellationToken);
     }
 
+    public async Task WriteFileAtomicallyAsync(
+        WorkspaceRelativePath path,
+        ReadOnlyMemory<byte> content,
+        bool overwrite,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        cancellationToken.ThrowIfCancellationRequested();
+        string? temporaryPath = null;
+        WorkspaceRelativePath? temporaryRelativePath = null;
+        var ownsTemporary = false;
+        try
+        {
+            var destinationPath = _guard.Resolve(path);
+            var parentPath = Path.GetDirectoryName(destinationPath);
+            if (parentPath is null || !Directory.Exists(parentPath))
+            {
+                throw new IOException();
+            }
+
+            _guard.VerifyExisting(parentPath);
+            var separator = path.Value.LastIndexOf('\\');
+            var prefix = separator < 0 ? string.Empty : path.Value[..(separator + 1)];
+            temporaryRelativePath = WorkspaceRelativePath.Create(
+                $"{prefix}.devforge-{Guid.NewGuid():N}.tmp").Value;
+            temporaryPath = _guard.Resolve(temporaryRelativePath);
+            await using (var stream = new FileStream(
+                temporaryPath,
+                new FileStreamOptions
+                {
+                    Access = FileAccess.Write,
+                    Mode = FileMode.CreateNew,
+                    Share = FileShare.None,
+                    Options = FileOptions.Asynchronous | FileOptions.WriteThrough,
+                }))
+            {
+                ownsTemporary = true;
+                var verifiedTemporary = _guard.Resolve(temporaryRelativePath);
+                if (!StringComparer.OrdinalIgnoreCase.Equals(temporaryPath, verifiedTemporary))
+                {
+                    throw new WorkspaceContainmentException();
+                }
+
+                _guard.VerifyExisting(temporaryPath);
+                await stream.WriteAsync(content, cancellationToken).ConfigureAwait(false);
+                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+                stream.Flush(flushToDisk: true);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            var verifiedDestination = _guard.Resolve(path);
+            var finalTemporary = _guard.Resolve(temporaryRelativePath);
+            if (!StringComparer.OrdinalIgnoreCase.Equals(destinationPath, verifiedDestination)
+                || !StringComparer.OrdinalIgnoreCase.Equals(temporaryPath, finalTemporary)
+                || !overwrite && (File.Exists(destinationPath) || Directory.Exists(destinationPath)))
+            {
+                throw new IOException();
+            }
+
+            File.Move(temporaryPath, destinationPath, overwrite);
+            ownsTemporary = false;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (WorkspaceContainmentException)
+        {
+            throw new InfrastructureOperationException(
+                "DF-FS-003",
+                "Workspace containment could not be proven.");
+        }
+        catch (Exception exception) when (IsExpectedFileSystemFailure(exception))
+        {
+            throw new InfrastructureOperationException(
+                "DF-FS-002",
+                "The guarded workspace operation could not be completed.");
+        }
+        finally
+        {
+            if (ownsTemporary && temporaryPath is not null && temporaryRelativePath is not null)
+            {
+                TryDeleteOwnedTemporary(temporaryRelativePath, temporaryPath);
+            }
+        }
+    }
+
     public Task DeleteFileAsync(
         WorkspaceRelativePath path,
         CancellationToken cancellationToken)
@@ -256,6 +345,28 @@ internal sealed class WindowsWorkspaceFileSystem : IAtomicWorkspaceFileSystem
             or System.Security.SecurityException
             or NotSupportedException
             or ArgumentException;
+    }
+
+    private void TryDeleteOwnedTemporary(
+        WorkspaceRelativePath temporaryRelativePath,
+        string expectedFullPath)
+    {
+        try
+        {
+            var resolved = _guard.Resolve(temporaryRelativePath);
+            if (StringComparer.OrdinalIgnoreCase.Equals(resolved, expectedFullPath)
+                && File.Exists(resolved))
+            {
+                _guard.VerifyExisting(resolved);
+                File.Delete(resolved);
+            }
+        }
+        catch (Exception exception) when (exception is WorkspaceContainmentException
+            || IsExpectedFileSystemFailure(exception))
+        {
+            // Failing closed may retain a run-owned temporary file; it never justifies deleting
+            // through an ancestor whose containment can no longer be proven.
+        }
     }
 
     private ImmutableArray<WorkspaceRelativePath> EnumerateFiles(

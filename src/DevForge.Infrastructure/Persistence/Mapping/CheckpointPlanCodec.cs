@@ -93,6 +93,11 @@ internal static class CheckpointPlanCodec
         return new PlanDto
         {
             Id = plan.Id,
+            TemplateContext = [.. plan.TemplateContext.Select(item => new NamedTextDto
+            {
+                Name = item.Key,
+                Value = item.Value,
+            })],
             Steps = [.. plan.Steps.Select(step => new StepDto
             {
                 Id = step.Id,
@@ -172,14 +177,17 @@ internal static class CheckpointPlanCodec
 
     private static ExecutionPlan FromDto(PlanDto dto)
     {
-        if (dto.Steps is null || dto.Validators is null)
+        if (dto.Steps is null || dto.Validators is null || dto.TemplateContext is null)
         {
             throw new PersistenceDataException();
         }
 
         var steps = dto.Steps.Select(FromDto).ToArray();
         var validators = dto.Validators.Select(FromDto).ToArray();
-        return RequireValid(ExecutionPlan.Create(dto.Id, steps, validators));
+        var templateContext = dto.TemplateContext.Select(item => item is null
+            ? default
+            : KeyValuePair.Create<string, string?>(item.Name!, item.Value));
+        return RequireValid(ExecutionPlan.Create(dto.Id, steps, validators, templateContext));
     }
 
     private static ExecutionStep FromDto(StepDto? dto)
@@ -331,6 +339,8 @@ internal static class CheckpointPlanCodec
         public StepDto?[]? Steps { get; set; }
 
         public ValidatorDto?[]? Validators { get; set; }
+
+        public NamedTextDto?[]? TemplateContext { get; set; }
     }
 
     private sealed class StepDto
@@ -377,6 +387,13 @@ internal static class CheckpointPlanCodec
         public string? Name { get; set; }
 
         public ValueDto? Value { get; set; }
+    }
+
+    private sealed class NamedTextDto
+    {
+        public string? Name { get; set; }
+
+        public string? Value { get; set; }
     }
 
     private sealed class ValueDto

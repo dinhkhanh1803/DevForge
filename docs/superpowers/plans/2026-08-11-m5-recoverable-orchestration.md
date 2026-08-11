@@ -44,9 +44,9 @@
 
 ## Task 7: Implement guarded file/template/patch handlers
 
-- [ ] RED integration fixtures for create/render/copy and closed JSON/YAML/XML set/remove operations, atomic write/reparse, retry cleanup, traversal, `.env`, DTD/entity/tag/alias/duplicate-key, bounds, locked files, and cancellation.
-- [ ] Implement handlers using only guarded workspaces, verified blueprint content, restricted renderer, BCL parsers, and pinned YamlDotNet.
-- [ ] GREEN twice; commit `feat(infrastructure): execute guarded file handlers`.
+- [x] RED integration fixtures for create/render/copy and closed JSON/YAML/XML set/remove operations, atomic write/reparse, retry cleanup, traversal, `.env`, DTD/entity/tag/alias/duplicate-key, bounds, locked files, and cancellation.
+- [x] Implement handlers using only guarded workspaces, verified blueprint content, restricted renderer, BCL parsers, and pinned YamlDotNet.
+- [x] GREEN twice; commit `feat(infrastructure): execute guarded file handlers`.
 
 ## Task 8: Implement trusted process and validator handlers
 

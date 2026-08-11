@@ -125,6 +125,86 @@ public sealed partial class WindowsWorkspaceFileSystemTests
     }
 
     [Fact]
+    public async Task AtomicFileWriteReplacesWholeContentWithoutTemporaryArtifacts()
+    {
+        await using var fixture = await WorkspaceFixture.CreateAsync();
+        var atomic = Assert.IsAssignableFrom<IAtomicFileWorkspaceFileSystem>(fixture.Workspace);
+        var file = Relative("settings.json");
+        await fixture.WriteTextAsync(file, "old-content");
+
+        await atomic.WriteFileAtomicallyAsync(
+            file,
+            Encoding.UTF8.GetBytes("new-complete-content"),
+            overwrite: true,
+            CancellationToken.None);
+
+        Assert.Equal("new-complete-content", await fixture.ReadTextAsync(file));
+        Assert.Equal(
+            [file.Value],
+            (await fixture.Workspace.EnumerateAllFilesAsync(CancellationToken.None))
+                .Select(path => path.Value));
+    }
+
+    [Fact]
+    public async Task AtomicFileWriteDoesNotOverwriteWhenDisabled()
+    {
+        await using var fixture = await WorkspaceFixture.CreateAsync();
+        var atomic = Assert.IsAssignableFrom<IAtomicFileWorkspaceFileSystem>(fixture.Workspace);
+        var file = Relative("existing.txt");
+        await fixture.WriteTextAsync(file, "original");
+
+        var exception = await Assert.ThrowsAsync<InfrastructureOperationException>(() =>
+            atomic.WriteFileAtomicallyAsync(
+                file,
+                Encoding.UTF8.GetBytes("replacement"),
+                overwrite: false,
+                CancellationToken.None));
+
+        Assert.Equal("DF-FS-002", exception.Code);
+        Assert.Equal("original", await fixture.ReadTextAsync(file));
+        Assert.Single(await fixture.Workspace.EnumerateAllFilesAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task AtomicFileWriteCancellationPreservesExistingContent()
+    {
+        await using var fixture = await WorkspaceFixture.CreateAsync();
+        var atomic = Assert.IsAssignableFrom<IAtomicFileWorkspaceFileSystem>(fixture.Workspace);
+        var file = Relative("existing.txt");
+        await fixture.WriteTextAsync(file, "original");
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => atomic.WriteFileAtomicallyAsync(
+            file,
+            Encoding.UTF8.GetBytes("replacement"),
+            overwrite: true,
+            cancellation.Token));
+
+        Assert.Equal("original", await fixture.ReadTextAsync(file));
+        Assert.Single(await fixture.Workspace.EnumerateAllFilesAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task AtomicFileWriteRejectsJunctionParentWithoutOutsideMutation()
+    {
+        await using var fixture = await WorkspaceFixture.CreateAsync();
+        var atomic = Assert.IsAssignableFrom<IAtomicFileWorkspaceFileSystem>(fixture.Workspace);
+        var outside = fixture.CreateOutsideDirectory();
+        fixture.CreateJunction("linked", outside);
+
+        var exception = await Assert.ThrowsAsync<InfrastructureOperationException>(() =>
+            atomic.WriteFileAtomicallyAsync(
+                Relative("linked\\escaped.txt"),
+                Encoding.UTF8.GetBytes("outside mutation"),
+                overwrite: true,
+                CancellationToken.None));
+
+        Assert.Equal("DF-FS-003", exception.Code);
+        Assert.False(File.Exists(Path.Combine(outside, "escaped.txt")));
+    }
+
+    [Fact]
     public async Task MoveDirectoryDoesNotOverwriteExistingDestination()
     {
         await using var fixture = await WorkspaceFixture.CreateAsync();

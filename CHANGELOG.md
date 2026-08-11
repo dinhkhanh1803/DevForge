@@ -31,3 +31,4 @@ All notable DevForge Studio changes are documented here.
 - Recoverable M5 run checkpoints and run-owned staging with atomic ownership claims, canonical privacy-safe markers, cross-run leases, guarded resume validation, and cleanup race protection.
 - Exact M5 blueprint reopening through the guarded M4 loader with current trust rechecks, immutable verified execution bytes, cancellation-safe publication, and privacy-safe failures.
 - Closed trust-scoped M5 handler dispatch and bounded one-pass typed runtime placeholder materialization without reflection or direct process access.
+- Guarded M5 create/render/overlay and JSON/YAML/XML handlers with plan-hashed renderer context, strict reparse-before-publish transforms, atomic file replacement, exact `.env` policy, and transient-only retries.

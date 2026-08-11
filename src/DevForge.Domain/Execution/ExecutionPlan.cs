@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using DevForge.Domain.Privacy;
 using DevForge.Domain.Validation;
 
 namespace DevForge.Domain.Execution;
@@ -128,11 +129,13 @@ public sealed class ExecutionPlan
     private ExecutionPlan(
         string id,
         IEnumerable<ExecutionStep> steps,
-        IEnumerable<ExecutionValidator> validators)
+        IEnumerable<ExecutionValidator> validators,
+        IEnumerable<KeyValuePair<string, string>> templateContext)
     {
         Id = id;
         Steps = [.. steps];
         Validators = [.. validators];
+        TemplateContext = templateContext.ToImmutableSortedDictionary(StringComparer.Ordinal);
     }
 
     public string Id { get; }
@@ -141,17 +144,28 @@ public sealed class ExecutionPlan
 
     public ImmutableArray<ExecutionValidator> Validators { get; }
 
+    public ImmutableSortedDictionary<string, string> TemplateContext { get; }
+
     public static ValidationResult<ExecutionPlan> Create(
         string? id,
         IEnumerable<ExecutionStep?>? steps)
     {
-        return Create(id, steps, []);
+        return Create(id, steps, [], []);
     }
 
     public static ValidationResult<ExecutionPlan> Create(
         string? id,
         IEnumerable<ExecutionStep?>? steps,
         IEnumerable<ExecutionValidator?>? validators)
+    {
+        return Create(id, steps, validators, []);
+    }
+
+    public static ValidationResult<ExecutionPlan> Create(
+        string? id,
+        IEnumerable<ExecutionStep?>? steps,
+        IEnumerable<ExecutionValidator?>? validators,
+        IEnumerable<KeyValuePair<string, string?>>? templateContext)
     {
         var issues = new List<ValidationIssue>();
         if (string.IsNullOrWhiteSpace(id))
@@ -161,6 +175,7 @@ public sealed class ExecutionPlan
 
         var stepsSnapshot = steps?.ToImmutableArray() ?? [];
         var validatorsSnapshot = validators?.ToImmutableArray() ?? [];
+        var contextSnapshot = templateContext?.ToImmutableArray() ?? [];
         if (steps is null)
         {
             issues.Add(new ValidationIssue("plan.steps.required", "Execution plan steps are required.", "steps"));
@@ -220,12 +235,101 @@ public sealed class ExecutionPlan
             }
         }
 
+        ValidateTemplateContext(templateContext, contextSnapshot, issues);
+
         return issues.Count == 0
             ? ValidationResult.Success(new ExecutionPlan(
                 id!.Trim(),
                 stepsSnapshot.Select(step => step!),
-                validatorsSnapshot.Select(validator => validator!)))
+                validatorsSnapshot.Select(validator => validator!),
+                contextSnapshot.Select(item => KeyValuePair.Create(item.Key, item.Value!))))
             : ValidationResult.Failure<ExecutionPlan>(issues);
+    }
+
+    private static void ValidateTemplateContext(
+        IEnumerable<KeyValuePair<string, string?>>? source,
+        ImmutableArray<KeyValuePair<string, string?>> snapshot,
+        List<ValidationIssue> issues)
+    {
+        if (source is null)
+        {
+            issues.Add(new ValidationIssue(
+                "plan.template-context.required",
+                "The deterministic template context is required.",
+                "templateContext"));
+            return;
+        }
+
+        if (snapshot.Length > 256)
+        {
+            issues.Add(new ValidationIssue(
+                "plan.template-context.too-many",
+                "The deterministic template context exceeds the supported entry limit.",
+                "templateContext"));
+        }
+
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        long totalCharacters = 0;
+        for (var index = 0; index < snapshot.Length; index++)
+        {
+            var item = snapshot[index];
+            if (!IsTemplateContextName(item.Key)
+                || !names.Add(item.Key)
+                || RedactedText.IsSecretShapedKey(item.Key))
+            {
+                issues.Add(new ValidationIssue(
+                    "plan.template-context.name.invalid",
+                    "A deterministic template context name is invalid or duplicated.",
+                    $"templateContext[{index}].name"));
+            }
+
+            if (item.Value is null
+                || item.Value.Length > 64 * 1024
+                || item.Value.Contains('\0')
+                || RedactedText.IsSecretShapedValue(item.Value))
+            {
+                issues.Add(new ValidationIssue(
+                    "plan.template-context.value.invalid",
+                    "A deterministic template context value is invalid or unsafe.",
+                    $"templateContext[{index}].value"));
+            }
+
+            totalCharacters += item.Value?.Length ?? 0;
+        }
+
+        if (totalCharacters > 2L * 1024L * 1024L)
+        {
+            issues.Add(new ValidationIssue(
+                "plan.template-context.total.too-large",
+                "The deterministic template context exceeds the supported total size.",
+                "templateContext"));
+        }
+
+        var orderedNames = names.Order(StringComparer.Ordinal).ToArray();
+        for (var index = 1; index < orderedNames.Length; index++)
+        {
+            if (orderedNames[index].StartsWith(orderedNames[index - 1] + '.', StringComparison.Ordinal))
+            {
+                issues.Add(new ValidationIssue(
+                    "plan.template-context.name.conflict",
+                    "Template context names cannot be both a value and a parent path.",
+                    "templateContext"));
+            }
+        }
+    }
+
+    private static bool IsTemplateContextName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)
+            || value != value.Trim()
+            || value.Length > 256)
+        {
+            return false;
+        }
+
+        return value.Split('.').All(segment => segment.Length > 0
+            && (char.IsAsciiLetter(segment[0]) || segment[0] == '_')
+            && segment.Skip(1).All(character => char.IsAsciiLetterOrDigit(character) || character == '_'));
     }
 }
 

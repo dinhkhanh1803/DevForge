@@ -159,28 +159,37 @@ public sealed class ExecutionHandlerRequest
     private ExecutionHandlerRequest(
         string runId,
         ExecutionStep step,
+        ExecutionPlan plan,
         StagingWorkspace staging,
-        BlueprintExecutionPackage blueprintPackage)
+        BlueprintExecutionPackage blueprintPackage,
+        ImmutableSortedDictionary<string, string> templateContext)
     {
         RunId = runId;
         Step = step;
+        Plan = plan;
         Staging = staging;
         BlueprintPackage = blueprintPackage;
+        TemplateContext = templateContext;
     }
 
     public string RunId { get; }
 
     public ExecutionStep Step { get; }
 
+    public ExecutionPlan Plan { get; }
+
     public StagingWorkspace Staging { get; }
 
     public BlueprintExecutionPackage BlueprintPackage { get; }
+
+    public ImmutableSortedDictionary<string, string> TemplateContext { get; }
 
     public static ValidationResult<ExecutionHandlerRequest> Create(
         string? runId,
         ExecutionStep? step,
         StagingWorkspace? staging,
-        BlueprintExecutionPackage? blueprintPackage)
+        BlueprintExecutionPackage? blueprintPackage,
+        ExecutionPlan? plan)
     {
         var issues = new List<ValidationIssue>();
         if (!ExecutionContractValidation.IsBoundedIdentifier(runId))
@@ -192,14 +201,27 @@ public sealed class ExecutionHandlerRequest
         }
 
         AddRequired(step, "step", issues);
+        AddRequired(plan, "plan", issues);
         AddRequired(staging, "staging", issues);
         AddRequired(blueprintPackage, "blueprintPackage", issues);
+        if (step is not null
+            && plan is not null
+            && !plan.Steps.Any(candidate => ReferenceEquals(candidate, step)))
+        {
+            issues.Add(new ValidationIssue(
+                "handler.request.step.plan-mismatch",
+                "The execution step must be owned by the supplied hashed plan.",
+                "step"));
+        }
+
         return issues.Count == 0
             ? ValidationResult.Success(new ExecutionHandlerRequest(
                 runId!,
                 step!,
+                plan!,
                 staging!,
-                blueprintPackage!))
+                blueprintPackage!,
+                plan!.TemplateContext))
             : ValidationResult.Failure<ExecutionHandlerRequest>(issues);
     }
 

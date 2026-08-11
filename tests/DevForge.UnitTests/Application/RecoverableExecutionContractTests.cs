@@ -230,6 +230,23 @@ public sealed class RecoverableExecutionContractTests
     }
 
     [Fact]
+    public void HandlerRequestCarriesTheHashedPlanThatOwnsItsStepAndTemplateContext()
+    {
+        var planProperty = typeof(ExecutionHandlerRequest).GetProperty(
+            nameof(ExecutionHandlerRequest.Plan));
+        var factory = typeof(ExecutionHandlerRequest).GetMethods()
+            .Single(method => method.Name == nameof(ExecutionHandlerRequest.Create));
+
+        Assert.NotNull(planProperty);
+        Assert.Equal(typeof(ExecutionPlan), planProperty.PropertyType);
+        Assert.Contains(factory.GetParameters(), parameter => parameter.ParameterType == typeof(ExecutionPlan));
+        Assert.DoesNotContain(
+            factory.GetParameters(),
+            parameter => parameter.ParameterType.IsGenericType
+                && parameter.ParameterType.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+    }
+
+    [Fact]
     public void RecoverableExecutionPortsAreAsyncCancellableAndOrchestratorUsesRequestCheckpoint()
     {
         Type[] ports =
