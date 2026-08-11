@@ -13,6 +13,45 @@ namespace DevForge.UnitTests.Application.Execution;
 public sealed class CheckpointedExecutionOrchestratorTests
 {
     [Fact]
+    public async Task FinalizationBoundaryIsNotDispatchedAndCleanupRunsAfterLeaseRelease()
+    {
+        var fixture = Fixture.Create(
+            completionLocalReady: true,
+            includeFinalizationBoundary: true);
+
+        var checkpoint = await fixture.Orchestrator.ExecuteAsync(
+            fixture.Request,
+            progress: null,
+            CancellationToken.None);
+
+        Assert.Equal(RunStatus.LocalReady, checkpoint.Run.Status);
+        Assert.DoesNotContain("handler.finalize-workspace", fixture.Events);
+        Assert.True(
+            fixture.Events.IndexOf("lease.dispose")
+                < fixture.Events.IndexOf("staging.cleanup-finalized"));
+        Assert.Equal("staging.cleanup-finalized", fixture.Events[^1]);
+    }
+
+    [Fact]
+    public async Task FinalizedCleanupFailureIsSurfacedWithTheDurableLocalReadyCheckpoint()
+    {
+        var cleanupError = FailureError("finalized-cleanup");
+        var fixture = Fixture.Create(
+            completionLocalReady: true,
+            cleanupFinalizedError: cleanupError);
+
+        var exception = await Assert.ThrowsAsync<FinalizedStagingCleanupException>(() =>
+            fixture.Orchestrator.ExecuteAsync(
+                fixture.Request,
+                progress: null,
+                CancellationToken.None));
+
+        Assert.Equal(RunStatus.LocalReady, exception.Checkpoint.Run.Status);
+        Assert.Same(cleanupError, exception.Error);
+        Assert.Equal(1, fixture.Events.Count(item => item == "lease.dispose"));
+    }
+
+    [Fact]
     public async Task FreshExecutionPersistsPlanBeforeOrderedSixPhaseStepLifecycle()
     {
         var fixture = Fixture.Create();
@@ -35,6 +74,7 @@ public sealed class CheckpointedExecutionOrchestratorTests
                 "handler.execute",
                 "handler.postcondition",
                 "checkpoint.save.succeeded",
+                "completion.run",
                 "lease.dispose",
             ],
             fixture.Events);
@@ -210,6 +250,7 @@ public sealed class CheckpointedExecutionOrchestratorTests
                 "registry.create",
                 "checkpoint.save.succeeded",
                 "handler.postcondition",
+                "completion.run",
                 "lease.dispose",
             ],
             fixture.Events);
@@ -624,7 +665,10 @@ public sealed class CheckpointedExecutionOrchestratorTests
             DevForgeError? createError = null,
             bool initialSaveFails = false,
             bool blueprintCancels = false,
-            StepAttemptOutcome resumeAttemptOutcome = StepAttemptOutcome.Succeeded)
+            StepAttemptOutcome resumeAttemptOutcome = StepAttemptOutcome.Succeeded,
+            bool completionLocalReady = false,
+            bool includeFinalizationBoundary = false,
+            DevForgeError? cleanupFinalizedError = null)
         {
             var events = new List<string>();
             var target = new StubWorkspace("C:\\target-parent");
@@ -637,9 +681,21 @@ public sealed class CheckpointedExecutionOrchestratorTests
                 [],
                 TimeSpan.FromSeconds(30),
                 retryPolicy ?? RetryPolicy.None).Value;
+            var steps = new List<ExecutionStep> { step };
+            if (includeFinalizationBoundary)
+            {
+                steps.Add(ExecutionStep.Create(
+                    "finalize",
+                    "Finalize",
+                    "finalize-workspace",
+                    [],
+                    TimeSpan.FromSeconds(30),
+                    RetryPolicy.None).Value);
+            }
+
             var plan = ExecutionPlan.Create(
                 $"sha256:{new string('1', 64)}",
-                [step],
+                steps,
                 [],
                 []).Value;
             var blueprint = BlueprintReference.Create("desktop.csharp-wpf-tool", "1.0.0").Value;
@@ -752,13 +808,15 @@ public sealed class CheckpointedExecutionOrchestratorTests
                     staging,
                     ownershipError,
                     replayError,
-                    createError),
+                    createError,
+                    cleanupFinalizedError),
                 new RecordingBlueprintSource(
                     events,
                     package,
                     blueprintError,
                     blueprintCancels),
                 new RecordingRegistryProvider(events, handler),
+                new RecordingCompletionCoordinator(events, completionLocalReady),
                 TimeProvider.System);
             return new Fixture(request, events, store, orchestrator);
         }
@@ -863,7 +921,8 @@ public sealed class CheckpointedExecutionOrchestratorTests
         StagingWorkspace workspace,
         DevForgeError? ownershipError,
         DevForgeError? replayError,
-        DevForgeError? createError) : IStagingWorkspaceManager
+        DevForgeError? createError,
+        DevForgeError? cleanupFinalizedError) : IStagingWorkspaceManager
     {
         public Task<ExecutionOperationResult<IStagingWorkspaceLease>> CreateAsync(
             ExecutionRequest request,
@@ -910,6 +969,20 @@ public sealed class CheckpointedExecutionOrchestratorTests
                 StagingCleanupReceipt.Create(
                     checkpoint.Run.Id,
                     checkpoint.Staging.MarkerId).Value));
+        }
+
+        public Task<ExecutionOperationResult<StagingCleanupReceipt>> CleanupFinalizedAsync(
+            RunCheckpoint checkpoint,
+            IWorkspaceFileSystem targetParentWorkspace,
+            CancellationToken cancellationToken)
+        {
+            events.Add("staging.cleanup-finalized");
+            return Task.FromResult(cleanupFinalizedError is null
+                ? ExecutionOperationResult.Success(
+                    StagingCleanupReceipt.Create(
+                        checkpoint.Run.Id,
+                        checkpoint.Staging.MarkerId).Value)
+                : ExecutionOperationResult.Failure<StagingCleanupReceipt>(cleanupFinalizedError));
         }
     }
 
@@ -965,6 +1038,39 @@ public sealed class CheckpointedExecutionOrchestratorTests
     {
         public IExecutionHandler? Resolve(string handlerId) =>
             StringComparer.Ordinal.Equals(handlerId, handler.Id) ? handler : null;
+    }
+
+    private sealed class RecordingCompletionCoordinator(
+        List<string> events,
+        bool localReady) : IRunCompletionCoordinator
+    {
+        public Task<RunCheckpoint> CompleteAsync(
+            ExecutionRequest request,
+            RunCheckpoint checkpoint,
+            StagingWorkspace staging,
+            BlueprintExecutionPackage blueprintPackage,
+            IExecutionHandlerRegistry registry,
+            IProgress<ExecutionProgressLine>? progress,
+            CancellationToken cancellationToken)
+        {
+            events.Add("completion.run");
+            if (!localReady)
+            {
+                return Task.FromResult(checkpoint);
+            }
+
+            return Task.FromResult(RunCheckpoint.Create(
+                checkpoint.Run.TransitionTo(RunStatus.LocalReady).Value,
+                checkpoint.Plan,
+                checkpoint.Blueprint,
+                checkpoint.BlueprintFingerprint,
+                checkpoint.Staging,
+                checkpoint.Target,
+                checkpoint.RunArtifacts,
+                checkpoint.Evidence,
+                FinalizationState.Succeeded,
+                ReportPersistenceState.Succeeded).Value);
+        }
     }
 
     private sealed class RecordingHandler(List<string> events) : IExecutionHandler

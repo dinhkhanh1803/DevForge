@@ -509,7 +509,7 @@ public sealed class RunCheckpoint
         {
             issues.Add(new ValidationIssue(
                 "checkpoint.report.before-finalization",
-                "A successful report requires successful finalization evidence.",
+                "A report result requires successful finalization evidence.",
                 "reportState"));
         }
 

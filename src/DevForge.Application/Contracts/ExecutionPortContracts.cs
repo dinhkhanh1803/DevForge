@@ -619,6 +619,11 @@ public interface IStagingWorkspaceManager
         RunCheckpoint checkpoint,
         IWorkspaceFileSystem targetParentWorkspace,
         CancellationToken cancellationToken);
+
+    Task<ExecutionOperationResult<StagingCleanupReceipt>> CleanupFinalizedAsync(
+        RunCheckpoint checkpoint,
+        IWorkspaceFileSystem targetParentWorkspace,
+        CancellationToken cancellationToken);
 }
 
 public interface IBlueprintExecutionSource

@@ -53,3 +53,15 @@ public interface IExecutionOrchestrator
         IProgress<ExecutionProgressLine>? progress,
         CancellationToken cancellationToken);
 }
+
+public interface IRunCompletionCoordinator
+{
+    Task<RunCheckpoint> CompleteAsync(
+        ExecutionRequest request,
+        RunCheckpoint checkpoint,
+        StagingWorkspace staging,
+        BlueprintExecutionPackage blueprintPackage,
+        IExecutionHandlerRegistry registry,
+        IProgress<ExecutionProgressLine>? progress,
+        CancellationToken cancellationToken);
+}

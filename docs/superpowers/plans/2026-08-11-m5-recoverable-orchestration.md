@@ -62,9 +62,9 @@
 
 ## Task 10: Validate, report, and finalize atomically
 
-- [ ] RED tests for required/optional validators, secret scan, no target on failure, same-volume atomic move, cross-volume copy/hash/tree verification, report-before-cleanup, report failure retention, LocalReady transition, and no finalized cleanup.
-- [ ] Implement validation pipeline, report writer, finalizer, and staging cleanup transaction.
-- [ ] GREEN failure/security matrix; commit `feat(infrastructure): finalize validated project runs`.
+- [x] RED tests for required/optional validators, secret scan, no target on failure, same-volume atomic move, cross-volume copy/hash/tree verification, report-before-cleanup, report failure retention, LocalReady transition, and no finalized cleanup.
+- [x] Implement validation pipeline, report writer, finalizer, and staging cleanup transaction.
+- [x] GREEN failure/security matrix; commit `feat(infrastructure): finalize validated project runs`.
 
 ## Task 11: Recover interrupted runs
 

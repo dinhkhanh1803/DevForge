@@ -163,6 +163,77 @@ public sealed partial class OwnedStagingWorkspaceManagerTests
     }
 
     [Fact]
+    public async Task FinalizedCleanupRemovesOnlyMarkerContainerAfterDurableReportAndLocalReady()
+    {
+        await using var fixture = await StagingFixture.CreateAsync();
+        var created = await fixture.Manager.CreateAsync(fixture.Request, CancellationToken.None);
+        Assert.True(created.IsSuccessful);
+        var descriptor = created.Value.Workspace.Descriptor;
+        await created.Value.DisposeAsync();
+        await fixture.TargetParent.MoveDirectoryAsync(
+            descriptor.PayloadDirectory,
+            fixture.Request.TargetDirectory,
+            WorkspaceMoveIntent.AtomicNoOverwriteFinalize,
+            CancellationToken.None);
+        var checkpoint = fixture.CreateCheckpoint(
+            descriptor,
+            RunStatus.LocalReady,
+            FinalizationState.Succeeded,
+            ReportPersistenceState.Succeeded);
+
+        var result = await fixture.Manager.CleanupFinalizedAsync(
+            checkpoint,
+            fixture.TargetParent,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccessful);
+        Assert.True(await fixture.TargetParent.DirectoryExistsAsync(
+            fixture.Request.TargetDirectory,
+            CancellationToken.None));
+        Assert.False(await fixture.TargetParent.DirectoryExistsAsync(
+            descriptor.ContainerDirectory,
+            CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task FinalizedCleanupAlsoRemovesExactMarkerVerifiedReplaySibling()
+    {
+        await using var fixture = await StagingFixture.CreateAsync();
+        var original = await fixture.Manager.CreateAsync(fixture.Request, CancellationToken.None);
+        Assert.True(original.IsSuccessful);
+        await original.Value.DisposeAsync();
+        await fixture.TargetParent.MoveDirectoryAsync(
+            Relative(".devforge-staging\\run-1"),
+            Relative(".devforge-staging\\run-1.previous"),
+            WorkspaceMoveIntent.AtomicNoOverwriteFinalize,
+            CancellationToken.None);
+        var created = await fixture.Manager.CreateAsync(fixture.Request, CancellationToken.None);
+        Assert.True(created.IsSuccessful);
+        var descriptor = created.Value.Workspace.Descriptor;
+        await created.Value.DisposeAsync();
+        await fixture.TargetParent.MoveDirectoryAsync(
+            descriptor.PayloadDirectory,
+            fixture.Request.TargetDirectory,
+            WorkspaceMoveIntent.AtomicNoOverwriteFinalize,
+            CancellationToken.None);
+        var checkpoint = fixture.CreateCheckpoint(
+            descriptor,
+            RunStatus.LocalReady,
+            FinalizationState.Succeeded,
+            ReportPersistenceState.Succeeded);
+
+        var result = await fixture.Manager.CleanupFinalizedAsync(
+            checkpoint,
+            fixture.TargetParent,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccessful);
+        Assert.False(await fixture.TargetParent.DirectoryExistsAsync(
+            Relative(".devforge-staging\\run-1.previous"),
+            CancellationToken.None));
+    }
+
+    [Fact]
     public async Task PreExistingTargetJunctionFailsClosedWithoutTouchingOutsideContent()
     {
         await using var fixture = await StagingFixture.CreateAsync();
@@ -632,12 +703,17 @@ public sealed partial class OwnedStagingWorkspaceManagerTests
         public RunCheckpoint CreateCheckpoint(
             StagingDescriptor staging,
             RunStatus status = RunStatus.Draft,
-            FinalizationState finalizationState = FinalizationState.NotStarted)
+            FinalizationState finalizationState = FinalizationState.NotStarted,
+            ReportPersistenceState reportState = ReportPersistenceState.NotStarted)
         {
             var run = status switch
             {
                 RunStatus.Draft => Request.Run,
                 RunStatus.Cancelled => Request.Run.TransitionTo(RunStatus.Cancelled).Value,
+                RunStatus.LocalReady => Request.Run
+                    .TransitionTo(RunStatus.Planning).Value
+                    .TransitionTo(RunStatus.Executing).Value
+                    .TransitionTo(RunStatus.LocalReady).Value,
                 _ => throw new ArgumentOutOfRangeException(nameof(status)),
             };
             var target = TargetDescriptor.Create(
@@ -654,7 +730,7 @@ public sealed partial class OwnedStagingWorkspaceManagerTests
                 RunArtifactDescriptor.Create(RunArtifacts.Root).Value,
                 [],
                 finalizationState,
-                ReportPersistenceState.NotStarted).Value;
+                reportState).Value;
         }
 
         public async Task<string> ReadMarkerAsync(WorkspaceRelativePath markerPath)

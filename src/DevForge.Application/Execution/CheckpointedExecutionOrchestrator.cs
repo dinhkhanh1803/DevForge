@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using DevForge.Application.Contracts;
+using DevForge.Blueprints.Abstractions.Models;
 using DevForge.Domain.Diagnostics;
 using DevForge.Domain.Execution;
 using DevForge.Domain.Runs;
@@ -45,6 +46,7 @@ public sealed class CheckpointedExecutionOrchestrator : IExecutionOrchestrator
     private readonly IStagingWorkspaceManager _stagingManager;
     private readonly IBlueprintExecutionSource _blueprintSource;
     private readonly IExecutionHandlerRegistryProvider _registryProvider;
+    private readonly IRunCompletionCoordinator _completionCoordinator;
     private readonly TimeProvider _timeProvider;
     private static int _isExecuting;
 
@@ -53,12 +55,15 @@ public sealed class CheckpointedExecutionOrchestrator : IExecutionOrchestrator
         IStagingWorkspaceManager stagingManager,
         IBlueprintExecutionSource blueprintSource,
         IExecutionHandlerRegistryProvider registryProvider,
+        IRunCompletionCoordinator completionCoordinator,
         TimeProvider timeProvider)
     {
         _checkpointStore = checkpointStore ?? throw new ArgumentNullException(nameof(checkpointStore));
         _stagingManager = stagingManager ?? throw new ArgumentNullException(nameof(stagingManager));
         _blueprintSource = blueprintSource ?? throw new ArgumentNullException(nameof(blueprintSource));
         _registryProvider = registryProvider ?? throw new ArgumentNullException(nameof(registryProvider));
+        _completionCoordinator = completionCoordinator
+            ?? throw new ArgumentNullException(nameof(completionCoordinator));
         _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
@@ -307,7 +312,18 @@ public sealed class CheckpointedExecutionOrchestrator : IExecutionOrchestrator
                     cancellationToken).ConfigureAwait(false);
             }
 
-            return session.Checkpoint;
+            return await CompleteAndCleanupAsync(
+                request,
+                session,
+                packageResult.Value,
+                registryResult.Value,
+                progress,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (RunCompletionCancelledException exception)
+        {
+            session.Checkpoint = exception.Checkpoint;
+            throw;
         }
         catch (OperationCanceledException)
         {
@@ -316,7 +332,10 @@ public sealed class CheckpointedExecutionOrchestrator : IExecutionOrchestrator
         }
         finally
         {
-            await session.Lease.DisposeAsync().ConfigureAwait(false);
+            if (!session.LeaseReleased)
+            {
+                await session.Lease.DisposeAsync().ConfigureAwait(false);
+            }
         }
     }
 
@@ -479,6 +498,15 @@ public sealed class CheckpointedExecutionOrchestrator : IExecutionOrchestrator
                 startIndex: 0,
                 cancellationToken).ConfigureAwait(false);
         }
+        catch (RunCompletionCancelledException exception)
+        {
+            if (session is not null)
+            {
+                session.Checkpoint = exception.Checkpoint;
+            }
+
+            throw;
+        }
         catch (OperationCanceledException)
         {
             if (session is not null)
@@ -504,7 +532,14 @@ public sealed class CheckpointedExecutionOrchestrator : IExecutionOrchestrator
         }
         finally
         {
-            await (session?.Lease ?? lease).DisposeAsync().ConfigureAwait(false);
+            if (session is null)
+            {
+                await lease.DisposeAsync().ConfigureAwait(false);
+            }
+            else if (!session.LeaseReleased)
+            {
+                await session.Lease.DisposeAsync().ConfigureAwait(false);
+            }
         }
     }
 
@@ -520,6 +555,24 @@ public sealed class CheckpointedExecutionOrchestrator : IExecutionOrchestrator
         for (var index = startIndex; index < session.Checkpoint.Plan.Steps.Length; index++)
         {
             var step = session.Checkpoint.Plan.Steps[index];
+            if (StringComparer.Ordinal.Equals(step.Handler, "finalize-workspace"))
+            {
+                if (index != session.Checkpoint.Plan.Steps.Length - 1
+                    || package.Blueprint.Fingerprint.Trust != BlueprintTrust.BuiltIn)
+                {
+                    throw new InvalidOperationException(
+                        "The immutable finalization boundary is not canonical.");
+                }
+
+                return await CompleteAndCleanupAsync(
+                    request,
+                    session,
+                    package,
+                    registry,
+                    progress,
+                    cancellationToken).ConfigureAwait(false);
+            }
+
             var handler = registry.Resolve(step.Handler)
                 ?? throw new InvalidOperationException(
                     "The immutable plan references an unavailable handler.");
@@ -709,7 +762,49 @@ public sealed class CheckpointedExecutionOrchestrator : IExecutionOrchestrator
             }
         }
 
-        return session.Checkpoint;
+        return await CompleteAndCleanupAsync(
+            request,
+            session,
+            package,
+            registry,
+            progress,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<RunCheckpoint> CompleteAndCleanupAsync(
+        ExecutionRequest request,
+        ExecutionSession session,
+        BlueprintExecutionPackage package,
+        IExecutionHandlerRegistry registry,
+        IProgress<ExecutionProgressLine>? progress,
+        CancellationToken cancellationToken)
+    {
+        var completed = await _completionCoordinator.CompleteAsync(
+            request,
+            session.Checkpoint,
+            session.Lease.Workspace,
+            package,
+            registry,
+            progress,
+            cancellationToken).ConfigureAwait(false);
+        session.Checkpoint = completed;
+        if (completed.Run.Status != RunStatus.LocalReady)
+        {
+            return completed;
+        }
+
+        await session.Lease.DisposeAsync().ConfigureAwait(false);
+        session.LeaseReleased = true;
+        var cleanup = await _stagingManager.CleanupFinalizedAsync(
+            completed,
+            request.TargetParentWorkspace,
+            CancellationToken.None).ConfigureAwait(false);
+        if (!cleanup.IsSuccessful)
+        {
+            throw new FinalizedStagingCleanupException(completed, cleanup.Error!);
+        }
+
+        return completed;
     }
 
     private async Task<bool> ReplaceStagingForReplayAsync(
@@ -718,6 +813,7 @@ public sealed class CheckpointedExecutionOrchestrator : IExecutionOrchestrator
         CancellationToken cancellationToken)
     {
         await session.Lease.DisposeAsync().ConfigureAwait(false);
+        session.LeaseReleased = true;
         var replay = await _stagingManager.RecreateForReplayAsync(
             session.Checkpoint,
             request,
@@ -731,6 +827,7 @@ public sealed class CheckpointedExecutionOrchestrator : IExecutionOrchestrator
         }
 
         session.Lease = replay.Value;
+        session.LeaseReleased = false;
         session.Checkpoint = Recreate(
             session.Checkpoint,
             session.Checkpoint.Run,
@@ -1070,6 +1167,8 @@ public sealed class CheckpointedExecutionOrchestrator : IExecutionOrchestrator
         public RunCheckpoint Checkpoint { get; set; } = checkpoint;
 
         public IStagingWorkspaceLease Lease { get; set; } = lease;
+
+        public bool LeaseReleased { get; set; }
     }
 
     private sealed class SafeProgress(IProgress<ExecutionProgressLine> inner) :
@@ -1088,4 +1187,18 @@ public sealed class CheckpointedExecutionOrchestrator : IExecutionOrchestrator
             }
         }
     }
+}
+
+public sealed class FinalizedStagingCleanupException : Exception
+{
+    public FinalizedStagingCleanupException(RunCheckpoint checkpoint, DevForgeError error)
+        : base(error.Summary)
+    {
+        Checkpoint = checkpoint ?? throw new ArgumentNullException(nameof(checkpoint));
+        Error = error ?? throw new ArgumentNullException(nameof(error));
+    }
+
+    public RunCheckpoint Checkpoint { get; }
+
+    public DevForgeError Error { get; }
 }

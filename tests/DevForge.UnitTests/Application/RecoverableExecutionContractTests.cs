@@ -306,6 +306,8 @@ public sealed class RecoverableExecutionContractTests
         Assert.Equal(
             typeof(Task<ExecutionOperationResult<IStagingWorkspaceLease>>),
             replayStaging.ReturnType);
+        Assert.NotNull(typeof(IStagingWorkspaceManager).GetMethod(
+            nameof(IStagingWorkspaceManager.CleanupFinalizedAsync)));
     }
 
     [Fact]

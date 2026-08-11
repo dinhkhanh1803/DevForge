@@ -19,18 +19,31 @@ public sealed record ValidationCheck(
     string Summary,
     RedactedText? Detail);
 
+public sealed record ReportToolStatus(
+    string Id,
+    bool Required,
+    bool IsAvailable,
+    bool IsCompatible,
+    string? DetectedVersion);
+
+public sealed record ReportWarning(string Code, RedactedText Message);
+
 public sealed class GenerationReport
 {
     private GenerationReport(
         string runId,
         DateTimeOffset generatedAt,
         IEnumerable<ValidationCheck> validations,
+        IEnumerable<ReportToolStatus> toolStatuses,
+        IEnumerable<ReportWarning> warnings,
         IEnumerable<DevForgeError> errors,
         IEnumerable<string> generatedArtifacts)
     {
         RunId = runId;
         GeneratedAt = generatedAt;
         Validations = [.. validations];
+        ToolStatuses = [.. toolStatuses];
+        Warnings = [.. warnings];
         Errors = [.. errors];
         GeneratedArtifacts = [.. generatedArtifacts];
     }
@@ -41,6 +54,10 @@ public sealed class GenerationReport
 
     public ImmutableArray<ValidationCheck> Validations { get; }
 
+    public ImmutableArray<ReportToolStatus> ToolStatuses { get; }
+
+    public ImmutableArray<ReportWarning> Warnings { get; }
+
     public ImmutableArray<DevForgeError> Errors { get; }
 
     public ImmutableArray<string> GeneratedArtifacts { get; }
@@ -50,6 +67,22 @@ public sealed class GenerationReport
         DateTimeOffset generatedAt,
         IEnumerable<ValidationCheck?>? validations,
         IEnumerable<DevForgeError?>? errors,
+        IEnumerable<string?>? generatedArtifacts) => Create(
+            runId,
+            generatedAt,
+            validations,
+            [],
+            [],
+            errors,
+            generatedArtifacts);
+
+    public static ValidationResult<GenerationReport> Create(
+        string? runId,
+        DateTimeOffset generatedAt,
+        IEnumerable<ValidationCheck?>? validations,
+        IEnumerable<ReportToolStatus?>? toolStatuses,
+        IEnumerable<ReportWarning?>? warnings,
+        IEnumerable<DevForgeError?>? errors,
         IEnumerable<string?>? generatedArtifacts)
     {
         var issues = new List<ValidationIssue>();
@@ -57,6 +90,11 @@ public sealed class GenerationReport
         {
             issues.Add(new ValidationIssue("report.run-id.required", "Report run identifier is required.", "runId"));
         }
+
+        var toolStatusSnapshot = toolStatuses?.ToImmutableArray() ?? [];
+        ValidateToolStatuses(toolStatuses, toolStatusSnapshot, issues);
+        var warningSnapshot = warnings?.ToImmutableArray() ?? [];
+        ValidateWarnings(warnings, warningSnapshot, issues);
 
         var validationsSnapshot = validations?.ToImmutableArray() ?? [];
         if (validations is null)
@@ -171,8 +209,71 @@ public sealed class GenerationReport
                     runId!.Trim(),
                     generatedAt,
                     normalizedValidations,
+                    toolStatusSnapshot.Select(status => status!),
+                    warningSnapshot.Select(warning => warning!),
                     errorsSnapshot.Select(error => error!),
                     artifactsSnapshot.Select(artifact => artifact!)))
             : ValidationResult.Failure<GenerationReport>(issues);
+    }
+
+    private static void ValidateToolStatuses(
+        IEnumerable<ReportToolStatus?>? source,
+        ImmutableArray<ReportToolStatus?> snapshot,
+        List<ValidationIssue> issues)
+    {
+        if (source is null)
+        {
+            issues.Add(new ValidationIssue(
+                "report.tool-statuses.required",
+                "Report tool statuses are required.",
+                "toolStatuses"));
+        }
+
+        var identifiers = new HashSet<string>(StringComparer.Ordinal);
+        for (var index = 0; index < snapshot.Length; index++)
+        {
+            var status = snapshot[index];
+            if (status is null
+                || string.IsNullOrWhiteSpace(status.Id)
+                || status.Id.Length > 128
+                || !identifiers.Add(status.Id.Trim())
+                || !status.IsAvailable && status.IsCompatible
+                || status.DetectedVersion?.Length > 128)
+            {
+                issues.Add(new ValidationIssue(
+                    "report.tool-status.invalid",
+                    "A report tool status is invalid.",
+                    $"toolStatuses[{index}]"));
+            }
+        }
+    }
+
+    private static void ValidateWarnings(
+        IEnumerable<ReportWarning?>? source,
+        ImmutableArray<ReportWarning?> snapshot,
+        List<ValidationIssue> issues)
+    {
+        if (source is null)
+        {
+            issues.Add(new ValidationIssue(
+                "report.warnings.required",
+                "Report warnings are required.",
+                "warnings"));
+        }
+
+        for (var index = 0; index < snapshot.Length; index++)
+        {
+            var warning = snapshot[index];
+            if (warning is null
+                || string.IsNullOrWhiteSpace(warning.Code)
+                || warning.Code.Length > 128
+                || warning.Message is null)
+            {
+                issues.Add(new ValidationIssue(
+                    "report.warning.invalid",
+                    "A report warning is invalid.",
+                    $"warnings[{index}]"));
+            }
+        }
     }
 }
