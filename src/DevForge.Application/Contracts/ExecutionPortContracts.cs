@@ -699,6 +699,9 @@ public interface IExecutionHandlerRegistryProvider
 
 public interface IRunRecoveryService
 {
+    Task<ExecutionOperationResult<RunRecoveryBatch>> RecoverInterruptedAsync(
+        CancellationToken cancellationToken);
+
     Task<ExecutionOperationResult<RunCheckpoint>> NormalizeInterruptedAsync(
         RunCheckpoint checkpoint,
         CancellationToken cancellationToken);
@@ -711,4 +714,41 @@ public interface IRunRecoveryService
         RunCheckpoint checkpoint,
         IWorkspaceFileSystem targetParentWorkspace,
         CancellationToken cancellationToken);
+}
+
+public sealed class RunRecoveryBatch
+{
+    private RunRecoveryBatch(ImmutableArray<RunCheckpoint> checkpoints)
+    {
+        Checkpoints = checkpoints;
+    }
+
+    public ImmutableArray<RunCheckpoint> Checkpoints { get; }
+
+    public static ValidationResult<RunRecoveryBatch> Create(
+        IEnumerable<RunCheckpoint?>? checkpoints)
+    {
+        var snapshot = checkpoints?.ToImmutableArray() ?? [];
+        var issues = new List<ValidationIssue>();
+        if (checkpoints is null)
+        {
+            issues.Add(new ValidationIssue(
+                "recovery.batch.checkpoints.required",
+                "Recovered checkpoints are required.",
+                "checkpoints"));
+        }
+
+        if (snapshot.Any(checkpoint => checkpoint is null))
+        {
+            issues.Add(new ValidationIssue(
+                "recovery.batch.checkpoint.required",
+                "Recovered checkpoints cannot contain null items.",
+                "checkpoints"));
+        }
+
+        return issues.Count == 0
+            ? ValidationResult.Success(new RunRecoveryBatch(
+                [.. snapshot.Select(checkpoint => checkpoint!)]))
+            : ValidationResult.Failure<RunRecoveryBatch>(issues);
+    }
 }

@@ -68,9 +68,9 @@
 
 ## Task 11: Recover interrupted runs
 
-- [ ] RED startup recovery tests for stale running attempts, exact checkpoint/marker/fingerprint validation, cancelled/validation-failed resume, no duplicate successful effects, unavailable blueprint remediation, and cleanup refusal.
-- [ ] Implement interruption normalization and explicit resume/cleanup services.
-- [ ] GREEN app-kill/resume integration tests; commit `feat(application): recover interrupted project runs`.
+- [x] RED startup recovery tests for stale running attempts, exact checkpoint/marker/fingerprint validation, cancelled/validation-failed resume, no duplicate successful effects, unavailable blueprint remediation, and cleanup refusal.
+- [x] Implement interruption normalization and explicit resume/cleanup services.
+- [x] GREEN app-kill/resume integration tests; commit `feat(application): recover interrupted project runs`.
 
 ## Task 12: Close M5
 

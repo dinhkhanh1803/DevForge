@@ -3,18 +3,109 @@ using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Text;
 using DevForge.Application.Contracts;
+using DevForge.Application.Contracts.Persistence;
+using DevForge.Application.Execution;
 using DevForge.Blueprints.Abstractions.Models;
 using DevForge.Domain.Execution;
 using DevForge.Domain.Projects;
 using DevForge.Domain.Runs;
 using DevForge.Infrastructure.Execution;
 using DevForge.Infrastructure.FileSystem;
+using DevForge.Infrastructure.Persistence;
+using DevForge.Infrastructure.Persistence.Repositories;
+using DevForge.IntegrationTests.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Win32.SafeHandles;
 
 namespace DevForge.IntegrationTests.Infrastructure.Execution;
 
+[Collection(ExecutionRecoveryActivityTestGroup.Name)]
 public sealed partial class OwnedStagingWorkspaceManagerTests
 {
+    [Fact]
+    public async Task AppKillRecoveryResumesThroughRealOwnershipAndRefusesTamperedCleanup()
+    {
+        await using var fixture = await StagingFixture.CreateAsync("run-app-kill");
+        await using var database = PersistenceTestDatabase.Create();
+        var factory = new DevForgeDbContextFactory(database.Location);
+        await using (var context = factory.CreateDbContext())
+        {
+            await context.Database.MigrateAsync(CancellationToken.None);
+        }
+
+        var created = await fixture.Manager.CreateAsync(
+            fixture.Request,
+            CancellationToken.None);
+        Assert.True(created.IsSuccessful);
+        var staging = created.Value.Workspace.Descriptor;
+        await created.Value.DisposeAsync();
+        var running = fixture.Request.Run
+            .TransitionTo(RunStatus.Planning).Value
+            .TransitionTo(RunStatus.Executing).Value
+            .StartAttempt("create", DateTimeOffset.UnixEpoch).Value;
+        var checkpoint = RunCheckpoint.Create(
+            running,
+            fixture.Request.PlannedProject.Plan,
+            fixture.Request.PlannedProject.Preview.Blueprint,
+            fixture.Request.PlannedProject.BlueprintFingerprint,
+            staging,
+            TargetDescriptor.Create(
+                fixture.TargetParent.Root,
+                fixture.Request.TargetDirectory,
+                null).Value,
+            RunArtifactDescriptor.Create(fixture.RunArtifacts.Root).Value,
+            [],
+            FinalizationState.NotStarted,
+            ReportPersistenceState.NotStarted).Value;
+        var store = new SqliteRunCheckpointStore(factory);
+        await store.SaveAsync(checkpoint, CancellationToken.None);
+        var blueprintSource = new BlueprintExecutionSource([], new UnusedBlueprintMetadataStore());
+        var orchestrator = new CheckpointedExecutionOrchestrator(
+            store,
+            fixture.Manager,
+            blueprintSource,
+            new UnusedRegistryProvider(),
+            new UnusedCompletionCoordinator(),
+            TimeProvider.System);
+        var recovery = new RunRecoveryService(
+            store,
+            orchestrator,
+            fixture.Manager,
+            new FixedTimeProvider(DateTimeOffset.UnixEpoch.AddMinutes(1)));
+
+        var recovered = await recovery.RecoverInterruptedAsync(CancellationToken.None);
+        var normalized = Assert.Single(recovered.Value.Checkpoints);
+        var request = ExecutionRequest.Create(
+            fixture.Request.PlannedProject,
+            normalized.Run,
+            fixture.TargetParent,
+            fixture.Request.TargetDirectory,
+            fixture.RunArtifacts,
+            ExecutionMode.Resume).Value;
+        var resumed = await recovery.ResumeAsync(request, CancellationToken.None);
+
+        Assert.True(resumed.IsSuccessful);
+        Assert.Equal(RunStatus.Failed, resumed.Value.Run.Status);
+        Assert.Equal("DF-EXEC-003", resumed.Value.Run.Errors[^1].Code);
+        Assert.Contains(
+            "exact trusted blueprint package",
+            resumed.Value.Run.Errors[^1].SuggestedActions[0],
+            StringComparison.Ordinal);
+        Assert.Single(resumed.Value.Run.Attempts);
+        await fixture.ReplaceMarkerAsync(staging.MarkerFile, "{}");
+
+        var cleanup = await recovery.CleanupAsync(
+            resumed.Value,
+            fixture.TargetParent,
+            CancellationToken.None);
+
+        Assert.False(cleanup.IsSuccessful);
+        Assert.Equal("DF-EXEC-003", cleanup.Error?.Code);
+        Assert.True(await fixture.TargetParent.DirectoryExistsAsync(
+            staging.ContainerDirectory,
+            CancellationToken.None));
+    }
+
     [Fact]
     public async Task CreatesOwnedPayloadAndCanonicalPrivacySafeMarker()
     {
@@ -627,6 +718,37 @@ public sealed partial class OwnedStagingWorkspaceManagerTests
 
     private static WorkspaceRelativePath Relative(string value) =>
         WorkspaceRelativePath.Create(value).Value;
+
+    private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
+    }
+
+    private sealed class UnusedBlueprintMetadataStore : IBlueprintMetadataStore
+    {
+        public Task<BlueprintMetadataRecord?> GetAsync(string id, string version, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<System.Collections.Immutable.ImmutableArray<BlueprintMetadataRecord>> ListAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task UpsertAsync(BlueprintMetadataRecord blueprint, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> RemoveAsync(string id, string version, CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+
+    private sealed class UnusedRegistryProvider : IExecutionHandlerRegistryProvider
+    {
+        public ExecutionOperationResult<IExecutionHandlerRegistry> Create(BlueprintTrust trust) =>
+            throw new NotSupportedException();
+    }
+
+    private sealed class UnusedCompletionCoordinator : IRunCompletionCoordinator
+    {
+        public Task<RunCheckpoint> CompleteAsync(
+            ExecutionRequest request,
+            RunCheckpoint checkpoint,
+            StagingWorkspace staging,
+            BlueprintExecutionPackage blueprintPackage,
+            IExecutionHandlerRegistry registry,
+            IProgress<ExecutionProgressLine>? progress,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
 
     private sealed class StagingFixture : IAsyncDisposable
     {

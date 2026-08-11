@@ -48,7 +48,6 @@ public sealed class CheckpointedExecutionOrchestrator : IExecutionOrchestrator
     private readonly IExecutionHandlerRegistryProvider _registryProvider;
     private readonly IRunCompletionCoordinator _completionCoordinator;
     private readonly TimeProvider _timeProvider;
-    private static int _isExecuting;
 
     public CheckpointedExecutionOrchestrator(
         IRunCheckpointStore checkpointStore,
@@ -74,7 +73,7 @@ public sealed class CheckpointedExecutionOrchestrator : IExecutionOrchestrator
     {
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
-        if (Interlocked.CompareExchange(ref _isExecuting, 1, 0) != 0)
+        if (!ExecutionActivityGate.TryEnter())
         {
             throw new ExecutionOrchestratorBusyException();
         }
@@ -101,7 +100,7 @@ public sealed class CheckpointedExecutionOrchestrator : IExecutionOrchestrator
         }
         finally
         {
-            Volatile.Write(ref _isExecuting, 0);
+            ExecutionActivityGate.Exit();
         }
     }
 

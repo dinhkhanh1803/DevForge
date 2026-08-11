@@ -10,6 +10,7 @@ using DevForge.Domain.Runs;
 
 namespace DevForge.UnitTests.Application.Execution;
 
+[Collection(ExecutionActivityTestGroup.Name)]
 public sealed class CheckpointedExecutionOrchestratorTests
 {
     [Fact]

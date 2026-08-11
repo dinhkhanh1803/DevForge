@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using DevForge.Application.Contracts;
+using DevForge.Application.Execution;
 using DevForge.Blueprints.Abstractions.Models;
 using DevForge.Domain.Execution;
 using DevForge.Domain.Runs;
@@ -15,12 +16,53 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace DevForge.IntegrationTests.Persistence;
 
+[Collection(ExecutionRecoveryActivityTestGroup.Name)]
 public sealed class RunCheckpointStoreTests
 {
     private static readonly JsonSerializerOptions _indentedJsonOptions = new()
     {
         WriteIndented = true,
     };
+
+    [Fact]
+    public async Task StartupRecoveryDurablyClosesInterruptedAttemptAndIsIdempotent()
+    {
+        await using var database = PersistenceTestDatabase.Create();
+        var factory = await CreateMigratedFactoryAsync(database);
+        var store = new SqliteRunCheckpointStore(factory);
+        var checkpoint = CreateInterruptedCheckpoint("run-interrupted");
+        await store.SaveAsync(checkpoint, CancellationToken.None);
+        var service = new RunRecoveryService(
+            store,
+            new UnusedOrchestrator(),
+            new UnusedStagingManager(),
+            new TestTimeProvider(DateTimeOffset.UnixEpoch.AddMinutes(2)));
+
+        var first = await service.RecoverInterruptedAsync(CancellationToken.None);
+        var persisted = await store.FindAsync(checkpoint.Run.Id, CancellationToken.None);
+        var second = await service.RecoverInterruptedAsync(CancellationToken.None);
+
+        Assert.True(first.IsSuccessful);
+        Assert.NotNull(persisted);
+        Assert.Equal(RunStatus.Executing, persisted.Run.Status);
+        Assert.Null(persisted.Run.CurrentStepId);
+        var attempt = Assert.Single(persisted.Run.Attempts);
+        Assert.Equal(StepAttemptOutcome.Failed, attempt.Outcome);
+        Assert.Equal("DF-EXEC-003", attempt.Error?.Code);
+        Assert.True(attempt.Error?.IsRetryable);
+        Assert.True(second.IsSuccessful);
+        var rescanned = Assert.Single(second.Value.Checkpoints);
+        Assert.Equal(persisted.Run.Id, rescanned.Run.Id);
+        Assert.Equal(persisted.Run.Status, rescanned.Run.Status);
+        var rescannedAttempt = Assert.Single(rescanned.Run.Attempts);
+        Assert.Equal(attempt.AttemptNumber, rescannedAttempt.AttemptNumber);
+        Assert.Equal(attempt.Outcome, rescannedAttempt.Outcome);
+        Assert.Equal(attempt.CompletedAt, rescannedAttempt.CompletedAt);
+        Assert.Equal(attempt.Error?.Code, rescannedAttempt.Error?.Code);
+        using var connection = database.OpenConnection(SqliteOpenMode.ReadOnly);
+        Assert.Equal(1L, ReadCount(connection, "SELECT COUNT(*) FROM ProjectRuns;"));
+        Assert.Equal(1L, ReadCount(connection, "SELECT COUNT(*) FROM RunSteps;"));
+    }
 
     [Fact]
     public async Task RoundTripsCompleteCheckpointAndAttemptDigest()
@@ -419,6 +461,26 @@ public sealed class RunCheckpointStoreTests
             reportState).Value;
     }
 
+    private static RunCheckpoint CreateInterruptedCheckpoint(string runId)
+    {
+        var checkpoint = CreateCheckpoint(runId);
+        var run = ProjectRun.Create(runId, checkpoint.Run.RecipeId).Value
+            .TransitionTo(RunStatus.Planning).Value
+            .TransitionTo(RunStatus.Executing).Value
+            .StartAttempt(checkpoint.Plan.Steps[0].Id, DateTimeOffset.UnixEpoch).Value;
+        return RunCheckpoint.Create(
+            run,
+            checkpoint.Plan,
+            checkpoint.Blueprint,
+            checkpoint.BlueprintFingerprint,
+            checkpoint.Staging,
+            checkpoint.Target,
+            checkpoint.RunArtifacts,
+            [],
+            checkpoint.FinalizationState,
+            checkpoint.ReportState).Value;
+    }
+
     private static async Task<DevForgeDbContextFactory> CreateMigratedFactoryAsync(
         PersistenceTestDatabase database)
     {
@@ -463,5 +525,22 @@ public sealed class RunCheckpointStoreTests
         public override DateTimeOffset GetUtcNow() => _utcNow;
 
         public void Advance(TimeSpan duration) => _utcNow += duration;
+    }
+
+    private sealed class UnusedOrchestrator : IExecutionOrchestrator
+    {
+        public Task<RunCheckpoint> ExecuteAsync(
+            ExecutionRequest request,
+            IProgress<ExecutionProgressLine>? progress,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+
+    private sealed class UnusedStagingManager : IStagingWorkspaceManager
+    {
+        public Task<ExecutionOperationResult<IStagingWorkspaceLease>> CreateAsync(ExecutionRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<ExecutionOperationResult<IStagingWorkspaceLease>> ValidateOwnershipAsync(RunCheckpoint checkpoint, IWorkspaceFileSystem targetParentWorkspace, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<ExecutionOperationResult<IStagingWorkspaceLease>> RecreateForReplayAsync(RunCheckpoint checkpoint, ExecutionRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<ExecutionOperationResult<StagingCleanupReceipt>> CleanupAsync(RunCheckpoint checkpoint, IWorkspaceFileSystem targetParentWorkspace, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<ExecutionOperationResult<StagingCleanupReceipt>> CleanupFinalizedAsync(RunCheckpoint checkpoint, IWorkspaceFileSystem targetParentWorkspace, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 }
