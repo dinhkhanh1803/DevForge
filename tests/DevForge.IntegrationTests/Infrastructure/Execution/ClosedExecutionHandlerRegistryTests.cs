@@ -122,6 +122,25 @@ public sealed class ClosedExecutionHandlerRegistryTests
     }
 
     [Fact]
+    public void ProviderSelectsRegistryFromReopenedTrustAndSnapshotsHandlers()
+    {
+        var handlers = BuiltInHandlers().ToList();
+        var provider = new ClosedExecutionHandlerRegistryProvider(handlers);
+        handlers.Clear();
+
+        var builtIn = provider.Create(BlueprintTrust.BuiltIn);
+        var trustedLocal = provider.Create(BlueprintTrust.TrustedLocal);
+        var untrusted = provider.Create(BlueprintTrust.Untrusted);
+
+        Assert.True(builtIn.IsSuccessful);
+        Assert.NotNull(builtIn.Value.Resolve("finalize-workspace"));
+        Assert.True(trustedLocal.IsSuccessful);
+        Assert.Null(trustedLocal.Value.Resolve("finalize-workspace"));
+        Assert.False(untrusted.IsSuccessful);
+        Assert.Equal("DF-EXEC-001", untrusted.Error?.Code);
+    }
+
+    [Fact]
     public void DispatchAndMaterializationUseNoReflectionOrDirectProcessBoundary()
     {
         var repositoryRoot = FindRepositoryRoot(AppContext.BaseDirectory);

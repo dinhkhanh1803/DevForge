@@ -1,14 +1,29 @@
 # DevForge Studio Implementation Status
 
 **Current milestone:** M5 - Orchestrator, Staging, Retry/Resume, and Finalizer
-**Status:** M4 complete; M5 Tasks 1-8 implemented and verified
+**Status:** M4 complete; M5 Tasks 1-9 implemented and verified
 **Last updated:** 2026-08-11
 
 ## Current M5 scope
 
 The approved design is `docs/superpowers/specs/2026-08-11-m5-recoverable-orchestration-design.md`, the executable TDD plan is `docs/superpowers/plans/2026-08-11-m5-recoverable-orchestration.md`, and ADR-0008 fixes checkpoint, marker, retry/resume, interruption, validation, and finalization decisions. M5 is limited to the execution engine and recovery boundary. WPF composition, Git/GitHub, production blueprints, release packaging, and catalog expansion remain deferred.
 
-Tasks 1-8 are implemented locally. Domain provides explicit bounded retry modes, canonical attempt output digests, interruption normalization, guarded resume, staging-cleanup eligibility, warning validation evidence, retry-mode-aware plan hashing, and deterministic template context snapshots. Application carries exact blueprint provenance and immutable guarded execution/checkpoint/staging/handler/finalization/recovery contracts; a handler request carries the exact plan-owned step or validator and exposes an explicit resume mode. Infrastructure persists complete canonical checkpoints, manages atomic run-owned staging, reopens exact verified M4 blueprint bytes, dispatches only the closed ordinal M5 handler set, implements guarded file transforms, and now executes closed trusted process/package/validator operations. Process execution uses separated arguments, guarded workspaces, bounded redacted evidence, safe Node-backed package resolution without a shell, and fresh-staging replay for opaque mutations. Task 9 checkpointed retry/resume orchestration is the next active scope.
+Tasks 1-9 are implemented locally. Domain provides explicit bounded retry modes, canonical attempt output digests, interruption normalization, guarded Planning/idle-Executing resume, staging-cleanup eligibility, warning validation evidence, retry-mode-aware plan hashing, and deterministic template context snapshots. Application now owns a process-wide checkpointed orchestrator with plan-first persistence, ordered handler phases, durable cancellation, bounded automatic/manual retry, postcondition-driven resume, exact persisted-mode validation, and progress isolation. Infrastructure persists canonical checkpoints, manages atomic run-owned staging, reopens exact verified M4 blueprint bytes, dispatches only the closed trust-scoped handler set, and executes guarded file/process actions. Replay prepares a complete sibling container, performs a recoverable swap, validates ownership on recovery, and removes exact marker-verified siblings. Task 10 validation/report/finalization is the next active scope.
+
+## M5 Task 9 checkpoint evidence
+
+Fresh local verification on 2026-08-11 used workspace-local .NET SDK 10.0.302:
+
+| Gate | Command | Exact result |
+| --- | --- | --- |
+| Locked restore | `dotnet restore DevForge.sln --locked-mode --verbosity minimal` | Exit 0; all projects were up-to-date from pinned lock files. |
+| Format | `dotnet format DevForge.sln --verify-no-changes --no-restore --verbosity minimal` | Exit 0; no formatting diagnostics after CRLF normalization. |
+| Release build | `dotnet build DevForge.sln --configuration Release --no-restore --verbosity minimal` | Exit 0; all 12 projects built; 0 warnings, 0 errors. |
+| Full solution test | `dotnet test DevForge.sln --configuration Release --no-build --no-restore --verbosity minimal` | Exit 0; UnitTests 472, BlueprintTests 108, IntegrationTests 354; total 934 passed, 0 failed, 0 skipped. The future E2E host contains no tests. |
+| Focused Task 9 unit | `dotnet test tests/DevForge.UnitTests/DevForge.UnitTests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~CheckpointedExecutionOrchestratorTests\|FullyQualifiedName~RetryDecisionEngineTests\|FullyQualifiedName~ProjectPlannerTests\|FullyQualifiedName~RecoverableExecutionModelTests\|FullyQualifiedName~RecoverableExecutionContractTests"` | Exit 0; 83 passed, 0 failed, 0 skipped. |
+| Focused Task 9 integration | `dotnet test tests/DevForge.IntegrationTests/DevForge.IntegrationTests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~OwnedStagingWorkspaceManagerTests\|FullyQualifiedName~ClosedExecutionHandlerRegistryTests"` | Exit 0; 38 passed, 0 failed, 0 skipped. |
+
+Task 9 coverage includes Planning/Executing checkpoint order, all handler phases, attempt evidence, transient-only retry decisions, explicit manual retry, cancellation during handlers/blueprint/retry delay, process-wide exclusion, observer isolation, request/checkpoint mode binding, missing or changed ownership/blueprints, postcondition skip/drift, declared-output cleanup, opaque fresh-staging replay, interrupted replay-swap recovery, and initial-journal failure cleanup. Independent static review found no remaining Critical or Important findings.
 
 ## M5 Task 8 checkpoint evidence
 

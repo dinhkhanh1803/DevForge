@@ -610,6 +610,11 @@ public interface IStagingWorkspaceManager
         IWorkspaceFileSystem targetParentWorkspace,
         CancellationToken cancellationToken);
 
+    Task<ExecutionOperationResult<IStagingWorkspaceLease>> RecreateForReplayAsync(
+        RunCheckpoint checkpoint,
+        ExecutionRequest request,
+        CancellationToken cancellationToken);
+
     Task<ExecutionOperationResult<StagingCleanupReceipt>> CleanupAsync(
         RunCheckpoint checkpoint,
         IWorkspaceFileSystem targetParentWorkspace,
@@ -680,6 +685,11 @@ public interface IExecutionHandler
 public interface IExecutionHandlerRegistry
 {
     IExecutionHandler? Resolve(string handlerId);
+}
+
+public interface IExecutionHandlerRegistryProvider
+{
+    ExecutionOperationResult<IExecutionHandlerRegistry> Create(BlueprintTrust trust);
 }
 
 public interface IRunRecoveryService

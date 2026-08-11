@@ -2,7 +2,7 @@
 
 **Goal:** Execute immutable M4 plans inside owned staging with transactional checkpoints, bounded retry/resume, validation evidence, and no-overwrite finalization.
 
-**Status:** Tasks 1-8 implemented and verified locally; Task 9 is next.
+**Status:** Tasks 1-9 implemented and verified locally; Task 10 is next.
 
 **Architecture:** Application owns lifecycle and orchestration decisions. Infrastructure owns guarded staging, exact blueprint reopening, handlers, reports, finalization, and concrete checkpoint persistence. Domain remains immutable and I/O-free.
 
@@ -30,13 +30,13 @@ M5 excludes WPF workflow composition, Git/GitHub behavior, production blueprints
 - [x] Build the closed handler registry and typed value materialization.
 - [x] Implement guarded file, template, overlay, and structured patch handlers.
 - [x] Implement trusted process and validator handlers.
-- [ ] Implement checkpointed retry/resume orchestration.
+- [x] Implement checkpointed retry/resume orchestration.
 - [ ] Implement validation, report persistence, and atomic finalization.
 - [ ] Implement interrupted-run recovery.
 - [ ] Run and record the complete M5 exit gate.
 
 ## Current exit gate
 
-Task 8 requires separated executable/ArgumentList process dispatch, guarded working directories, runner preflight and postcondition checks, closed executable/verb policy, package lifecycle-script suppression, timeout/tree termination, bounded redacted progress/evidence, validator revalidation, and fresh-staging replay for opaque process mutations. Task 9 must implement that replay contract before resuming a process-mutated run.
+Task 9 now persists Planning and Executing separately, serializes execution process-wide, records every attempt transition, isolates progress observers, performs bounded automatic/manual retry, and resumes only after exact request/checkpoint/marker/fingerprint validation. Cancelled or drifted file steps clean declared outputs; opaque process steps transactionally replace owned staging and replay the immutable plan. Task 10 is limited to validators, whole-payload secret scanning, report persistence, and atomic no-overwrite finalization.
 
 M5 completes only after all remaining tasks pass kill/resume and failure-injection coverage, target absence on every pre-finalization failure, verified no-overwrite finalization, report/checkpoint persistence before cleanup, and all full/focused gates with zero skipped M5 tests.

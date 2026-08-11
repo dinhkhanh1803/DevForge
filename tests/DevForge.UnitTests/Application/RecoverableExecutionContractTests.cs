@@ -62,12 +62,13 @@ public sealed class RecoverableExecutionContractTests
         Assert.Contains(invalid.Issues, issue => issue.Code == "execution.request.mode.invalid");
 
         var valid = CreateExecutionRequest();
-        var freshExecuting = ProjectRun.Create("run-2", "recipe-1").Value
+        var terminalRun = ProjectRun.Create("run-2", "recipe-1").Value
             .TransitionTo(RunStatus.Planning).Value
-            .TransitionTo(RunStatus.Executing).Value;
+            .TransitionTo(RunStatus.Executing).Value
+            .TransitionTo(RunStatus.Failed).Value;
         var unsafeResume = ExecutionRequest.Create(
             valid.PlannedProject,
-            freshExecuting,
+            terminalRun,
             valid.TargetParentWorkspace,
             valid.TargetDirectory,
             valid.RunArtifactWorkspace,
@@ -276,6 +277,7 @@ public sealed class RecoverableExecutionContractTests
             typeof(IProjectFinalizer),
             typeof(IGenerationReportWriter),
             typeof(IExecutionHandler),
+            typeof(IExecutionHandlerRegistryProvider),
             typeof(IRunRecoveryService),
         ];
 
@@ -297,6 +299,13 @@ public sealed class RecoverableExecutionContractTests
             typeof(Task<ExecutionOperationResult<IStagingWorkspaceLease>>),
             createStaging.ReturnType);
         Assert.True(typeof(IAsyncDisposable).IsAssignableFrom(typeof(IStagingWorkspaceLease)));
+
+        var replayStaging = typeof(IStagingWorkspaceManager).GetMethod(
+            nameof(IStagingWorkspaceManager.RecreateForReplayAsync));
+        Assert.NotNull(replayStaging);
+        Assert.Equal(
+            typeof(Task<ExecutionOperationResult<IStagingWorkspaceLease>>),
+            replayStaging.ReturnType);
     }
 
     [Fact]

@@ -178,6 +178,30 @@ public sealed class OwnedStagingWorkspaceManager : IStagingWorkspaceManager
             leaseStream = await AcquireGlobalLeaseAsync(
                 targetParentWorkspace,
                 cancellationToken).ConfigureAwait(false);
+            var previousDescriptor = CreateSiblingDescriptor(checkpoint, ".previous");
+            if (!await targetParentWorkspace.DirectoryExistsAsync(
+                    checkpoint.Staging.ContainerDirectory,
+                    cancellationToken).ConfigureAwait(false)
+                && await targetParentWorkspace.DirectoryExistsAsync(
+                    previousDescriptor.ContainerDirectory,
+                    cancellationToken).ConfigureAwait(false))
+            {
+                if (!await IsValidOwnedDescriptorAsync(
+                        targetParentWorkspace,
+                        previousDescriptor,
+                        checkpoint,
+                        cancellationToken).ConfigureAwait(false))
+                {
+                    throw new InvalidStagingMarkerException();
+                }
+
+                await targetParentWorkspace.MoveDirectoryAsync(
+                    previousDescriptor.ContainerDirectory,
+                    checkpoint.Staging.ContainerDirectory,
+                    WorkspaceMoveIntent.AtomicNoOverwriteFinalize,
+                    CancellationToken.None).ConfigureAwait(false);
+            }
+
             var markerBytes = await ReadMarkerAsync(
                 targetParentWorkspace,
                 checkpoint.Staging.MarkerFile,
@@ -245,6 +269,34 @@ public sealed class OwnedStagingWorkspaceManager : IStagingWorkspaceManager
         await using var lease = validated.Value;
         try
         {
+            foreach (var sibling in new[]
+                     {
+                         CreateSiblingDescriptor(checkpoint, ".replay"),
+                         CreateSiblingDescriptor(checkpoint, ".previous"),
+                     })
+            {
+                if (!await targetParentWorkspace.DirectoryExistsAsync(
+                        sibling.ContainerDirectory,
+                        cancellationToken).ConfigureAwait(false))
+                {
+                    continue;
+                }
+
+                if (!await IsValidOwnedDescriptorAsync(
+                        targetParentWorkspace,
+                        sibling,
+                        checkpoint,
+                        cancellationToken).ConfigureAwait(false))
+                {
+                    return InvalidOwnership<StagingCleanupReceipt>();
+                }
+
+                await targetParentWorkspace.DeleteDirectoryAsync(
+                    sibling.ContainerDirectory,
+                    DirectoryCleanupIntent.RecursiveRunOwned,
+                    cancellationToken).ConfigureAwait(false);
+            }
+
             await targetParentWorkspace.DeleteDirectoryAsync(
                 checkpoint.Staging.ContainerDirectory,
                 DirectoryCleanupIntent.RecursiveRunOwned,
@@ -270,6 +322,196 @@ public sealed class OwnedStagingWorkspaceManager : IStagingWorkspaceManager
         }
     }
 
+    public async Task<ExecutionOperationResult<IStagingWorkspaceLease>> RecreateForReplayAsync(
+        RunCheckpoint checkpoint,
+        ExecutionRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(checkpoint);
+        ArgumentNullException.ThrowIfNull(request);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!RequestMatchesCheckpoint(request, checkpoint)
+            || request.TargetParentWorkspace is not IAtomicWorkspaceFileSystem atomicWorkspace)
+        {
+            return InvalidOwnership<IStagingWorkspaceLease>();
+        }
+
+        var validated = await ValidateOwnershipAsync(
+            checkpoint,
+            request.TargetParentWorkspace,
+            cancellationToken).ConfigureAwait(false);
+        if (!validated.IsSuccessful)
+        {
+            return ExecutionOperationResult.Failure<IStagingWorkspaceLease>(validated.Error!);
+        }
+
+        await using var validatedLease = validated.Value;
+        if (validatedLease is not OwnedStagingWorkspaceLease ownedLease)
+        {
+            return InvalidOwnership<IStagingWorkspaceLease>();
+        }
+
+        Stream? leaseStream = ownedLease.TakeLeaseStream();
+        var replacementContainer = WorkspaceRelativePath.Create(
+            checkpoint.Staging.ContainerDirectory.Value + ".replay").Value;
+        var replacementPayload = WorkspaceRelativePath.Create(
+            replacementContainer.Value + "\\" + PayloadName).Value;
+        var replacementMarker = WorkspaceRelativePath.Create(
+            replacementContainer.Value + "\\" + MarkerName).Value;
+        var previousContainer = WorkspaceRelativePath.Create(
+            checkpoint.Staging.ContainerDirectory.Value + ".previous").Value;
+        var replacementCreated = false;
+        var previousMoved = false;
+        try
+        {
+            if (await ExistsAsync(
+                    request.TargetParentWorkspace,
+                    request.TargetDirectory,
+                    cancellationToken).ConfigureAwait(false))
+            {
+                await DisposeStreamAsync(leaseStream).ConfigureAwait(false);
+                leaseStream = null;
+                return TargetNotAbsent<IStagingWorkspaceLease>();
+            }
+
+            foreach (var sibling in new[]
+                     {
+                         CreateSiblingDescriptor(checkpoint, ".replay"),
+                         CreateSiblingDescriptor(checkpoint, ".previous"),
+                     })
+            {
+                if (!await request.TargetParentWorkspace.DirectoryExistsAsync(
+                        sibling.ContainerDirectory,
+                        cancellationToken).ConfigureAwait(false))
+                {
+                    continue;
+                }
+
+                if (!await IsValidOwnedDescriptorAsync(
+                        request.TargetParentWorkspace,
+                        sibling,
+                        checkpoint,
+                        cancellationToken).ConfigureAwait(false))
+                {
+                    await DisposeStreamAsync(leaseStream).ConfigureAwait(false);
+                    leaseStream = null;
+                    return InvalidOwnership<IStagingWorkspaceLease>();
+                }
+
+                await request.TargetParentWorkspace.DeleteDirectoryAsync(
+                    sibling.ContainerDirectory,
+                    DirectoryCleanupIntent.RecursiveRunOwned,
+                    cancellationToken).ConfigureAwait(false);
+            }
+
+            if (await ExistsAsync(
+                    request.TargetParentWorkspace,
+                    replacementContainer,
+                    cancellationToken).ConfigureAwait(false)
+                || await ExistsAsync(
+                    request.TargetParentWorkspace,
+                    previousContainer,
+                    cancellationToken).ConfigureAwait(false))
+            {
+                await DisposeStreamAsync(leaseStream).ConfigureAwait(false);
+                leaseStream = null;
+                return InvalidOwnership<IStagingWorkspaceLease>();
+            }
+
+            replacementCreated = await atomicWorkspace.TryCreateDirectoryAsync(
+                replacementContainer,
+                cancellationToken).ConfigureAwait(false);
+            if (!replacementCreated)
+            {
+                await DisposeStreamAsync(leaseStream).ConfigureAwait(false);
+                leaseStream = null;
+                return InvalidOwnership<IStagingWorkspaceLease>();
+            }
+
+            await request.TargetParentWorkspace.CreateDirectoryAsync(
+                replacementPayload,
+                cancellationToken).ConfigureAwait(false);
+            var marker = new StagingOwnershipMarker(
+                checkpoint.Staging.MarkerId,
+                checkpoint.Run.Id,
+                checkpoint.PlanHash,
+                checkpoint.Blueprint,
+                checkpoint.BlueprintFingerprint.AggregateChecksum);
+            await WriteMarkerAsync(
+                request.TargetParentWorkspace,
+                replacementMarker,
+                marker,
+                cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            await request.TargetParentWorkspace.MoveDirectoryAsync(
+                checkpoint.Staging.ContainerDirectory,
+                previousContainer,
+                WorkspaceMoveIntent.AtomicNoOverwriteFinalize,
+                CancellationToken.None).ConfigureAwait(false);
+            previousMoved = true;
+            await request.TargetParentWorkspace.MoveDirectoryAsync(
+                replacementContainer,
+                checkpoint.Staging.ContainerDirectory,
+                WorkspaceMoveIntent.AtomicNoOverwriteFinalize,
+                CancellationToken.None).ConfigureAwait(false);
+            replacementCreated = false;
+
+            var payloadWorkspace = await OpenChildWorkspaceAsync(
+                request.TargetParentWorkspace,
+                checkpoint.Staging.PayloadDirectory,
+                CancellationToken.None).ConfigureAwait(false);
+            var workspace = StagingWorkspace.Create(checkpoint.Staging, payloadWorkspace);
+            if (!workspace.IsValid)
+            {
+                throw new InvalidStagingMarkerException();
+            }
+
+            await TryRemoveDirectoryAsync(
+                request.TargetParentWorkspace,
+                previousContainer).ConfigureAwait(false);
+            previousMoved = false;
+
+            var replayLease = new OwnedStagingWorkspaceLease(workspace.Value, leaseStream);
+            leaseStream = null;
+            return ExecutionOperationResult.Success<IStagingWorkspaceLease>(replayLease);
+        }
+        catch (OperationCanceledException)
+        {
+            if (replacementCreated)
+            {
+                await TryRemoveDirectoryAsync(
+                    request.TargetParentWorkspace,
+                    replacementContainer).ConfigureAwait(false);
+            }
+
+            await DisposeStreamAsync(leaseStream).ConfigureAwait(false);
+            throw;
+        }
+        catch (Exception exception) when (IsExpectedFailure(exception))
+        {
+            if (previousMoved)
+            {
+                await TryRollbackReplayAsync(
+                    request.TargetParentWorkspace,
+                    checkpoint.Staging.ContainerDirectory,
+                    replacementContainer,
+                    previousContainer,
+                    CancellationToken.None).ConfigureAwait(false);
+            }
+
+            if (replacementCreated)
+            {
+                await TryRemoveDirectoryAsync(
+                    request.TargetParentWorkspace,
+                    replacementContainer).ConfigureAwait(false);
+            }
+
+            await DisposeStreamAsync(leaseStream).ConfigureAwait(false);
+            return InvalidOwnership<IStagingWorkspaceLease>();
+        }
+    }
+
     private static ValidationResult<StagingDescriptor> CreateDescriptor(string runId)
     {
         var container = WorkspaceRelativePath.Create($"{StagingRootName}\\{runId}");
@@ -285,6 +527,53 @@ public sealed class OwnedStagingWorkspaceManager : IStagingWorkspaceManager
             payload.IsValid ? payload.Value : null,
             marker.IsValid ? marker.Value : null,
             runId);
+    }
+
+    private static StagingDescriptor CreateSiblingDescriptor(
+        RunCheckpoint checkpoint,
+        string suffix)
+    {
+        var container = WorkspaceRelativePath.Create(
+            checkpoint.Staging.ContainerDirectory.Value + suffix).Value;
+        return StagingDescriptor.Create(
+            container,
+            WorkspaceRelativePath.Create(container.Value + "\\" + PayloadName).Value,
+            WorkspaceRelativePath.Create(container.Value + "\\" + MarkerName).Value,
+            checkpoint.Staging.MarkerId).Value;
+    }
+
+    private async Task<bool> IsValidOwnedDescriptorAsync(
+        IWorkspaceFileSystem workspace,
+        StagingDescriptor descriptor,
+        RunCheckpoint checkpoint,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var markerBytes = await ReadMarkerAsync(
+                workspace,
+                descriptor.MarkerFile,
+                cancellationToken).ConfigureAwait(false);
+            if (!Matches(StagingOwnershipMarkerCodec.Decode(markerBytes), checkpoint))
+            {
+                return false;
+            }
+
+            var payload = await OpenChildWorkspaceAsync(
+                workspace,
+                descriptor.PayloadDirectory,
+                cancellationToken).ConfigureAwait(false);
+            _ = await payload.EnumerateAllFilesAsync(cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception) when (IsExpectedFailure(exception))
+        {
+            return false;
+        }
     }
 
     private async Task<IWorkspaceFileSystem> OpenChildWorkspaceAsync(
@@ -377,6 +666,28 @@ public sealed class OwnedStagingWorkspaceManager : IStagingWorkspaceManager
                 checkpoint.BlueprintFingerprint.AggregateChecksum);
     }
 
+    private static bool RequestMatchesCheckpoint(
+        ExecutionRequest request,
+        RunCheckpoint checkpoint)
+    {
+        var requestedFingerprint = request.PlannedProject.BlueprintFingerprint;
+        var persistedFingerprint = checkpoint.BlueprintFingerprint;
+        return StringComparer.Ordinal.Equals(request.Run.Id, checkpoint.Run.Id)
+            && StringComparer.Ordinal.Equals(request.PlannedProject.Plan.Id, checkpoint.PlanHash)
+            && request.PlannedProject.Preview.Blueprint.Equals(checkpoint.Blueprint)
+            && request.TargetParentWorkspace.Root.Equals(checkpoint.Target.ParentRoot)
+            && request.TargetDirectory.Equals(checkpoint.Target.TargetDirectory)
+            && request.RunArtifactWorkspace.Root.Equals(checkpoint.RunArtifacts.Root)
+            && StringComparer.Ordinal.Equals(
+                requestedFingerprint.SourceId,
+                persistedFingerprint.SourceId)
+            && requestedFingerprint.PackageDirectory.Equals(persistedFingerprint.PackageDirectory)
+            && requestedFingerprint.Trust == persistedFingerprint.Trust
+            && StringComparer.Ordinal.Equals(
+                requestedFingerprint.AggregateChecksum,
+                persistedFingerprint.AggregateChecksum);
+    }
+
     private static bool IsExactDescriptorForRun(StagingDescriptor descriptor, string runId)
     {
         var expected = CreateDescriptor(runId);
@@ -402,6 +713,59 @@ public sealed class OwnedStagingWorkspaceManager : IStagingWorkspaceManager
                     DirectoryCleanupIntent.RecursiveRunOwned,
                     CancellationToken.None).ConfigureAwait(false);
             }
+        }
+        catch (Exception exception) when (IsExpectedFailure(exception))
+        {
+        }
+    }
+
+    private static async Task TryRemoveDirectoryAsync(
+        IWorkspaceFileSystem workspace,
+        WorkspaceRelativePath path)
+    {
+        try
+        {
+            if (await workspace.DirectoryExistsAsync(
+                    path,
+                    CancellationToken.None).ConfigureAwait(false))
+            {
+                await workspace.DeleteDirectoryAsync(
+                    path,
+                    DirectoryCleanupIntent.RecursiveRunOwned,
+                    CancellationToken.None).ConfigureAwait(false);
+            }
+        }
+        catch (Exception exception) when (IsExpectedFailure(exception))
+        {
+        }
+    }
+
+    private static async Task TryRollbackReplayAsync(
+        IWorkspaceFileSystem workspace,
+        WorkspaceRelativePath canonical,
+        WorkspaceRelativePath replacement,
+        WorkspaceRelativePath previous,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (await workspace.DirectoryExistsAsync(
+                    canonical,
+                    cancellationToken).ConfigureAwait(false))
+            {
+                await workspace.MoveDirectoryAsync(
+                    canonical,
+                    replacement,
+                    WorkspaceMoveIntent.AtomicNoOverwriteFinalize,
+                    cancellationToken).ConfigureAwait(false);
+            }
+
+            await workspace.MoveDirectoryAsync(
+                previous,
+                canonical,
+                WorkspaceMoveIntent.AtomicNoOverwriteFinalize,
+                cancellationToken).ConfigureAwait(false);
+            await TryRemoveDirectoryAsync(workspace, replacement).ConfigureAwait(false);
         }
         catch (Exception exception) when (IsExpectedFailure(exception))
         {
@@ -487,6 +851,12 @@ internal sealed class OwnedStagingWorkspaceLease : IStagingWorkspaceLease
     }
 
     public StagingWorkspace Workspace { get; }
+
+    internal Stream TakeLeaseStream()
+    {
+        return Interlocked.Exchange(ref _leaseStream, null)
+            ?? throw new InvalidOperationException("The staging lease has already been released.");
+    }
 
     public async ValueTask DisposeAsync()
     {

@@ -133,13 +133,19 @@ public sealed class RecoverableExecutionModelTests
     }
 
     [Theory]
+    [InlineData(RunStatus.Planning)]
     [InlineData(RunStatus.Cancelled)]
     [InlineData(RunStatus.ValidationFailed)]
     public void ExplicitResumeReturnsRecoverableRunsToExecuting(RunStatus status)
     {
-        var run = status == RunStatus.Cancelled
-            ? ProjectRun.Create("run", "recipe").Value.TransitionTo(RunStatus.Cancelled).Value
-            : ExecutingRun().TransitionTo(RunStatus.ValidationFailed).Value;
+        var run = status switch
+        {
+            RunStatus.Planning => ProjectRun.Create("run", "recipe").Value
+                .TransitionTo(RunStatus.Planning).Value,
+            RunStatus.Cancelled => ProjectRun.Create("run", "recipe").Value
+                .TransitionTo(RunStatus.Cancelled).Value,
+            _ => ExecutingRun().TransitionTo(RunStatus.ValidationFailed).Value,
+        };
 
         var result = run.ResumeExecution();
 
@@ -149,7 +155,7 @@ public sealed class RecoverableExecutionModelTests
     }
 
     [Fact]
-    public void ExplicitResumeAcceptsNormalizedInterruptedExecutingRunOnly()
+    public void ExplicitResumeAcceptsAnyIdleExecutingCheckpointButNeverARunningAttempt()
     {
         var time = DateTimeOffset.UnixEpoch;
         var interrupted = ExecutingRun().StartAttempt("build", time).Value
@@ -171,7 +177,7 @@ public sealed class RecoverableExecutionModelTests
 
         Assert.True(interrupted.ResumeExecution().IsValid);
         Assert.False(running.ResumeExecution().IsValid);
-        Assert.False(resumedAndProgressed.ResumeExecution().IsValid);
+        Assert.True(resumedAndProgressed.ResumeExecution().IsValid);
         Assert.False(completed.ResumeExecution().IsValid);
     }
 

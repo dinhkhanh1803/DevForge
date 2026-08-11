@@ -517,20 +517,10 @@ public sealed class ProjectRun
     {
         var hasRunningAttempt = CurrentStepId is not null
             || Attempts.Any(attempt => attempt.Outcome == StepAttemptOutcome.Running);
-        var lastAttempt = Attempts.LastOrDefault();
-        var isInterrupted = Status == RunStatus.Executing
-            && lastAttempt is
-            {
-                Outcome: StepAttemptOutcome.Failed,
-                Error.Code: "DF-EXEC-003",
-                Error.IsRetryable: true,
-            }
-            && Errors.Any(error =>
-                string.Equals(error.Code, lastAttempt.Error.Code, StringComparison.Ordinal)
-                && string.Equals(error.StepId, lastAttempt.StepId, StringComparison.Ordinal));
+        var isIdleExecuting = Status == RunStatus.Executing && !hasRunningAttempt;
         if (hasRunningAttempt
-            || Status is not (RunStatus.Cancelled or RunStatus.ValidationFailed)
-                && !isInterrupted)
+            || Status is not (RunStatus.Planning or RunStatus.Cancelled or RunStatus.ValidationFailed)
+                && !isIdleExecuting)
         {
             return ValidationResult.Failure<ProjectRun>(
             [

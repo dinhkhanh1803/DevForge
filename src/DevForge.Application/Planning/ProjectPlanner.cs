@@ -176,7 +176,7 @@ public sealed class ProjectPlanner : IProjectPlanner
                 action.HandlerId,
                 inputs.Value.Select(item => KeyValuePair.Create<string, PlanValue?>(item.Key, item.Value)),
                 action.Timeout,
-                RetryPolicy.None);
+                SelectRetryPolicy(action.HandlerId));
             if (!step.IsValid)
             {
                 return HashFailure<PlannedProject>();
@@ -286,6 +286,21 @@ public sealed class ProjectPlanner : IProjectPlanner
         }
 
         return PlannedProject.Create(plan.Value, preview.Value, blueprint.Fingerprint);
+    }
+
+    private static RetryPolicy SelectRetryPolicy(string handlerId)
+    {
+        return handlerId switch
+        {
+            "create-directory" or "render-template" or "copy-overlay"
+                or "patch-json" or "patch-yaml" or "patch-xml" =>
+                RetryPolicy.AutomaticLimited(
+                    3,
+                    TimeSpan.FromMilliseconds(250),
+                    2).Value,
+            "run-process" or "package-install" => RetryPolicy.Manual(3).Value,
+            _ => RetryPolicy.None,
+        };
     }
 
     private static ImmutableArray<PlanPreviewToolStatus> CreateToolStatuses(

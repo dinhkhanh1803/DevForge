@@ -48,6 +48,106 @@ public sealed partial class OwnedStagingWorkspaceManagerTests
     }
 
     [Fact]
+    public async Task RecreateForReplayReplacesOnlyTheOwnedRunContainer()
+    {
+        await using var fixture = await StagingFixture.CreateAsync();
+        var created = await fixture.Manager.CreateAsync(fixture.Request, CancellationToken.None);
+        Assert.True(created.IsSuccessful);
+        var descriptor = created.Value.Workspace.Descriptor;
+        await created.Value.Workspace.PayloadWorkspace.CreateDirectoryAsync(
+            Relative("stale"),
+            CancellationToken.None);
+        await created.Value.DisposeAsync();
+        var checkpoint = fixture.CreateCheckpoint(descriptor);
+
+        var replay = await fixture.Manager.RecreateForReplayAsync(
+            checkpoint,
+            fixture.Request,
+            CancellationToken.None);
+
+        Assert.True(replay.IsSuccessful);
+        var replayLease = replay.Value;
+        Assert.Equal(descriptor, replayLease.Workspace.Descriptor);
+        Assert.False(await replayLease.Workspace.PayloadWorkspace.DirectoryExistsAsync(
+            Relative("stale"),
+            CancellationToken.None));
+        await replayLease.DisposeAsync();
+        var ownership = await fixture.Manager.ValidateOwnershipAsync(
+            checkpoint,
+            fixture.TargetParent,
+            CancellationToken.None);
+        Assert.True(ownership.IsSuccessful);
+        await ownership.Value.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task CancellationWhilePreparingReplayPreservesTheOriginalOwnedContainer()
+    {
+        await using var fixture = await StagingFixture.CreateAsync();
+        var created = await fixture.Manager.CreateAsync(fixture.Request, CancellationToken.None);
+        Assert.True(created.IsSuccessful);
+        var descriptor = created.Value.Workspace.Descriptor;
+        await created.Value.Workspace.PayloadWorkspace.CreateDirectoryAsync(
+            Relative("preserved"),
+            CancellationToken.None);
+        await created.Value.DisposeAsync();
+        var checkpoint = fixture.CreateCheckpoint(descriptor);
+        using var cancellation = new CancellationTokenSource();
+        var intercepted = new InterceptingWorkspace(
+            fixture.TargetParent,
+            markerWriteCancellation: cancellation);
+        var replayRequest = fixture.CreateRequestForRun("run-1", intercepted);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            fixture.Manager.RecreateForReplayAsync(
+                checkpoint,
+                replayRequest,
+                cancellation.Token));
+
+        Assert.True(await fixture.TargetParent.DirectoryExistsAsync(
+            Relative(".devforge-staging\\run-1\\payload\\preserved"),
+            CancellationToken.None));
+        Assert.False(await fixture.TargetParent.DirectoryExistsAsync(
+            Relative(".devforge-staging\\run-1.replay"),
+            CancellationToken.None));
+        var ownership = await fixture.Manager.ValidateOwnershipAsync(
+            checkpoint,
+            fixture.TargetParent,
+            CancellationToken.None);
+        Assert.True(ownership.IsSuccessful);
+        await ownership.Value.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task OwnershipValidationRecoversAnInterruptedReplayRenameWindow()
+    {
+        await using var fixture = await StagingFixture.CreateAsync();
+        var created = await fixture.Manager.CreateAsync(fixture.Request, CancellationToken.None);
+        Assert.True(created.IsSuccessful);
+        var checkpoint = fixture.CreateCheckpoint(created.Value.Workspace.Descriptor);
+        await created.Value.DisposeAsync();
+        await fixture.TargetParent.MoveDirectoryAsync(
+            Relative(".devforge-staging\\run-1"),
+            Relative(".devforge-staging\\run-1.previous"),
+            WorkspaceMoveIntent.AtomicNoOverwriteFinalize,
+            CancellationToken.None);
+
+        var ownership = await fixture.Manager.ValidateOwnershipAsync(
+            checkpoint,
+            fixture.TargetParent,
+            CancellationToken.None);
+
+        Assert.True(ownership.IsSuccessful);
+        await ownership.Value.DisposeAsync();
+        Assert.True(await fixture.TargetParent.DirectoryExistsAsync(
+            Relative(".devforge-staging\\run-1\\payload"),
+            CancellationToken.None));
+        Assert.False(await fixture.TargetParent.DirectoryExistsAsync(
+            Relative(".devforge-staging\\run-1.previous"),
+            CancellationToken.None));
+    }
+
+    [Fact]
     public async Task RefusesPreExistingTargetBeforeCreatingStaging()
     {
         await using var fixture = await StagingFixture.CreateAsync();

@@ -56,9 +56,9 @@
 
 ## Task 9: Implement retry/resume orchestration and checkpoints
 
-- [ ] RED orchestration tests for plan-first persistence, six-phase ordering, save after every state change, automatic/manual retry, retry cleanup, skip-after-postcondition, rerun-on-drift, missing blueprint, plan/marker mismatch, observer failure isolation, cancellation, and single active lease.
-- [ ] Implement Application retry decision engine and orchestrator with injected time/ID/ports.
-- [ ] GREEN twice; commit `feat(application): orchestrate checkpointed execution`.
+- [x] RED orchestration tests for plan-first persistence, six-phase ordering, save after every state change, automatic/manual retry, retry cleanup, skip-after-postcondition, rerun-on-drift, missing blueprint, plan/marker mismatch, observer failure isolation, cancellation, and single active lease.
+- [x] Implement Application retry decision engine and orchestrator with injected time/ID/ports.
+- [x] GREEN twice; commit `feat(application): orchestrate checkpointed execution`.
 
 ## Task 10: Validate, report, and finalize atomically
 

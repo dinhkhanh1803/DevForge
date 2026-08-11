@@ -24,6 +24,9 @@ public sealed class ProjectPlannerTests
 
         Assert.True(result.IsValid);
         Assert.Equal(["create", "render"], result.Value.Plan.Steps.Select(step => step.Id));
+        Assert.All(
+            result.Value.Plan.Steps,
+            step => Assert.Equal(RetryMode.AutomaticLimited, step.RetryPolicy.Mode));
         Assert.Equal("validate", Assert.Single(result.Value.Plan.Validators).Id);
         Assert.Equal(["create", "render"], result.Value.Preview.Steps.Select(step => step.Id));
         Assert.Equal("validate", Assert.Single(result.Value.Preview.Validators).Id);
@@ -45,7 +48,7 @@ public sealed class ProjectPlannerTests
             Assert.Single(result.Value.Preview.Validators).ProcessPreview?.Value);
         Assert.StartsWith("sha256:", result.Value.Preview.PlanHash, StringComparison.Ordinal);
         Assert.Equal(
-            "sha256:69b15acea75d45d2129e6b8aa43fde136a362a44ba5486efa37fff51f671677d",
+            "sha256:f1fdb5c413502541bb81ddcbf0627fb16dfdc78667d12df90fe20160725a79a8",
             result.Value.Preview.PlanHash);
         Assert.Equal(result.Value.Preview.PlanHash, result.Value.Plan.Id);
         Assert.Equal("Sample App", result.Value.Plan.TemplateContext["project.name"]);
@@ -56,6 +59,25 @@ public sealed class ProjectPlannerTests
         Assert.DoesNotContain("project.target-path", result.Value.Plan.TemplateContext.Keys);
         Assert.Equal(1, catalog.FindCalls);
         Assert.Equal(1, doctor.InspectCalls);
+    }
+
+    [Theory]
+    [InlineData("patch-json", RetryMode.AutomaticLimited)]
+    [InlineData("run-process", RetryMode.Manual)]
+    [InlineData("package-install", RetryMode.Manual)]
+    [InlineData("finalize-workspace", RetryMode.None)]
+    public async Task SelectsClosedRetryPolicyFromTheTrustedHandlerId(
+        string handlerId,
+        RetryMode expectedMode)
+    {
+        var planner = CreatePlanner(
+            new StubCatalog(CreateBlueprint(firstActionHandler: handlerId)),
+            new StubDoctor(Environment("10.0.302", DateTimeOffset.UtcNow)));
+
+        var result = await planner.CreatePlanAsync(CreateRecipe("C:\\root"), CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Equal(expectedMode, result.Value.Plan.Steps[0].RetryPolicy.Mode);
     }
 
     [Fact]
@@ -343,7 +365,8 @@ public sealed class ProjectPlannerTests
         string artifactPath = "src\\App.csproj",
         int validatorTimeoutSeconds = 30,
         int actionTimeoutSeconds = 10,
-        bool toolRequired = true)
+        bool toolRequired = true,
+        string firstActionHandler = "create-directory")
     {
         var text = BlueprintValue.FromString("{{ recipe.input.framework }}").Value;
         var path = BlueprintValue.FromString("src").Value;
@@ -363,7 +386,7 @@ public sealed class ProjectPlannerTests
         {
             new BlueprintActionDefinition(
                 "create",
-                "create-directory",
+                firstActionHandler,
                 ImmutableDictionary<string, BlueprintValue>.Empty.Add("path", path),
                 TimeSpan.FromSeconds(5)),
             new BlueprintActionDefinition(
