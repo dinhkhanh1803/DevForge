@@ -125,19 +125,33 @@ public sealed class ExecutionStep
 
 public sealed class ExecutionPlan
 {
-    private ExecutionPlan(string id, IEnumerable<ExecutionStep> steps)
+    private ExecutionPlan(
+        string id,
+        IEnumerable<ExecutionStep> steps,
+        IEnumerable<ExecutionValidator> validators)
     {
         Id = id;
         Steps = [.. steps];
+        Validators = [.. validators];
     }
 
     public string Id { get; }
 
     public ImmutableArray<ExecutionStep> Steps { get; }
 
+    public ImmutableArray<ExecutionValidator> Validators { get; }
+
     public static ValidationResult<ExecutionPlan> Create(
         string? id,
         IEnumerable<ExecutionStep?>? steps)
+    {
+        return Create(id, steps, []);
+    }
+
+    public static ValidationResult<ExecutionPlan> Create(
+        string? id,
+        IEnumerable<ExecutionStep?>? steps,
+        IEnumerable<ExecutionValidator?>? validators)
     {
         var issues = new List<ValidationIssue>();
         if (string.IsNullOrWhiteSpace(id))
@@ -146,6 +160,7 @@ public sealed class ExecutionPlan
         }
 
         var stepsSnapshot = steps?.ToImmutableArray() ?? [];
+        var validatorsSnapshot = validators?.ToImmutableArray() ?? [];
         if (steps is null)
         {
             issues.Add(new ValidationIssue("plan.steps.required", "Execution plan steps are required.", "steps"));
@@ -175,8 +190,150 @@ public sealed class ExecutionPlan
             }
         }
 
+        if (validators is null)
+        {
+            issues.Add(new ValidationIssue(
+                "plan.validators.required",
+                "Execution plan validators are required.",
+                "validators"));
+        }
+        else
+        {
+            var validatorIds = new HashSet<string>(StringComparer.Ordinal);
+            for (var index = 0; index < validatorsSnapshot.Length; index++)
+            {
+                var validator = validatorsSnapshot[index];
+                if (validator is null)
+                {
+                    issues.Add(new ValidationIssue(
+                        "plan.validator.required",
+                        "Execution plan validators cannot contain null values.",
+                        $"validators[{index}]"));
+                }
+                else if (!validatorIds.Add(validator.Id))
+                {
+                    issues.Add(new ValidationIssue(
+                        "plan.validator.id.duplicate",
+                        "Execution plan validator identifiers must be unique.",
+                        $"validators[{index}].id"));
+                }
+            }
+        }
+
         return issues.Count == 0
-            ? ValidationResult.Success(new ExecutionPlan(id!.Trim(), stepsSnapshot.Select(step => step!)))
+            ? ValidationResult.Success(new ExecutionPlan(
+                id!.Trim(),
+                stepsSnapshot.Select(step => step!),
+                validatorsSnapshot.Select(validator => validator!)))
             : ValidationResult.Failure<ExecutionPlan>(issues);
+    }
+}
+
+public sealed class ExecutionValidator
+{
+    private ExecutionValidator(
+        string id,
+        string handler,
+        IEnumerable<KeyValuePair<string, PlanValue>> inputs,
+        TimeSpan timeout,
+        bool required)
+    {
+        Id = id;
+        Handler = handler;
+        Inputs = inputs.ToImmutableDictionary(StringComparer.Ordinal);
+        Timeout = timeout;
+        Required = required;
+    }
+
+    public string Id { get; }
+
+    public string Handler { get; }
+
+    public ImmutableDictionary<string, PlanValue> Inputs { get; }
+
+    public TimeSpan Timeout { get; }
+
+    public bool Required { get; }
+
+    public static ValidationResult<ExecutionValidator> Create(
+        string? id,
+        string? handler,
+        IEnumerable<KeyValuePair<string, PlanValue?>>? inputs,
+        TimeSpan timeout,
+        bool required)
+    {
+        var issues = new List<ValidationIssue>();
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            issues.Add(new ValidationIssue(
+                "validator.id.required",
+                "Execution validator identifier is required.",
+                "id"));
+        }
+
+        if (string.IsNullOrWhiteSpace(handler))
+        {
+            issues.Add(new ValidationIssue(
+                "validator.handler.required",
+                "Execution validator handler is required.",
+                "handler"));
+        }
+
+        var snapshot = inputs?.ToImmutableArray() ?? [];
+        if (inputs is null)
+        {
+            issues.Add(new ValidationIssue(
+                "validator.inputs.required",
+                "Execution validator inputs are required.",
+                "inputs"));
+        }
+        else
+        {
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            for (var index = 0; index < snapshot.Length; index++)
+            {
+                var input = snapshot[index];
+                var name = input.Key?.Trim();
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    issues.Add(new ValidationIssue(
+                        "validator.input.name.required",
+                        "An execution validator input name is required.",
+                        $"inputs[{index}].name"));
+                }
+                else if (!names.Add(name))
+                {
+                    issues.Add(new ValidationIssue(
+                        "validator.input.name.duplicate",
+                        "Execution validator input names must be unique.",
+                        $"inputs[{index}].name"));
+                }
+
+                if (input.Value is null)
+                {
+                    issues.Add(new ValidationIssue(
+                        "validator.input.value.required",
+                        "An execution validator input value is required.",
+                        $"inputs[{index}].value"));
+                }
+            }
+        }
+
+        if (timeout <= TimeSpan.Zero)
+        {
+            issues.Add(new ValidationIssue(
+                "validator.timeout.invalid",
+                "Execution validator timeout must be positive.",
+                "timeout"));
+        }
+
+        return issues.Count == 0
+            ? ValidationResult.Success(new ExecutionValidator(
+                id!.Trim(),
+                handler!.Trim(),
+                snapshot.Select(item => KeyValuePair.Create(item.Key.Trim(), item.Value!)),
+                timeout,
+                required))
+            : ValidationResult.Failure<ExecutionValidator>(issues);
     }
 }

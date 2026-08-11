@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using DevForge.Application.Contracts;
 using DevForge.Blueprints.Abstractions.Models;
 using DevForge.Domain.Execution;
+using DevForge.Domain.Projects;
 using DevForge.Domain.Validation;
 
 namespace DevForge.UnitTests.Application;
@@ -185,6 +186,31 @@ public sealed class M4CatalogContractTests
         Assert.True(planned.IsValid);
         Assert.Same(plan, planned.Value.Plan);
         Assert.Single(planned.Value.Preview.Steps);
+    }
+
+    [Fact]
+    public void PlanPreviewRequiresToolStatusesToMatchRequirementsExactly()
+    {
+        var reference = BlueprintReference.Create("desktop.csharp-wpf-tool", "1.0.0").Value;
+        var git = GitOptions.Create().Value;
+        var completion = CompletionOptions.Create().Value;
+        var result = PlanPreview.Create(
+            reference,
+            [],
+            [],
+            [new ToolRequirement("dotnet", ">=10.0.0 <11.0.0")],
+            [new PlanPreviewToolStatus("node", ">=20.0.0", true, true, true, "20.0.0")],
+            [],
+            [],
+            [],
+            [],
+            [],
+            git,
+            completion,
+            $"sha256:{new string('c', 64)}");
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Issues, issue => issue.Code == "plan.preview.tool-status.mismatch");
     }
 
     private static BlueprintManifest ValidManifest(BlueprintTrust trust = BlueprintTrust.BuiltIn)
