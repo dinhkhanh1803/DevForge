@@ -1,0 +1,15 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Color x:Key="Color.Background">#FF111521</Color>
+    <Color x:Key="Color.Surface">#FF1A2030</Color>
+    <Color x:Key="Color.Foreground">#FFF4F6FA</Color>
+    <Color x:Key="Color.MutedForeground">#FFADB6C8</Color>
+    <Color x:Key="Color.Accent">#FF7C9CFF</Color>
+    <Color x:Key="Color.Border">#FF323A4D</Color>
+    <SolidColorBrush x:Key="Brush.Background" Color="{StaticResource Color.Background}" />
+    <SolidColorBrush x:Key="Brush.Surface" Color="{StaticResource Color.Surface}" />
+    <SolidColorBrush x:Key="Brush.Foreground" Color="{StaticResource Color.Foreground}" />
+    <SolidColorBrush x:Key="Brush.MutedForeground" Color="{StaticResource Color.MutedForeground}" />
+    <SolidColorBrush x:Key="Brush.Accent" Color="{StaticResource Color.Accent}" />
+    <SolidColorBrush x:Key="Brush.Border" Color="{StaticResource Color.Border}" />
+</ResourceDictionary>
