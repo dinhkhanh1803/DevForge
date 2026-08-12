@@ -7,17 +7,21 @@ public sealed class DesktopMigrationService : IDesktopMigrationService
 {
     private readonly SqliteMigrationCoordinator _coordinator;
     private readonly DatabaseLocation _location;
+    private readonly ILocalDataRootProvisioner _provisioner;
 
     public DesktopMigrationService(
         SqliteMigrationCoordinator coordinator,
-        DatabaseLocation location)
+        DatabaseLocation location,
+        ILocalDataRootProvisioner provisioner)
     {
         _coordinator = coordinator ?? throw new ArgumentNullException(nameof(coordinator));
         _location = location ?? throw new ArgumentNullException(nameof(location));
+        _provisioner = provisioner ?? throw new ArgumentNullException(nameof(provisioner));
     }
 
     public async Task<DesktopMigrationOutcome> MigrateAsync(CancellationToken cancellationToken)
     {
+        await _provisioner.EnsureExistsAsync(_location, cancellationToken).ConfigureAwait(false);
         var result = await _coordinator.MigrateAsync(_location, cancellationToken).ConfigureAwait(false);
         return result.State switch
         {
