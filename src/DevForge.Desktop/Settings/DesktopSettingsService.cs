@@ -30,6 +30,8 @@ public sealed class DesktopSettingsService : IDesktopSettingsService
 {
     private static readonly HashSet<string> _supportedCultures =
         new(["en-US", "vi-VN"], StringComparer.Ordinal);
+    private static readonly HashSet<string> _supportedIdeIds =
+        new(["none", "vscode", "visual-studio", "rider", "unity"], StringComparer.Ordinal);
 
     private readonly IAppSettingsStore _store;
     private readonly TimeProvider _timeProvider;
@@ -49,7 +51,7 @@ public sealed class DesktopSettingsService : IDesktopSettingsService
 
         return new DesktopSettings(
             ReadText(map, DesktopSettingKeys.DefaultProjectRoot, string.Empty),
-            ReadIdentifier(map, DesktopSettingKeys.DefaultIdeId),
+            ReadIdeIdentifier(map),
             ReadIdentifier(map, DesktopSettingKeys.DefaultTeamProfileId),
             ReadCulture(map),
             ReadTheme(map),
@@ -101,7 +103,7 @@ public sealed class DesktopSettingsService : IDesktopSettingsService
                 nameof(draft.DefaultProjectRoot)));
         }
 
-        var ideId = NormalizeIdentifier(draft.DefaultIdeId, nameof(draft.DefaultIdeId), issues);
+        var ideId = NormalizeIdeIdentifier(draft.DefaultIdeId, issues);
         var teamId = NormalizeIdentifier(draft.DefaultTeamProfileId, nameof(draft.DefaultTeamProfileId), issues);
         var culture = draft.CultureName?.Trim();
         if (culture is null || !_supportedCultures.Contains(culture))
@@ -157,6 +159,21 @@ public sealed class DesktopSettingsService : IDesktopSettingsService
         return normalized;
     }
 
+    private static string? NormalizeIdeIdentifier(string? value, List<ValidationIssue> issues)
+    {
+        var normalized = NormalizeIdentifier(value, nameof(DesktopSettingsDraft.DefaultIdeId), issues);
+        if (normalized is not null && !_supportedIdeIds.Contains(normalized))
+        {
+            issues.Add(new ValidationIssue(
+                "desktop.settings.ide.unsupported",
+                "Choose a supported IDE or none.",
+                nameof(DesktopSettingsDraft.DefaultIdeId)));
+            return null;
+        }
+
+        return normalized;
+    }
+
     private static AppSetting CreateText(string key, string value, DateTimeOffset timestamp)
     {
         var settingValue = AppSettingValue.CreateString(value);
@@ -197,6 +214,13 @@ public sealed class DesktopSettingsService : IDesktopSettingsService
         var value = ReadText(settings, key, "none");
         var issues = new List<ValidationIssue>();
         return NormalizeIdentifier(value, key, issues) ?? "none";
+    }
+
+    private static string ReadIdeIdentifier(Dictionary<string, AppSetting> settings)
+    {
+        var value = ReadText(settings, DesktopSettingKeys.DefaultIdeId, "none");
+        var issues = new List<ValidationIssue>();
+        return NormalizeIdeIdentifier(value, issues) ?? "none";
     }
 
     private static string ReadCulture(Dictionary<string, AppSetting> settings)

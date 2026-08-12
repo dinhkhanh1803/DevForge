@@ -32,12 +32,22 @@ public sealed class WpfResourceSmokeTests
                 new DevForge.Desktop.MainWindow(),
             ];
 
-            foreach (var view in views)
+            Size[] dpiEquivalentConstraints =
             {
-                view.Measure(new Size(960, 640));
-                view.Arrange(new Rect(0, 0, 960, 640));
-                Assert.InRange(view.DesiredSize.Width, 0, 960);
-                Assert.InRange(view.DesiredSize.Height, 0, 640);
+                new(960, 640),
+                new(1200, 800),
+                new(1440, 960),
+            };
+
+            foreach (var constraint in dpiEquivalentConstraints)
+            {
+                foreach (var view in views)
+                {
+                    view.Measure(constraint);
+                    view.Arrange(new Rect(new Point(), constraint));
+                    Assert.InRange(view.DesiredSize.Width, 0, constraint.Width);
+                    Assert.InRange(view.DesiredSize.Height, 0, constraint.Height);
+                }
             }
 
             string[] sources =

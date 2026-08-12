@@ -40,6 +40,8 @@ public partial class App : System.Windows.Application, IDisposable
             if (state.Mode == DesktopStartupMode.SafeReadOnly)
             {
                 shell.SetSafeMode(state.UserSafeMessage!);
+                _host.Services.GetRequiredService<SettingsViewModel>().EnterReadOnlyMode();
+                _host.Services.GetRequiredService<EnvironmentDoctorViewModel>().EnterReadOnlyMode();
             }
 
             _host.Services.GetRequiredService<NavigationService>()

@@ -27,6 +27,9 @@ public sealed partial class EnvironmentDoctorViewModel : ObservableObject
     [ObservableProperty]
     private bool _isBusy;
 
+    [ObservableProperty]
+    private bool _isReadOnly;
+
     public EnvironmentDoctorViewModel(
         IEnvironmentDoctorService doctorService,
         IClipboardService clipboard,
@@ -36,7 +39,7 @@ public sealed partial class EnvironmentDoctorViewModel : ObservableObject
         _clipboard = clipboard ?? throw new ArgumentNullException(nameof(clipboard));
         _notifications = notifications ?? throw new ArgumentNullException(nameof(notifications));
         Tools = new ReadOnlyObservableCollection<EnvironmentHealthItem>(_tools);
-        RescanCommand = new AsyncRelayCommand(RescanAsync, () => !IsBusy);
+        RescanCommand = new AsyncRelayCommand(RescanAsync, () => !IsBusy && !IsReadOnly);
         CopyDiagnosticsCommand = new RelayCommand(CopyDiagnostics, () => !IsBusy && _tools.Count != 0);
     }
 
@@ -54,6 +57,12 @@ public sealed partial class EnvironmentDoctorViewModel : ObservableObject
     public Task RescanAsync(CancellationToken cancellationToken)
     {
         return RefreshAsync(forceRefresh: true, cancellationToken);
+    }
+
+    public void EnterReadOnlyMode()
+    {
+        IsReadOnly = true;
+        RescanCommand.NotifyCanExecuteChanged();
     }
 
     private async Task RefreshAsync(bool forceRefresh, CancellationToken cancellationToken)

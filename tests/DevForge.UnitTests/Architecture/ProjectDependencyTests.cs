@@ -84,6 +84,7 @@ public sealed class ProjectDependencyTests
             ["DevForge.E2ETests"] =
             [
                 "DevForge.Application",
+                "DevForge.Desktop",
                 "DevForge.Infrastructure",
             ],
         };

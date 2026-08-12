@@ -74,6 +74,20 @@ public sealed class SettingsViewModelTests
         Assert.False(sut.SaveCommand.CanExecute(null));
     }
 
+    [Fact]
+    public void EnteringSafeModeAfterStartupDisablesSave()
+    {
+        var sut = new SettingsViewModel(
+            new FakeSettingsService(),
+            new FakeThemeService(),
+            new NotificationService());
+        Assert.True(sut.SaveCommand.CanExecute(null));
+
+        sut.EnterReadOnlyMode();
+
+        Assert.False(sut.SaveCommand.CanExecute(null));
+    }
+
     private sealed class FakeSettingsService : IDesktopSettingsService
     {
         public DesktopSettings Loaded { get; set; } =

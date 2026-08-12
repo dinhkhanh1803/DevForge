@@ -35,6 +35,8 @@
                     <GridViewColumn Header="Version" Width="180" DisplayMemberBinding="{Binding Version}" />
                     <GridViewColumn Header="Status icon" Width="100" DisplayMemberBinding="{Binding StatusGlyph}" />
                     <GridViewColumn Header="Status" Width="160" DisplayMemberBinding="{Binding StatusLabel}" />
+                    <GridViewColumn Header="Compatibility" Width="320" DisplayMemberBinding="{Binding CompatibilitySummary}" />
+                    <GridViewColumn Header="Remediation" Width="360" DisplayMemberBinding="{Binding Remediation}" />
                 </GridView>
             </ListView.View>
         </ListView>

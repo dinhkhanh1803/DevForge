@@ -38,6 +38,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private bool _isBusy;
 
+    [ObservableProperty]
+    private bool _isReadOnly;
+
     public SettingsViewModel(
         IDesktopSettingsService settingsService,
         IThemeService themeService,
@@ -52,8 +55,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         SaveCommand = new AsyncRelayCommand(SaveFromCommandAsync, CanSave);
         ResetCommand = new AsyncRelayCommand(LoadFromCommandAsync, CanReset);
     }
-
-    public bool IsReadOnly { get; }
 
     public bool HasProjectRoot => !string.IsNullOrWhiteSpace(DefaultProjectRoot);
 
@@ -96,6 +97,12 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             SetBusy(false);
         }
+    }
+
+    public void EnterReadOnlyMode()
+    {
+        IsReadOnly = true;
+        SaveCommand.NotifyCanExecuteChanged();
     }
 
     public async Task SaveAsync(CancellationToken cancellationToken)

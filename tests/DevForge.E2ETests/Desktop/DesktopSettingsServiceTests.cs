@@ -58,6 +58,7 @@ public sealed class DesktopSettingsServiceTests
 
     [Theory]
     [InlineData("fr-FR", "rider", "leader", 1)]
+    [InlineData("en-US", "unknown-editor", "leader", 1)]
     [InlineData("en-US", "githubToken", "leader", 1)]
     [InlineData("en-US", "rider", "databasePassword", 1)]
     [InlineData("en-US", "rider", "leader", 99)]

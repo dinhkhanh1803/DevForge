@@ -27,8 +27,15 @@
                     <TextBox Grid.Row="0" Grid.Column="1" Margin="0,4" Text="{Binding DefaultProjectRoot, UpdateSourceTrigger=PropertyChanged}"
                              AutomationProperties.Name="Default project root" />
                     <TextBlock Grid.Row="1" Text="IDE identifier" VerticalAlignment="Center" />
-                    <TextBox Grid.Row="1" Grid.Column="1" Margin="0,4" Text="{Binding DefaultIdeId, UpdateSourceTrigger=PropertyChanged}"
-                             AutomationProperties.Name="Preferred IDE identifier" />
+                    <ComboBox Grid.Row="1" Grid.Column="1" Margin="0,4"
+                              SelectedValue="{Binding DefaultIdeId}" SelectedValuePath="Tag"
+                              AutomationProperties.Name="Preferred IDE">
+                        <ComboBoxItem Content="None" Tag="none" />
+                        <ComboBoxItem Content="Visual Studio Code" Tag="vscode" />
+                        <ComboBoxItem Content="Visual Studio" Tag="visual-studio" />
+                        <ComboBoxItem Content="JetBrains Rider" Tag="rider" />
+                        <ComboBoxItem Content="Unity" Tag="unity" />
+                    </ComboBox>
                     <TextBlock Grid.Row="2" Text="Team profile" VerticalAlignment="Center" />
                     <TextBox Grid.Row="2" Grid.Column="1" Margin="0,4" Text="{Binding DefaultTeamProfileId, UpdateSourceTrigger=PropertyChanged}"
                              AutomationProperties.Name="Team profile identifier" />

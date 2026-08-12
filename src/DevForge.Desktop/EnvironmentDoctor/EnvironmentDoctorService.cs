@@ -20,6 +20,7 @@ public sealed class EnvironmentDoctorService : IEnvironmentDoctorService
     private readonly IEnvironmentDoctor _doctor;
     private readonly IEnvironmentToolStore _store;
     private readonly TimeProvider _timeProvider;
+    private int _scanActive;
 
     public EnvironmentDoctorService(
         IEnvironmentDoctor doctor,
@@ -43,6 +44,25 @@ public sealed class EnvironmentDoctorService : IEnvironmentDoctorService
             return FromCache(cached, isStale: false, scanFailed: false);
         }
 
+        if (Interlocked.CompareExchange(ref _scanActive, 1, 0) != 0)
+        {
+            return FromCache(cached, isStale: true, scanFailed: false);
+        }
+
+        try
+        {
+            return await RefreshAsync(cached, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            Volatile.Write(ref _scanActive, 0);
+        }
+    }
+
+    private async Task<EnvironmentHealthSnapshot> RefreshAsync(
+        ImmutableArray<EnvironmentToolRecord> cached,
+        CancellationToken cancellationToken)
+    {
         DevForge.Domain.Environment.EnvironmentSnapshot inspected;
         try
         {

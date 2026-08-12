@@ -98,6 +98,29 @@ public sealed class EnvironmentDoctorServiceTests
         Assert.True(result.IsStale);
     }
 
+    [Fact]
+    public async Task ConcurrentRefreshReturnsCacheWithoutStartingSecondScan()
+    {
+        var now = new DateTimeOffset(2026, 8, 12, 8, 0, 0, TimeSpan.Zero);
+        var doctor = new BlockingEnvironmentDoctor(CreateSnapshot(
+            now,
+            new EnvironmentTool("git", "2.51.0", true)));
+        var sut = new EnvironmentDoctorService(
+            doctor,
+            new FakeEnvironmentToolStore(),
+            new FixedTimeProvider(now));
+        var first = sut.LoadAsync(forceRefresh: true, CancellationToken.None);
+        await doctor.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        var concurrent = await sut.LoadAsync(forceRefresh: true, CancellationToken.None)
+            .WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.Equal(1, doctor.Calls);
+        Assert.Equal(EnvironmentSnapshotSource.Cache, concurrent.Source);
+        doctor.Release.TrySetResult();
+        await first;
+    }
+
     private static EnvironmentToolRecord CreateRecord(
         string id,
         EnvironmentToolStatus status,
@@ -140,6 +163,23 @@ public sealed class EnvironmentDoctorServiceTests
             return _failure is null
                 ? Task.FromResult(_snapshot!)
                 : Task.FromException<EnvironmentSnapshot>(_failure);
+        }
+    }
+
+    private sealed class BlockingEnvironmentDoctor(EnvironmentSnapshot snapshot) : IEnvironmentDoctor
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public int Calls { get; private set; }
+
+        public async Task<EnvironmentSnapshot> InspectAsync(CancellationToken cancellationToken)
+        {
+            Calls++;
+            Started.TrySetResult();
+            await Release.Task.WaitAsync(cancellationToken);
+            return snapshot;
         }
     }
 

@@ -57,6 +57,21 @@ public sealed class EnvironmentDoctorViewModelTests
         Assert.InRange(clipboard.Text!.Length, 1, 4_096);
     }
 
+    [Fact]
+    public void EnteringSafeModeDisablesRescanButKeepsCachedDiagnosticsAvailable()
+    {
+        var sut = new EnvironmentDoctorViewModel(
+            new FakeDoctorService(),
+            new FakeClipboardService(),
+            new NotificationService());
+        sut.ApplySnapshot(CreateSnapshot(isStale: true, scanFailed: false));
+
+        sut.EnterReadOnlyMode();
+
+        Assert.False(sut.RescanCommand.CanExecute(null));
+        Assert.True(sut.CopyDiagnosticsCommand.CanExecute(null));
+    }
+
     private static EnvironmentHealthSnapshot CreateSnapshot(bool isStale, bool scanFailed)
     {
         var scannedAt = new DateTimeOffset(2026, 8, 12, 8, 0, 0, TimeSpan.Zero);
