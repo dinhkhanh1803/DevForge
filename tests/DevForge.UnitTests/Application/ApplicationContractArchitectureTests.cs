@@ -19,6 +19,7 @@ public sealed class ApplicationContractArchitectureTests
         typeof(IGitHubService),
         typeof(ISecretScanner),
         typeof(IIdeLauncher),
+        typeof(IProjectLocationProbe),
     ];
 
     [Fact]
