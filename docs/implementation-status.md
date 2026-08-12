@@ -1,8 +1,30 @@
 # DevForge Studio Implementation Status
 
-**Current milestone:** M5 - Orchestrator, Staging, Retry/Resume, and Finalizer
-**Status:** M0-M5 complete and verified; M6 is recommended next
-**Last updated:** 2026-08-11
+**Current milestone:** M6 - Desktop Shell, Settings, and Environment Doctor
+**Status:** M0-M6 complete and verified; M7 is recommended next
+**Last updated:** 2026-08-12
+
+## Current M6 scope
+
+The approved design is `docs/superpowers/specs/2026-08-12-m6-desktop-shell-settings-environment-doctor-design.md`, the executable TDD plan is `docs/superpowers/plans/2026-08-12-m6-desktop-shell-settings-environment-doctor.md`, and ADR-0010/0011 fix the native WPF host, theme, startup, cache, and safe-mode decisions.
+
+M6 provides a Generic Host composition root; migration-first and recovery-first startup; persisted typed settings; Settings onboarding; System/Light/Dark theming; a 15-minute cached Environment Doctor; Dashboard aggregation; bounded notifications; and a persistent left-rail WPF shell. Functional routes are Dashboard, Environment Doctor, and Settings. Create Project, Projects, and Blueprint Catalog are present only as clearly disabled M7 destinations. Desktop presentation code does not directly access files, processes, EF Core, or Infrastructure implementations.
+
+## M6 final exit gate
+
+Fresh local verification on 2026-08-12 used workspace-local .NET SDK 10.0.302:
+
+| Gate | Command | Exact result |
+| --- | --- | --- |
+| SDK | `dotnet --version` | Exit 0; `10.0.302`. |
+| Locked restore | `dotnet restore DevForge.sln --locked-mode --verbosity minimal` | Exit 0; all 12 projects restored from pinned lock files. |
+| Format | `dotnet format DevForge.sln --verify-no-changes --no-restore` | Exit 0; no formatting diagnostics. |
+| Release build | `dotnet build DevForge.sln -c Release --no-restore --verbosity minimal -m:1` | Exit 0; all 12 projects built; 0 warnings, 0 errors. |
+| Full solution | `dotnet test DevForge.sln -c Release --no-build --no-restore --verbosity minimal -m:1` | Exit 0; UnitTests 496, IntegrationTests 372, BlueprintTests 108, E2ETests 63; total 1,039 passed, 0 failed, 0 skipped. |
+| Focused Desktop | `dotnet test tests/DevForge.E2ETests/DevForge.E2ETests.csproj -c Release --no-build --no-restore --filter FullyQualifiedName~Desktop --verbosity minimal -m:1` | Exit 0; 63 passed, 0 failed, 0 skipped. |
+| EF model consistency | `.tools/dotnet-tools/dotnet-ef.exe migrations has-pending-model-changes --project src/DevForge.Infrastructure --startup-project src/DevForge.Infrastructure --context DevForgeDbContext --configuration Release --no-build` | Exit 0; `No changes have been made to the model since the last migration.` |
+
+M6 coverage includes Generic Host start/stop and fixed startup ordering; real SQLite migration/settings/environment-cache round trips; interrupted-run normalization before navigation; safe-mode write/scan refusal; closed navigation; settings validation; System/Light/Dark switching; exact cache TTL/concurrency; Dashboard empty/unavailable/action states; privacy and architecture boundaries; keyboard/accessibility metadata; and WPF resource/measure smoke at 960x640, 1200x800, and 1440x960. M7 is the next specification milestone.
 
 ## Current M5 scope
 

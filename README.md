@@ -4,9 +4,9 @@ DevForge Studio is a planned native Windows project factory for team leaders and
 
 ## Current status
 
-Milestone M1 is complete. The repository now includes immutable validated domain models, blueprint manifest contracts, and twelve security-shaped Application ports, with 305 focused tests covering domain, blueprint, architecture, request, process, file-system, privacy, and serialization boundaries. Infrastructure implementations, persistence, orchestration, Git/GitHub automation, production blueprints, and UI workflows remain assigned to later milestones.
+Milestones M0-M6 are implemented. The native WPF application now composes the validated domain, local blueprint planning, SQLite persistence, guarded Windows infrastructure, recoverable execution engine, and startup recovery into a persistent desktop shell. Dashboard, Settings onboarding, Environment Doctor, System/Light/Dark themes, and read-only startup safe mode are functional; Create Project and later workflow routes remain visibly disabled until M7.
 
-The CLI still exits with a nonzero status because no commands are available yet. The WPF project is a minimal native shell, not a completed UI.
+Git/GitHub automation, production blueprints, packaging, and catalog expansion remain assigned to M8-M11. The product still has no AI API, cloud backend, embedded browser, arbitrary shell execution, or Administrator happy-path requirement.
 
 ## Prerequisites
 
