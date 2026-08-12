@@ -1,0 +1,42 @@
+<UserControl x:Class="DevForge.Desktop.EnvironmentDoctor.EnvironmentDoctorView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             AutomationProperties.Name="Environment Doctor">
+    <Grid Margin="{StaticResource Page.Padding}">
+        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+        <DockPanel Grid.Row="0" Margin="0,0,0,16">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="Copy Diagnostics" Command="{Binding CopyDiagnosticsCommand}" Margin="0,0,8,0"
+                        AutomationProperties.Name="Copy environment diagnostics" />
+                <Button Style="{StaticResource PrimaryButton}" Content="Rescan" Command="{Binding RescanCommand}"
+                        AutomationProperties.Name="Rescan environment" />
+            </StackPanel>
+            <StackPanel>
+                <TextBlock Style="{StaticResource PageHeading}" Text="Environment Doctor" />
+                <TextBlock Text="{Binding LastScannedAt, StringFormat=Last scanned: {0:g}}"
+                           Foreground="{DynamicResource Brush.MutedForeground}" />
+            </StackPanel>
+        </DockPanel>
+        <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,16">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Status: " FontWeight="SemiBold" />
+                <TextBlock Text="Cached results are stale"
+                           Visibility="{Binding IsStale, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                <TextBlock Text="Scan failed; cached results shown"
+                           Visibility="{Binding ScanFailed, Converter={StaticResource BooleanToVisibilityConverter}}"
+                           Margin="16,0,0,0" />
+            </StackPanel>
+        </Border>
+        <ListView Grid.Row="2" ItemsSource="{Binding Tools}" VirtualizingPanel.IsVirtualizing="True"
+                  AutomationProperties.Name="Environment tool status list">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="Tool" Width="220" DisplayMemberBinding="{Binding Id}" />
+                    <GridViewColumn Header="Version" Width="180" DisplayMemberBinding="{Binding Version}" />
+                    <GridViewColumn Header="Status icon" Width="100" DisplayMemberBinding="{Binding StatusGlyph}" />
+                    <GridViewColumn Header="Status" Width="160" DisplayMemberBinding="{Binding StatusLabel}" />
+                </GridView>
+            </ListView.View>
+        </ListView>
+    </Grid>
+</UserControl>

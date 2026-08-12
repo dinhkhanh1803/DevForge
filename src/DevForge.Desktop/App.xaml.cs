@@ -1,7 +1,10 @@
 using System.IO;
 using System.Windows;
 using DevForge.Desktop.Bootstrap;
+using DevForge.Desktop.Dashboard;
+using DevForge.Desktop.EnvironmentDoctor;
 using DevForge.Desktop.Navigation;
+using DevForge.Desktop.Settings;
 using DevForge.Desktop.Shell;
 using DevForge.Desktop.Theming;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,6 +33,10 @@ public partial class App : System.Windows.Application, IDisposable
                 .InitializeAsync(_shutdown.Token)
                 .ConfigureAwait(true);
             var shell = _host.Services.GetRequiredService<ShellViewModel>();
+            _host.Services.GetRequiredService<SettingsViewModel>().ApplySnapshot(state.Settings);
+            _host.Services.GetRequiredService<EnvironmentDoctorViewModel>()
+                .ApplySnapshot(state.EnvironmentHealth);
+            _host.Services.GetRequiredService<DashboardViewModel>().ApplySnapshot(state.Dashboard);
             if (state.Mode == DesktopStartupMode.SafeReadOnly)
             {
                 shell.SetSafeMode(state.UserSafeMessage!);

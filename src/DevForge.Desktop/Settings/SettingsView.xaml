@@ -1,0 +1,61 @@
+<UserControl x:Class="DevForge.Desktop.Settings.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:theme="clr-namespace:DevForge.Desktop.Theming"
+             AutomationProperties.Name="Settings">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="{StaticResource Page.Padding}" MaxWidth="880" HorizontalAlignment="Left">
+            <TextBlock Style="{StaticResource PageHeading}" Text="Settings" />
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SectionHeading}" Text="Getting started" />
+                    <CheckBox Content="Default project root" IsChecked="{Binding HasProjectRoot}" IsHitTestVisible="False" />
+                    <CheckBox Content="Preferred IDE" IsChecked="{Binding HasIdeSelection}" IsHitTestVisible="False" />
+                    <CheckBox Content="Team standard" IsChecked="{Binding HasTeamProfile}" IsHitTestVisible="False" />
+                    <CheckBox Content="Display language" IsChecked="{Binding HasLanguage}" IsHitTestVisible="False" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource Card}">
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="180" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="Project root" VerticalAlignment="Center" />
+                    <TextBox Grid.Row="0" Grid.Column="1" Margin="0,4" Text="{Binding DefaultProjectRoot, UpdateSourceTrigger=PropertyChanged}"
+                             AutomationProperties.Name="Default project root" />
+                    <TextBlock Grid.Row="1" Text="IDE identifier" VerticalAlignment="Center" />
+                    <TextBox Grid.Row="1" Grid.Column="1" Margin="0,4" Text="{Binding DefaultIdeId, UpdateSourceTrigger=PropertyChanged}"
+                             AutomationProperties.Name="Preferred IDE identifier" />
+                    <TextBlock Grid.Row="2" Text="Team profile" VerticalAlignment="Center" />
+                    <TextBox Grid.Row="2" Grid.Column="1" Margin="0,4" Text="{Binding DefaultTeamProfileId, UpdateSourceTrigger=PropertyChanged}"
+                             AutomationProperties.Name="Team profile identifier" />
+                    <TextBlock Grid.Row="3" Text="Language" VerticalAlignment="Center" />
+                    <ComboBox Grid.Row="3" Grid.Column="1" Margin="0,4" SelectedValue="{Binding CultureName}" SelectedValuePath="Tag"
+                              AutomationProperties.Name="Display language">
+                        <ComboBoxItem Content="English" Tag="en-US" />
+                        <ComboBoxItem Content="Tiếng Việt" Tag="vi-VN" />
+                    </ComboBox>
+                    <TextBlock Grid.Row="4" Text="Theme" VerticalAlignment="Center" />
+                    <ComboBox Grid.Row="4" Grid.Column="1" Margin="0,4" SelectedValue="{Binding Theme}" SelectedValuePath="Tag"
+                              AutomationProperties.Name="Color theme">
+                        <ComboBoxItem Content="System" Tag="{x:Static theme:ThemePreference.System}" />
+                        <ComboBoxItem Content="Light" Tag="{x:Static theme:ThemePreference.Light}" />
+                        <ComboBoxItem Content="Dark" Tag="{x:Static theme:ThemePreference.Dark}" />
+                    </ComboBox>
+                    <CheckBox Grid.Row="5" Grid.ColumnSpan="2" Margin="0,12,0,4" Content="Onboarding checklist complete"
+                              IsChecked="{Binding OnboardingCompleted}" />
+                    <ItemsControl Grid.Row="6" Grid.ColumnSpan="2" ItemsSource="{Binding ValidationMessages}">
+                        <ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" Foreground="#FFD13438" /></DataTemplate></ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Grid>
+            </Border>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+                <Button Content="Reset" Command="{Binding ResetCommand}" Margin="0,0,8,0" AutomationProperties.Name="Reset settings" />
+                <Button Style="{StaticResource PrimaryButton}" Content="Save" Command="{Binding SaveCommand}" AutomationProperties.Name="Save settings" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

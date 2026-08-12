@@ -156,7 +156,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     private Task LoadFromCommandAsync(CancellationToken cancellationToken) => LoadAsync(cancellationToken);
 
-    private void ApplySnapshot(DesktopSettings settings)
+    internal void ApplySnapshot(DesktopSettings settings)
     {
         DefaultProjectRoot = settings.DefaultProjectRoot;
         DefaultIdeId = settings.DefaultIdeId;

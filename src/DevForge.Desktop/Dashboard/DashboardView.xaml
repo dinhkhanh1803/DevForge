@@ -1,0 +1,80 @@
+<UserControl x:Class="DevForge.Desktop.Dashboard.DashboardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             AutomationProperties.Name="Dashboard">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="{StaticResource Page.Padding}">
+            <DockPanel Margin="0,0,0,20">
+                <Button DockPanel.Dock="Right"
+                        Style="{StaticResource PrimaryButton}"
+                        Content="Create Project"
+                        Command="{Binding CreateProjectCommand}"
+                        AutomationProperties.Name="Create Project"
+                        AutomationProperties.HelpText="Available in M7" />
+                <StackPanel>
+                    <TextBlock Style="{StaticResource PageHeading}" Text="Dashboard" />
+                    <TextBlock Text="Your projects, presets, and environment at a glance."
+                               Foreground="{DynamicResource Brush.MutedForeground}" />
+                </StackPanel>
+            </DockPanel>
+            <UniformGrid Columns="2">
+                <Border Style="{StaticResource Card}" Margin="0,0,8,16">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource SectionHeading}" Text="Recent Projects" />
+                        <TextBlock Text="No recent projects yet."
+                                   Visibility="{Binding HasNoRecentProjects, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <ItemsControl ItemsSource="{Binding Snapshot.RecentProjects}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,6">
+                                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                                            <TextBlock Text="{Binding ProjectPath}" ToolTip="{Binding ProjectPath}"
+                                                       Foreground="{DynamicResource Brush.MutedForeground}" />
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Text="{Binding LocationStatus}" Margin="12,0,0,0" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Card}" Margin="8,0,0,16">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource SectionHeading}" Text="Action Needed" />
+                        <TextBlock Text="No runs need attention."
+                                   Visibility="{Binding HasNoActionNeededRuns, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <ItemsControl ItemsSource="{Binding Snapshot.ActionNeededRuns}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Margin="0,6" Text="{Binding RunId}" ToolTip="{Binding Status}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Card}" Margin="0,0,8,0">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource SectionHeading}" Text="Saved Presets" />
+                        <TextBlock Text="No saved presets yet."
+                                   Visibility="{Binding HasNoSavedPresets, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <ItemsControl ItemsSource="{Binding Snapshot.SavedPresets}" DisplayMemberPath="Name" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Card}" Margin="8,0,0,0">
+                    <StackPanel>
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="Open Doctor"
+                                    Command="{Binding OpenEnvironmentDoctorCommand}"
+                                    AutomationProperties.Name="Open Environment Doctor" />
+                            <TextBlock Style="{StaticResource SectionHeading}" Text="Environment Health" />
+                        </DockPanel>
+                        <TextBlock Text="{Binding Snapshot.EnvironmentHealth.ScannedAt, StringFormat=Last scan: {0:g}}" />
+                        <TextBlock Text="{Binding Snapshot.EnvironmentHealth.Tools.Length, StringFormat=Tools checked: {0}}" />
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

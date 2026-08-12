@@ -68,15 +68,7 @@ public sealed partial class EnvironmentDoctorViewModel : ObservableObject
         {
             var snapshot = await _doctorService.LoadAsync(forceRefresh, cancellationToken)
                 .ConfigureAwait(true);
-            _tools.Clear();
-            foreach (var tool in snapshot.Tools)
-            {
-                _tools.Add(tool);
-            }
-
-            LastScannedAt = snapshot.ScannedAt;
-            IsStale = snapshot.IsStale;
-            ScanFailed = snapshot.ScanFailed;
+            ApplySnapshot(snapshot);
             if (snapshot.ScanFailed)
             {
                 _notifications.TryPublish(
@@ -98,6 +90,21 @@ public sealed partial class EnvironmentDoctorViewModel : ObservableObject
         {
             SetBusy(false);
         }
+    }
+
+    internal void ApplySnapshot(EnvironmentHealthSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        _tools.Clear();
+        foreach (var tool in snapshot.Tools)
+        {
+            _tools.Add(tool);
+        }
+
+        LastScannedAt = snapshot.ScannedAt;
+        IsStale = snapshot.IsStale;
+        ScanFailed = snapshot.ScanFailed;
+        CopyDiagnosticsCommand.NotifyCanExecuteChanged();
     }
 
     private void CopyDiagnostics()

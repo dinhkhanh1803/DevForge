@@ -73,6 +73,11 @@ public sealed partial class DashboardViewModel : ObservableObject
         }
     }
 
+    internal void ApplySnapshot(DashboardSnapshot? snapshot)
+    {
+        Snapshot = snapshot;
+    }
+
     private void SetBusy(bool value)
     {
         IsBusy = value;
