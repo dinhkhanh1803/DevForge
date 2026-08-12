@@ -79,6 +79,25 @@ public sealed class EnvironmentDoctorServiceTests
         Assert.Empty(store.Writes);
     }
 
+    [Fact]
+    public async Task CacheOnlyLoadNeverScansEvenWhenCacheIsEmpty()
+    {
+        var now = new DateTimeOffset(2026, 8, 12, 8, 0, 0, TimeSpan.Zero);
+        var doctor = new FakeEnvironmentDoctor(CreateSnapshot(
+            now,
+            new EnvironmentTool("git", "2.51.0", true)));
+        var sut = new EnvironmentDoctorService(
+            doctor,
+            new FakeEnvironmentToolStore(),
+            new FixedTimeProvider(now));
+
+        var result = await sut.LoadCachedAsync(CancellationToken.None);
+
+        Assert.Equal(0, doctor.Calls);
+        Assert.Empty(result.Tools);
+        Assert.True(result.IsStale);
+    }
+
     private static EnvironmentToolRecord CreateRecord(
         string id,
         EnvironmentToolStatus status,

@@ -9,6 +9,8 @@ public interface IEnvironmentDoctorService
     Task<EnvironmentHealthSnapshot> LoadAsync(
         bool forceRefresh,
         CancellationToken cancellationToken);
+
+    Task<EnvironmentHealthSnapshot> LoadCachedAsync(CancellationToken cancellationToken);
 }
 
 public sealed class EnvironmentDoctorService : IEnvironmentDoctorService
@@ -72,6 +74,16 @@ public sealed class EnvironmentDoctorService : IEnvironmentDoctorService
             EnvironmentSnapshotSource.Fresh,
             IsStale: false,
             ScanFailed: false);
+    }
+
+    public async Task<EnvironmentHealthSnapshot> LoadCachedAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var cached = await _store.ListAsync(cancellationToken).ConfigureAwait(false);
+        return FromCache(
+            cached,
+            isStale: !IsFresh(cached, _timeProvider.GetUtcNow()),
+            scanFailed: false);
     }
 
     private static bool IsFresh(ImmutableArray<EnvironmentToolRecord> records, DateTimeOffset now)

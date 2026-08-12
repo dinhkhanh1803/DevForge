@@ -141,5 +141,8 @@ public sealed class DashboardServiceTests
     {
         public Task<EnvironmentHealthSnapshot> LoadAsync(bool forceRefresh, CancellationToken cancellationToken) =>
             Task.FromResult(snapshot);
+
+        public Task<EnvironmentHealthSnapshot> LoadCachedAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(snapshot);
     }
 }

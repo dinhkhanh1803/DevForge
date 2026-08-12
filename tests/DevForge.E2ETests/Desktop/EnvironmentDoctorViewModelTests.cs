@@ -82,6 +82,12 @@ public sealed class EnvironmentDoctorViewModelTests
             ForceRefreshCalls.Add(forceRefresh);
             return Task.FromResult(Snapshot);
         }
+
+        public Task<EnvironmentHealthSnapshot> LoadCachedAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(Snapshot);
+        }
     }
 
     private sealed class FakeClipboardService : IClipboardService
