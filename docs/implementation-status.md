@@ -1,8 +1,16 @@
 # DevForge Studio Implementation Status
 
-**Current milestone:** M6 - Desktop Shell, Settings, and Environment Doctor
-**Status:** M0-M6 complete and verified; M7 is recommended next
-**Last updated:** 2026-08-12
+**Current milestone:** M7 - Dynamic Create Project, Plan Preview, Execution Center, and Completed UX
+**Status:** M0-M6 complete and verified; M7 design/plan approved and implementation active
+**Last updated:** 2026-08-13
+
+## Current M7 scope
+
+The approved design is `docs/superpowers/specs/2026-08-13-m7-create-execute-ux-design.md` and the executable TDD plan is `docs/superpowers/plans/2026-08-13-m7-create-execute-ux.md`. M7 is limited to the reviewed-plan WPF workflow over the existing M4 catalog/planner and M5 orchestration/recovery boundaries.
+
+The recommended four-stage flow is Configure -> Review Plan -> Execute -> LocalReady. Git/GitHub controls remain disabled until M8; M7 never labels `LocalReady` as Domain `Completed`. Blueprint Catalog is a presentation of the existing catalog only. A temporary E2E fixture proves no-terminal generation without becoming a production blueprint; the three MVP production blueprints remain M9.
+
+Before implementation, the planned boundary requires all target operations through guarded workspace ports, all execution through `IExecutionOrchestrator`/`IRunRecoveryService`, exact schema-driven input kinds, explicit plan invalidation after edits, bounded redacted progress, privacy-safe presets, and read-only safe-mode refusal. M7 is not complete until its full exit gate is recorded below this section.
 
 ## Current M6 scope
 
