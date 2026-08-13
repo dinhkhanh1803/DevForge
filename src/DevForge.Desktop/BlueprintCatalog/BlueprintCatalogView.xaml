@@ -1,0 +1,38 @@
+<UserControl x:Class="DevForge.Desktop.BlueprintCatalog.BlueprintCatalogView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             AutomationProperties.Name="Blueprint Catalog">
+    <Grid Margin="{StaticResource Page.Padding}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <DockPanel>
+            <Button DockPanel.Dock="Right" Content="Refresh" Command="{Binding RefreshCommand}" />
+            <TextBlock Style="{StaticResource PageHeading}" Text="Blueprint Catalog" />
+        </DockPanel>
+        <ListBox Grid.Row="1" Margin="0,16,0,0" ItemsSource="{Binding Items}"
+                 VirtualizingStackPanel.IsVirtualizing="True">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Grid Margin="0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="{Binding Id}" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding Version}" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" Text="{Binding TrustLabel}" />
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="{Binding Issue}" TextWrapping="Wrap" />
+                            <Button Content="Create" IsEnabled="{Binding CanCreate}" />
+                        </StackPanel>
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </Grid>
+</UserControl>
