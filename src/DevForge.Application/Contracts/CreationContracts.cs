@@ -485,6 +485,56 @@ public sealed class ProjectCreationPlanSnapshot
         AddRequired(target, "creation.plan.target.required", "target", issues);
         AddRequired(recipe, "creation.plan.recipe.required", "recipe", issues);
         AddRequired(plannedProject, "creation.plan.project.required", "plannedProject", issues);
+        if (draft is not null && target is not null)
+        {
+            var root = WorkspaceRoot.Create(draft.RootPath);
+            var directory = WorkspaceRelativePath.Create(draft.OutputFolder);
+            if (!root.IsValid
+                || !directory.IsValid
+                || !root.Value.Equals(target.ParentRoot)
+                || !directory.Value.Equals(target.TargetDirectory))
+            {
+                issues.Add(new ValidationIssue(
+                    "creation.plan.target.mismatch",
+                    "The reviewed target does not match the creation draft.",
+                    "target"));
+            }
+        }
+
+        if (draft is not null && recipe is not null
+            && (!StringComparer.Ordinal.Equals(draft.Name.Trim(), recipe.Name)
+                || !StringComparer.Ordinal.Equals(draft.Blueprint.Id, recipe.BlueprintId)
+                || !StringComparer.Ordinal.Equals(draft.Blueprint.Version, recipe.BlueprintVersion)))
+        {
+            issues.Add(new ValidationIssue(
+                "creation.plan.recipe.mismatch",
+                "The project recipe does not match the creation draft.",
+                "recipe"));
+        }
+
+        if (draft is not null && plannedProject is not null
+            && (!StringComparer.Ordinal.Equals(
+                    draft.Blueprint.Id,
+                    plannedProject.Preview.Blueprint.Id)
+                || !StringComparer.Ordinal.Equals(
+                    draft.Blueprint.Version,
+                    plannedProject.Preview.Blueprint.Version)))
+        {
+            issues.Add(new ValidationIssue(
+                "creation.plan.blueprint.mismatch",
+                "The planned blueprint identity does not match the creation draft.",
+                "plannedProject.preview.blueprint"));
+        }
+
+        if (plannedProject is not null
+            && (plannedProject.Preview.Git.InitializeRepository
+                || plannedProject.Preview.Git.PublishToGitHub))
+        {
+            issues.Add(new ValidationIssue(
+                "creation.plan.git.not-disabled",
+                "M7 project creation plans must keep Git and GitHub disabled.",
+                "plannedProject.preview.git"));
+        }
         ValidateIdentity(runId, "run-", "creation.plan.run-id.invalid", "runId", issues);
         ValidateIdentity(recipeId, "recipe-", "creation.plan.recipe-id.invalid", "recipeId", issues);
         if (createdAtUtc == default || createdAtUtc.Offset != TimeSpan.Zero)
@@ -669,7 +719,7 @@ public interface IProjectCreationWorkflow
         ProjectCreationDraft draft,
         CancellationToken cancellationToken);
 
-    Task<ProjectCreationExecutionSnapshot> ExecuteAsync(
+    Task<ValidationResult<ProjectCreationExecutionSnapshot>> ExecuteAsync(
         ProjectCreationPlanSnapshot plan,
         IProgress<ExecutionProgressLine>? progress,
         CancellationToken cancellationToken);
