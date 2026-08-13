@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using DevForge.Application.Contracts;
 using DevForge.Blueprints.Abstractions.Models;
 using DevForge.Desktop.CreateProject;
+using DevForge.Desktop.Execution;
 using DevForge.Domain.Validation;
 
 namespace DevForge.E2ETests.Desktop;
@@ -48,13 +49,11 @@ public sealed class CreateProjectViewModelTests
     public async Task ConfigureLoadsCatalogAndSubmitsGuardedDraft()
     {
         var workflow = new StubWorkflow(CreateBlueprint());
-        var sut = new CreateProjectViewModel(workflow)
-        {
-            Name = "Sample",
-            RootPath = "C:\\Projects",
-            OutputFolder = "sample",
-            IdeId = "none",
-        };
+        var sut = CreateViewModel(workflow);
+        sut.Name = "Sample";
+        sut.RootPath = "C:\\Projects";
+        sut.OutputFolder = "sample";
+        sut.IdeId = "none";
 
         await sut.LoadAsync(CancellationToken.None);
         await sut.ReviewPlanAsync(CancellationToken.None);
@@ -71,7 +70,7 @@ public sealed class CreateProjectViewModelTests
     public async Task InvalidConfigureFormNeverCallsPlanningWorkflow()
     {
         var workflow = new StubWorkflow(CreateBlueprint());
-        var sut = new CreateProjectViewModel(workflow);
+        var sut = CreateViewModel(workflow);
         await sut.LoadAsync(CancellationToken.None);
 
         await sut.ReviewPlanAsync(CancellationToken.None);
@@ -94,6 +93,13 @@ public sealed class CreateProjectViewModelTests
     {
         return BlueprintInputPropertyDefinition.Create(new BlueprintInputPropertyDraft(
             id, kind, required, defaultValue, allowed, minLength, maxLength, min, max)).Value;
+    }
+
+    private static CreateProjectViewModel CreateViewModel(IProjectCreationWorkflow workflow)
+    {
+        return new CreateProjectViewModel(
+            workflow,
+            new ExecutionSessionCoordinator(workflow, new UnsupportedRecovery()));
     }
 
     private static ResolvedBlueprint CreateBlueprint()
@@ -158,5 +164,13 @@ public sealed class CreateProjectViewModelTests
             [
                 new ValidationIssue("test.execution.unavailable", "Test execution unavailable.", "execution"),
             ]));
+    }
+
+    private sealed class UnsupportedRecovery : IRunRecoveryService
+    {
+        public Task<ExecutionOperationResult<RunRecoveryBatch>> RecoverInterruptedAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<ExecutionOperationResult<RunCheckpoint>> NormalizeInterruptedAsync(RunCheckpoint checkpoint, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<ExecutionOperationResult<RunCheckpoint>> ResumeAsync(ExecutionRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<ExecutionOperationResult<StagingCleanupReceipt>> CleanupAsync(RunCheckpoint checkpoint, IWorkspaceFileSystem targetParentWorkspace, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 }

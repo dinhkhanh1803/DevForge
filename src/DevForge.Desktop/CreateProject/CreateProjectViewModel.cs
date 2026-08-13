@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DevForge.Application.Contracts;
 using DevForge.Blueprints.Abstractions.Models;
+using DevForge.Desktop.Execution;
 using DevForge.Domain.Validation;
 
 namespace DevForge.Desktop.CreateProject;
@@ -11,6 +12,7 @@ namespace DevForge.Desktop.CreateProject;
 public sealed partial class CreateProjectViewModel : ObservableObject
 {
     private readonly IProjectCreationWorkflow _workflow;
+    private readonly ExecutionSessionCoordinator _execution;
 
     [ObservableProperty]
     private string? _name;
@@ -45,9 +47,12 @@ public sealed partial class CreateProjectViewModel : ObservableObject
     [ObservableProperty]
     private bool _isBusy;
 
-    public CreateProjectViewModel(IProjectCreationWorkflow workflow)
+    public CreateProjectViewModel(
+        IProjectCreationWorkflow workflow,
+        ExecutionSessionCoordinator execution)
     {
         _workflow = workflow ?? throw new ArgumentNullException(nameof(workflow));
+        _execution = execution ?? throw new ArgumentNullException(nameof(execution));
         LoadCommand = new AsyncRelayCommand(LoadAsync, () => !IsBusy);
         ReviewPlanCommand = new AsyncRelayCommand(ReviewPlanAsync, () => !IsBusy);
     }
@@ -207,9 +212,8 @@ public sealed partial class CreateProjectViewModel : ObservableObject
         ProjectCreationPlanSnapshot plan,
         CancellationToken cancellationToken)
     {
-        var result = await _workflow.ExecuteAsync(
+        var result = await _execution.ExecuteAsync(
             plan,
-            progress: null,
             cancellationToken).ConfigureAwait(true);
         if (!result.IsValid)
         {

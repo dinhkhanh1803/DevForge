@@ -1,6 +1,7 @@
 using DevForge.Application.Contracts;
 using DevForge.Blueprints.Abstractions.Models;
 using DevForge.Desktop.CreateProject;
+using DevForge.Desktop.Execution;
 using DevForge.Domain.Execution;
 using DevForge.Domain.Privacy;
 using DevForge.Domain.Projects;
@@ -51,7 +52,9 @@ public sealed class PlanPreviewViewModelTests
     public void EditingConfigureStateClearsReviewedPlan()
     {
         var workflow = new NoOpWorkflow();
-        var sut = new CreateProjectViewModel(workflow)
+        var sut = new CreateProjectViewModel(
+            workflow,
+            new ExecutionSessionCoordinator(workflow, new UnsupportedRecovery()))
         {
             ReviewedPlan = CreateSnapshot(),
             Stage = ProjectCreationStage.ReviewPlan,
@@ -147,5 +150,13 @@ public sealed class PlanPreviewViewModelTests
             ProjectCreationPlanSnapshot plan,
             IProgress<ExecutionProgressLine>? progress,
             CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+
+    private sealed class UnsupportedRecovery : IRunRecoveryService
+    {
+        public Task<ExecutionOperationResult<RunRecoveryBatch>> RecoverInterruptedAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<ExecutionOperationResult<RunCheckpoint>> NormalizeInterruptedAsync(RunCheckpoint checkpoint, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<ExecutionOperationResult<RunCheckpoint>> ResumeAsync(ExecutionRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<ExecutionOperationResult<StagingCleanupReceipt>> CleanupAsync(RunCheckpoint checkpoint, IWorkspaceFileSystem targetParentWorkspace, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 }
