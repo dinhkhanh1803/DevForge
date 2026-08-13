@@ -631,7 +631,7 @@ public sealed class ProjectCreationPresetDraft
         return ValidationResult.Success(new ProjectCreationPresetDraft(
             draft.Value.Blueprint,
             draft.Value.Inputs,
-            draft.Value.Features,
+            [.. draft.Value.Features.Order(StringComparer.Ordinal)],
             draft.Value.IdeId));
     }
 }
