@@ -89,12 +89,93 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
-            <Button Style="{StaticResource PrimaryButton}"
-                    HorizontalAlignment="Right"
+            <Button HorizontalAlignment="Right"
                     Margin="0,16,0,0"
                     Content="Review Plan"
                     Command="{Binding ReviewPlanCommand}"
-                    AutomationProperties.Name="Review Plan" />
+                    AutomationProperties.Name="Review Plan">
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding PlanPreview}" Value="{x:Null}">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+
+            <Border Margin="0,24,0,0">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource Card}">
+                        <Setter Property="Visibility" Value="Visible" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding PlanPreview}" Value="{x:Null}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel DataContext="{Binding PlanPreview}">
+                    <TextBlock Style="{StaticResource PageHeading}" Text="Review Plan" />
+                    <TextBlock Text="{Binding BlueprintLabel}" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding TrustLabel, StringFormat=Trust: {0}}" />
+                    <TextBlock Text="{Binding PlanHash, StringFormat=Plan hash: {0}}"
+                               TextWrapping="Wrap" />
+                    <TextBlock Text="Git initialization: disabled" Margin="0,8,0,0" />
+
+                    <TextBlock Style="{StaticResource SectionHeading}" Text="Artifacts" Margin="0,16,0,4" />
+                    <ListBox ItemsSource="{Binding Artifacts}" DisplayMemberPath="Path"
+                             VirtualizingStackPanel.IsVirtualizing="True" />
+                    <TextBlock Style="{StaticResource SectionHeading}" Text="Dependencies" Margin="0,16,0,4" />
+                    <ListBox ItemsSource="{Binding Dependencies}" DisplayMemberPath="Id"
+                             VirtualizingStackPanel.IsVirtualizing="True" />
+                    <TextBlock Style="{StaticResource SectionHeading}" Text="Tools" Margin="0,16,0,4" />
+                    <ListBox ItemsSource="{Binding Tools}" DisplayMemberPath="Id"
+                             VirtualizingStackPanel.IsVirtualizing="True" />
+                    <TextBlock Style="{StaticResource SectionHeading}" Text="Steps" Margin="0,16,0,4" />
+                    <ListBox ItemsSource="{Binding Steps}"
+                             VirtualizingStackPanel.IsVirtualizing="True">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Id}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding HandlerId}" />
+                                    <TextBlock Text="{Binding ProcessPreview}" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <TextBlock Style="{StaticResource SectionHeading}" Text="Validators" Margin="0,16,0,4" />
+                    <ListBox ItemsSource="{Binding Validators}" DisplayMemberPath="Id"
+                             VirtualizingStackPanel.IsVirtualizing="True" />
+                    <TextBlock Style="{StaticResource SectionHeading}" Text="Effective inputs" Margin="0,16,0,4" />
+                    <ListBox ItemsSource="{Binding Inputs}"
+                             VirtualizingStackPanel.IsVirtualizing="True">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock>
+                                    <Run Text="{Binding Id}" FontWeight="SemiBold" />
+                                    <Run Text=": " />
+                                    <Run Text="{Binding DisplayValue}" />
+                                </TextBlock>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <TextBlock Style="{StaticResource SectionHeading}" Text="Features and warnings" Margin="0,16,0,4" />
+                    <ItemsControl ItemsSource="{Binding Features}" />
+                    <ItemsControl ItemsSource="{Binding Warnings}" DisplayMemberPath="Message" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+                        <Button Content="Back" Margin="0,0,8,0"
+                                Command="{Binding BackToConfigureCommand}" />
+                        <Button Style="{StaticResource PrimaryButton}"
+                                Content="Create &amp; Validate"
+                                Command="{Binding CreateAndValidateCommand}"
+                                AutomationProperties.Name="Create and Validate" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

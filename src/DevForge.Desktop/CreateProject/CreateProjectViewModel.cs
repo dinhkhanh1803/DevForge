@@ -34,6 +34,12 @@ public sealed partial class CreateProjectViewModel : ObservableObject
     private ProjectCreationPlanSnapshot? _reviewedPlan;
 
     [ObservableProperty]
+    private PlanPreviewViewModel? _planPreview;
+
+    [ObservableProperty]
+    private ProjectCreationExecutionSnapshot? _executionSnapshot;
+
+    [ObservableProperty]
     private ImmutableArray<ValidationIssue> _validationIssues = [];
 
     [ObservableProperty]
@@ -144,6 +150,10 @@ public sealed partial class CreateProjectViewModel : ObservableObject
             }
 
             ReviewedPlan = planned.Value;
+            PlanPreview = new PlanPreviewViewModel(
+                planned.Value,
+                ExecuteReviewedPlanAsync,
+                BackToConfigure);
             ValidationIssues = [];
             Stage = ProjectCreationStage.ReviewPlan;
         }
@@ -187,8 +197,36 @@ public sealed partial class CreateProjectViewModel : ObservableObject
     private void InvalidatePlan()
     {
         ReviewedPlan = null;
+        PlanPreview = null;
+        ExecutionSnapshot = null;
         ValidationIssues = [];
         Stage = ProjectCreationStage.Configure;
+    }
+
+    private async Task ExecuteReviewedPlanAsync(
+        ProjectCreationPlanSnapshot plan,
+        CancellationToken cancellationToken)
+    {
+        var result = await _workflow.ExecuteAsync(
+            plan,
+            progress: null,
+            cancellationToken).ConfigureAwait(true);
+        if (!result.IsValid)
+        {
+            ValidationIssues = result.Issues;
+            return;
+        }
+
+        ExecutionSnapshot = result.Value;
+        ValidationIssues = [];
+        Stage = result.Value.Checkpoint.Run.Status == DevForge.Domain.Runs.RunStatus.LocalReady
+            ? ProjectCreationStage.LocalReady
+            : ProjectCreationStage.Execute;
+    }
+
+    private void BackToConfigure()
+    {
+        InvalidatePlan();
     }
 
     private void SetBusy(bool value)
