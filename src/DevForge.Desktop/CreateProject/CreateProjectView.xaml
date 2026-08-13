@@ -1,0 +1,100 @@
+<UserControl x:Class="DevForge.Desktop.CreateProject.CreateProjectView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:blueprints="clr-namespace:DevForge.Blueprints.Abstractions.Models;assembly=DevForge.Blueprints.Abstractions"
+             AutomationProperties.Name="Create Project">
+    <UserControl.Resources>
+        <DataTemplate x:Key="TextInputTemplate">
+            <TextBox Text="{Binding TextValue, UpdateSourceTrigger=PropertyChanged}"
+                     AutomationProperties.Name="{Binding Id}" />
+        </DataTemplate>
+        <DataTemplate x:Key="ChoiceInputTemplate">
+            <ComboBox ItemsSource="{Binding AllowedValues}"
+                      SelectedItem="{Binding TextValue, UpdateSourceTrigger=PropertyChanged}"
+                      AutomationProperties.Name="{Binding Id}" />
+        </DataTemplate>
+        <DataTemplate x:Key="BooleanInputTemplate">
+            <CheckBox IsChecked="{Binding BooleanValue}"
+                      Content="Enabled"
+                      AutomationProperties.Name="{Binding Id}" />
+        </DataTemplate>
+        <DataTemplate x:Key="WholeNumberInputTemplate">
+            <TextBox Text="{Binding WholeNumberValue, UpdateSourceTrigger=PropertyChanged}"
+                     AutomationProperties.Name="{Binding Id}" />
+        </DataTemplate>
+    </UserControl.Resources>
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="{StaticResource Page.Padding}" MaxWidth="840" HorizontalAlignment="Left">
+            <TextBlock Style="{StaticResource PageHeading}" Text="Create Project" />
+            <TextBlock Margin="0,0,0,20"
+                       Foreground="{DynamicResource Brush.MutedForeground}"
+                       Text="Configure a trusted blueprint, then review the exact plan before execution." />
+
+            <TextBlock Style="{StaticResource SectionHeading}" Text="Project" />
+            <TextBlock Text="Project name" />
+            <TextBox Margin="0,4,0,12" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
+            <TextBlock Text="Parent folder" />
+            <TextBox Margin="0,4,0,12" Text="{Binding RootPath, UpdateSourceTrigger=PropertyChanged}" />
+            <TextBlock Text="Output folder" />
+            <TextBox Margin="0,4,0,12" Text="{Binding OutputFolder, UpdateSourceTrigger=PropertyChanged}" />
+            <TextBlock Text="Blueprint" />
+            <ComboBox Margin="0,4,0,12"
+                      ItemsSource="{Binding Blueprints}"
+                      SelectedItem="{Binding SelectedBlueprint}"
+                      DisplayMemberPath="Manifest.Id" />
+
+            <TextBlock Style="{StaticResource SectionHeading}" Text="Blueprint options" />
+            <ItemsControl ItemsSource="{Binding Inputs}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Margin="0,0,0,12">
+                            <TextBlock Text="{Binding Id}" FontWeight="SemiBold" />
+                            <ContentControl Content="{Binding}">
+                                <ContentControl.Style>
+                                    <Style TargetType="ContentControl">
+                                        <Setter Property="ContentTemplate" Value="{StaticResource TextInputTemplate}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Kind}" Value="{x:Static blueprints:BlueprintInputKind.Choice}">
+                                                <Setter Property="ContentTemplate" Value="{StaticResource ChoiceInputTemplate}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Kind}" Value="{x:Static blueprints:BlueprintInputKind.Boolean}">
+                                                <Setter Property="ContentTemplate" Value="{StaticResource BooleanInputTemplate}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Kind}" Value="{x:Static blueprints:BlueprintInputKind.WholeNumber}">
+                                                <Setter Property="ContentTemplate" Value="{StaticResource WholeNumberInputTemplate}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ContentControl.Style>
+                            </ContentControl>
+                            <TextBlock Foreground="#FFD13438"
+                                       Text="{Binding ValidationMessage}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <TextBlock Text="Open after generation" />
+            <ComboBox Margin="0,4,0,12"
+                      ItemsSource="{Binding IdeChoices}"
+                      SelectedItem="{Binding IdeId}" />
+            <ItemsControl ItemsSource="{Binding ValidationIssues}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Foreground="#FFD13438"
+                                   Text="{Binding Message}"
+                                   TextWrapping="Wrap" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Button Style="{StaticResource PrimaryButton}"
+                    HorizontalAlignment="Right"
+                    Margin="0,16,0,0"
+                    Content="Review Plan"
+                    Command="{Binding ReviewPlanCommand}"
+                    AutomationProperties.Name="Review Plan" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -1,12 +1,14 @@
 using System.Runtime.ExceptionServices;
 using System.Windows;
 using System.Windows.Controls;
+using DevForge.Desktop.CreateProject;
 using DevForge.Desktop.Dashboard;
 using DevForge.Desktop.EnvironmentDoctor;
 using DevForge.Desktop.Settings;
 
 namespace DevForge.E2ETests.Desktop;
 
+[Collection(WpfUiTestGroup.Name)]
 public sealed class WpfResourceSmokeTests
 {
     [Fact]
@@ -29,8 +31,21 @@ public sealed class WpfResourceSmokeTests
                 new DashboardView(),
                 new SettingsView(),
                 new EnvironmentDoctorView(),
+                new CreateProjectView(),
                 new DevForge.Desktop.MainWindow(),
             ];
+
+            var createProject = Assert.IsType<CreateProjectView>(views[3]);
+            string[] inputTemplateKeys =
+            [
+                "TextInputTemplate",
+                "ChoiceInputTemplate",
+                "BooleanInputTemplate",
+                "WholeNumberInputTemplate",
+            ];
+            Assert.All(
+                inputTemplateKeys,
+                key => Assert.IsType<DataTemplate>(createProject.Resources[key]));
 
             Size[] dpiEquivalentConstraints =
             {
