@@ -82,7 +82,8 @@ public sealed class GitHubPublishRequest
         string initialCommitId,
         ImmutableArray<string> branches,
         bool isPrivate,
-        string ownershipNonce)
+        string ownershipNonce,
+        string finalTreeDigest)
     {
         Workspace = workspace;
         Repository = repository;
@@ -91,6 +92,7 @@ public sealed class GitHubPublishRequest
         Branches = branches;
         IsPrivate = isPrivate;
         OwnershipNonce = ownershipNonce;
+        FinalTreeDigest = finalTreeDigest;
     }
 
     public IWorkspaceFileSystem Workspace { get; }
@@ -107,6 +109,8 @@ public sealed class GitHubPublishRequest
 
     public string OwnershipNonce { get; }
 
+    public string FinalTreeDigest { get; }
+
     public static ValidationResult<GitHubPublishRequest> Create(
         IWorkspaceFileSystem? workspace,
         GitHubRepositoryIdentity? repository,
@@ -114,7 +118,8 @@ public sealed class GitHubPublishRequest
         string? initialCommitId,
         IEnumerable<string?>? branches,
         bool isPrivate,
-        string? ownershipNonce)
+        string? ownershipNonce,
+        string? finalTreeDigest)
     {
         var snapshot = PublicationSnapshot.SnapshotBranches(branches, out var branchesOverflow);
         var issues = new List<ValidationIssue>();
@@ -166,6 +171,14 @@ public sealed class GitHubPublishRequest
                 "ownershipNonce"));
         }
 
+        if (!ExecutionContractValidation.IsCanonicalDigest(finalTreeDigest))
+        {
+            issues.Add(new ValidationIssue(
+                "github.final-tree-digest.invalid",
+                "A canonical final-tree digest is required for GitHub publication.",
+                "finalTreeDigest"));
+        }
+
         return issues.Count == 0
             ? ValidationResult.Success(new GitHubPublishRequest(
                 workspace!,
@@ -174,7 +187,8 @@ public sealed class GitHubPublishRequest
                 initialCommitId!,
                 [.. snapshot.Select(item => item!)],
                 isPrivate,
-                ownershipNonce!))
+                ownershipNonce!,
+                finalTreeDigest!))
             : ValidationResult.Failure<GitHubPublishRequest>(issues);
     }
 }

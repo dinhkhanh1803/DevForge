@@ -40,3 +40,13 @@ M8 exits only after the reviewed Git intent is hash-bound; Git is clean with the
 **Task 3 exit:** focused Git security/recovery tests, the real local Git integration matrix, affected finalizer/process/DI regressions, format, Release build, full solution tests, EF consistency, and diff checks pass before a scoped local commit. No push.
 
 **Completion:** implemented and independently approved on 2026-08-14. The next bounded slice is Task 4, the production GitHub CLI service; no GitHub behavior is included in Task 3.
+
+## Task 4 execution boundary
+
+**Scope:** production GitHub CLI only. Implement `Infrastructure/GitHub` behind the existing `IGitHubService`, extend the closed local Git command vocabulary only for exact `origin` inspection/addition and ordinary required-branch pushes, and register the service in Desktop composition. Publication checkpoint orchestration, WPF controls, receipt writing, production blueprints, and real remote creation remain out of scope.
+
+**Expected files:** `src/DevForge.Infrastructure/GitHub/*`, narrowly scoped typed additions to `Infrastructure/Git/GitCommandFactory`, `DesktopHostBuilder`, deterministic Integration tests, and DI regression tests.
+
+**TDD matrix:** fixed `github.com` auth/account verification; minimal typed environment containing no token; strict bounded output/JSON/ref parsing; private default and exact public opt-in; ownership nonce marker in atomic create; exact personal owner/name/visibility/HTTPS URL; empty/partial/complete nonce-owned remote recovery; exact local `origin`; ordinary non-force push of missing branches; missing/mismatched nonce, organization/fork/archive, unexpected refs/commits/origin, auth/network/timeout/cancellation, injection strings, and forbidden token/force/delete/switch/login operations.
+
+**Task 4 exit:** focused GitHub command/auth/recovery tests, affected Git/DI regressions, format, locked restore, Release build, full solution tests, EF consistency, diff checks, and independent review pass before a scoped local commit. Tests use a deterministic runner and never contact GitHub. No push.

@@ -63,7 +63,7 @@ public sealed class LocalGitService(
                 cancellationToken).ConfigureAwait(false);
         }
 
-        await VerifyRepositoryMetadataAsync(request.Workspace, cancellationToken)
+        await VerifyRepositoryMetadataAsync(request.Workspace, expectedOriginUrl: null, cancellationToken)
             .ConfigureAwait(false);
         var head = await ReadHeadAsync(
             request.Workspace,
@@ -109,6 +109,7 @@ public sealed class LocalGitService(
             request.FinalTreeDigest,
             request.BranchPolicy,
             allowIncompleteBranches: true,
+            expectedOriginUrl: null,
             cancellationToken).ConfigureAwait(false);
         var branchHeads = await ReadBranchHeadsAsync(request.Workspace, cancellationToken)
             .ConfigureAwait(false);
@@ -138,6 +139,7 @@ public sealed class LocalGitService(
             request.FinalTreeDigest,
             request.BranchPolicy,
             allowIncompleteBranches: false,
+            expectedOriginUrl: null,
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -158,7 +160,10 @@ public sealed class LocalGitService(
             throw UnsafeRepository();
         }
 
-        await VerifyRepositoryMetadataAsync(request.Workspace, cancellationToken)
+        await VerifyRepositoryMetadataAsync(
+                request.Workspace,
+                request.ExpectedOriginUrl,
+                cancellationToken)
             .ConfigureAwait(false);
         var head = await ReadHeadAsync(
             request.Workspace,
@@ -175,6 +180,7 @@ public sealed class LocalGitService(
             request.FinalTreeDigest,
             request.BranchPolicy,
             allowIncompleteBranches: false,
+            request.ExpectedOriginUrl,
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -184,6 +190,7 @@ public sealed class LocalGitService(
         string finalTreeDigest,
         GitBranchPolicy branchPolicy,
         bool allowIncompleteBranches,
+        string? expectedOriginUrl,
         CancellationToken cancellationToken)
     {
         if (!PublicationSnapshot.IsObjectId(head))
@@ -191,7 +198,8 @@ public sealed class LocalGitService(
             throw UnsafeRepository();
         }
 
-        await VerifyRepositoryMetadataAsync(workspace, cancellationToken).ConfigureAwait(false);
+        await VerifyRepositoryMetadataAsync(workspace, expectedOriginUrl, cancellationToken)
+            .ConfigureAwait(false);
         var projectTree = await CaptureAndScanAsync(
             workspace,
             finalTreeDigest,
@@ -260,6 +268,35 @@ public sealed class LocalGitService(
             throw UnsafeRepository();
         }
 
+        var remotes = await ReadLinesAsync(
+            GitCommandFactory.Remotes(workspace),
+            cancellationToken).ConfigureAwait(false);
+        if (expectedOriginUrl is null)
+        {
+            if (remotes.Length != 0)
+            {
+                throw UnsafeRepository();
+            }
+        }
+        else
+        {
+            var origin = await ReadLinesAsync(
+                GitCommandFactory.OriginUrl(workspace),
+                cancellationToken).ConfigureAwait(false);
+            var pushOrigin = await ReadLinesAsync(
+                GitCommandFactory.PushOriginUrl(workspace),
+                cancellationToken).ConfigureAwait(false);
+            if (remotes.Length != 1
+                || !StringComparer.Ordinal.Equals(remotes[0], "origin")
+                || origin.Length != 1
+                || pushOrigin.Length != 1
+                || !StringComparer.Ordinal.Equals(origin[0], expectedOriginUrl)
+                || !StringComparer.Ordinal.Equals(pushOrigin[0], expectedOriginUrl))
+            {
+                throw UnsafeRepository();
+            }
+        }
+
         var receiptBranches = allowIncompleteBranches && !branchHeads.ContainsKey("develop")
             ? new[] { "main" }
             : allowed;
@@ -325,6 +362,7 @@ public sealed class LocalGitService(
 
     private static async Task VerifyRepositoryMetadataAsync(
         IWorkspaceFileSystem workspace,
+        string? expectedOriginUrl,
         CancellationToken cancellationToken)
     {
         if (workspace is not IBoundedWorkspaceEnumerator bounded)
@@ -388,7 +426,7 @@ public sealed class LocalGitService(
             _gitConfig,
             MaximumGitConfigBytes,
             cancellationToken).ConfigureAwait(false);
-        ValidateLocalConfig(config);
+        ValidateLocalConfig(config, expectedOriginUrl);
     }
 
     private static async Task<ImmutableHashSet<string>> ReadLooseObjectIdsAsync(
@@ -596,7 +634,7 @@ public sealed class LocalGitService(
                 character is >= '0' and <= '9' or >= 'a' and <= 'f');
     }
 
-    private static void ValidateLocalConfig(string content)
+    private static void ValidateLocalConfig(string content, string? expectedOriginUrl)
     {
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         string? section = null;
@@ -610,8 +648,13 @@ public sealed class LocalGitService(
 
             if (line.StartsWith('[') && line.EndsWith(']'))
             {
-                section = line[1..^1].Trim();
-                if (!section.Equals("core", StringComparison.OrdinalIgnoreCase))
+                var parsedSection = line[1..^1].Trim();
+                section = parsedSection.Equals("core", StringComparison.OrdinalIgnoreCase)
+                    ? "core"
+                    : parsedSection.Equals("remote \"origin\"", StringComparison.OrdinalIgnoreCase)
+                        ? "remote.origin"
+                        : null;
+                if (section is null)
                 {
                     throw UnsafeRepository();
                 }
@@ -619,14 +662,14 @@ public sealed class LocalGitService(
             }
 
             var equals = line.IndexOf('=');
-            if (!StringComparer.OrdinalIgnoreCase.Equals(section, "core") || equals <= 0)
+            if (section is null || equals <= 0)
             {
                 throw UnsafeRepository();
             }
 
             var key = line[..equals].Trim();
             var value = line[(equals + 1)..].Trim();
-            if (!values.TryAdd(key, value))
+            if (!values.TryAdd(section + "." + key, value))
             {
                 throw UnsafeRepository();
             }
@@ -634,17 +677,26 @@ public sealed class LocalGitService(
 
         var required = new Dictionary<string, Func<string, bool>>(StringComparer.OrdinalIgnoreCase)
         {
-            ["repositoryformatversion"] = value => value == "0",
-            ["filemode"] = IsBoolean,
-            ["bare"] = value => value.Equals("false", StringComparison.OrdinalIgnoreCase),
-            ["logallrefupdates"] = value => value.Equals("true", StringComparison.OrdinalIgnoreCase),
-            ["symlinks"] = IsBoolean,
-            ["ignorecase"] = IsBoolean,
+            ["core.repositoryformatversion"] = value => value == "0",
+            ["core.filemode"] = IsBoolean,
+            ["core.bare"] = value => value.Equals("false", StringComparison.OrdinalIgnoreCase),
+            ["core.logallrefupdates"] = value => value.Equals("true", StringComparison.OrdinalIgnoreCase),
+            ["core.symlinks"] = IsBoolean,
+            ["core.ignorecase"] = IsBoolean,
         };
         var mandatory = new[]
         {
-            "repositoryformatversion", "filemode", "bare", "logallrefupdates",
+            "core.repositoryformatversion", "core.filemode", "core.bare", "core.logallrefupdates",
         };
+        if (expectedOriginUrl is not null)
+        {
+            required["remote.origin.url"] = value =>
+                StringComparer.Ordinal.Equals(value, expectedOriginUrl);
+            required["remote.origin.fetch"] = value => StringComparer.Ordinal.Equals(
+                value,
+                "+refs/heads/*:refs/remotes/origin/*");
+            mandatory = [.. mandatory, "remote.origin.url", "remote.origin.fetch"];
+        }
         if (values.Any(pair => !required.TryGetValue(pair.Key, out var validator)
                 || !validator(pair.Value))
             || mandatory.Any(key => !values.ContainsKey(key)))

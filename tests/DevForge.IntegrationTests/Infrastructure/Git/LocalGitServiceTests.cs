@@ -47,6 +47,37 @@ public sealed class LocalGitServiceTests
         Assert.Equal(GitCommandFactory.AuthorEmail, await fixture.ReadCommitAuthorEmailAsync());
     }
 
+    [Fact]
+    public async Task VerificationAcceptsOnlyTheExplicitCanonicalOrigin()
+    {
+        await using var fixture = await GitFixture.CreateAsync();
+        await fixture.WriteAsync("README.md", "# Remote\n");
+        var bootstrap = await fixture.CreateBootstrapRequestAsync(GitBranchPolicy.Main);
+        var receipt = await fixture.Service.BootstrapAsync(bootstrap, CancellationToken.None);
+        const string origin = "https://github.com/octocat/devforge.git";
+        await fixture.RunAsync(GitCommandFactory.AddOrigin(fixture.Workspace, origin));
+
+        var verified = await fixture.Service.VerifyAsync(
+            GitVerificationRequest.Create(
+                fixture.Workspace,
+                GitBranchPolicy.Main,
+                bootstrap.FinalTreeDigest,
+                receipt.InitialCommitId,
+                origin).Value,
+            CancellationToken.None);
+        var absentExpectation = await Assert.ThrowsAsync<InfrastructureOperationException>(() =>
+            fixture.Service.VerifyAsync(
+                GitVerificationRequest.Create(
+                    fixture.Workspace,
+                    GitBranchPolicy.Main,
+                    bootstrap.FinalTreeDigest,
+                    receipt.InitialCommitId).Value,
+                CancellationToken.None));
+
+        Assert.Equal(receipt.InitialCommitId, verified.InitialCommitId);
+        Assert.Equal("DF-GIT-001", absentExpectation.Code);
+    }
+
     [Theory]
     [InlineData("init")]
     [InlineData("add")]

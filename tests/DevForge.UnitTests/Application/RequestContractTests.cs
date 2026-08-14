@@ -60,6 +60,7 @@ public sealed class RequestContractTests
                 null,
                 null,
                 isPrivate: true,
+                null,
                 null).IsValid);
         Assert.False(IdeLaunchRequest.Create(null, null).IsValid);
     }

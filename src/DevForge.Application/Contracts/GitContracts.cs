@@ -41,12 +41,14 @@ public sealed class GitVerificationRequest
         IWorkspaceFileSystem workspace,
         GitBranchPolicy branchPolicy,
         string finalTreeDigest,
-        string initialCommitId)
+        string initialCommitId,
+        string? expectedOriginUrl)
     {
         Workspace = workspace;
         BranchPolicy = branchPolicy;
         FinalTreeDigest = finalTreeDigest;
         InitialCommitId = initialCommitId;
+        ExpectedOriginUrl = expectedOriginUrl;
     }
 
     public IWorkspaceFileSystem Workspace { get; }
@@ -57,11 +59,14 @@ public sealed class GitVerificationRequest
 
     public string InitialCommitId { get; }
 
+    public string? ExpectedOriginUrl { get; }
+
     public static ValidationResult<GitVerificationRequest> Create(
         IWorkspaceFileSystem? workspace,
         GitBranchPolicy branchPolicy,
         string? finalTreeDigest,
-        string? initialCommitId)
+        string? initialCommitId,
+        string? expectedOriginUrl = null)
     {
         var issues = GitContractValidation.ValidateCommon(workspace, branchPolicy, finalTreeDigest);
         if (!PublicationSnapshot.IsObjectId(initialCommitId))
@@ -72,10 +77,49 @@ public sealed class GitVerificationRequest
                 "initialCommitId"));
         }
 
+        if (expectedOriginUrl is not null && !IsCanonicalGitHubRemote(expectedOriginUrl))
+        {
+            issues.Add(new ValidationIssue(
+                "git.origin-url.invalid",
+                "The expected origin must be a canonical github.com HTTPS remote.",
+                "expectedOriginUrl"));
+        }
+
         return issues.Count == 0
             ? ValidationResult.Success(new GitVerificationRequest(
-                workspace!, branchPolicy, finalTreeDigest!, initialCommitId!))
+                workspace!, branchPolicy, finalTreeDigest!, initialCommitId!, expectedOriginUrl))
             : ValidationResult.Failure<GitVerificationRequest>(issues);
+    }
+
+    private static bool IsCanonicalGitHubRemote(string value)
+    {
+        if (value.Length > 256
+            || !Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            || uri.Scheme != Uri.UriSchemeHttps
+            || uri.Host != "github.com"
+            || !uri.IsDefaultPort
+            || !string.IsNullOrEmpty(uri.UserInfo)
+            || !string.IsNullOrEmpty(uri.Query)
+            || !string.IsNullOrEmpty(uri.Fragment))
+        {
+            return false;
+        }
+
+        var path = uri.AbsolutePath.Trim('/');
+        if (!path.EndsWith(".git", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var segments = path[..^4].Split('/');
+        if (segments.Length != 2)
+        {
+            return false;
+        }
+
+        var identity = GitHubRepositoryIdentity.Create(segments[0], segments[1]);
+        return identity.IsValid
+            && StringComparer.Ordinal.Equals(identity.Value.HttpsRemoteUrl, value);
     }
 }
 

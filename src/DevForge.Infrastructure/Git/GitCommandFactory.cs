@@ -70,19 +70,125 @@ internal static class GitCommandFactory
     public static CommandSpec CreateDevelop(IWorkspaceFileSystem workspace, string commitId) =>
         Create(workspace, ["branch", "develop", commitId]);
 
+    public static CommandSpec Remotes(IWorkspaceFileSystem workspace) =>
+        Create(workspace, ["remote"]);
+
+    public static CommandSpec OriginUrl(
+        IWorkspaceFileSystem workspace,
+        bool allowMissing = false) => Create(
+            workspace,
+            ["remote", "get-url", "origin"],
+            allowMissing ? [0, 2] : [0]);
+
+    public static CommandSpec PushOriginUrl(IWorkspaceFileSystem workspace) => Create(
+        workspace,
+        ["remote", "get-url", "--push", "--all", "origin"]);
+
+    public static CommandSpec AddOrigin(
+        IWorkspaceFileSystem workspace,
+        string remoteUrl) => Create(
+            workspace,
+            ["remote", "add", "origin", remoteUrl]);
+
+    public static CommandSpec PushBranch(
+        IWorkspaceFileSystem workspace,
+        string branch,
+        string commitId,
+        string remoteUrl,
+        SensitiveProcessValue credentialHelperExecutable,
+        SensitiveProcessValue gitHubConfigDirectory)
+    {
+        if (branch is not ("main" or "develop"))
+        {
+            throw new ArgumentOutOfRangeException(nameof(branch));
+        }
+
+        if (!PublicationSnapshot.IsObjectId(commitId))
+        {
+            throw new ArgumentException("A canonical commit identifier is required.", nameof(commitId));
+        }
+
+        if (!Uri.TryCreate(remoteUrl, UriKind.Absolute, out var remote)
+            || remote.Scheme != Uri.UriSchemeHttps
+            || remote.Host != "github.com"
+            || !remote.IsDefaultPort
+            || !string.IsNullOrEmpty(remote.UserInfo)
+            || !string.IsNullOrEmpty(remote.Query)
+            || !string.IsNullOrEmpty(remote.Fragment)
+            || !remote.AbsolutePath.EndsWith(".git", StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "A canonical github.com HTTPS remote is required.",
+                nameof(remoteUrl));
+        }
+
+        ArgumentNullException.ThrowIfNull(credentialHelperExecutable);
+        ArgumentNullException.ThrowIfNull(gitHubConfigDirectory);
+        var helperPath = credentialHelperExecutable.RevealForProcessStart();
+        if (!Path.IsPathFullyQualified(helperPath)
+            || helperPath.StartsWith(@"\\", StringComparison.Ordinal)
+            || !helperPath.EndsWith("gh.exe", StringComparison.OrdinalIgnoreCase)
+            || helperPath.Any(character => !IsSafeHelperPathCharacter(character)))
+        {
+            throw new ArgumentException(
+                "A trusted local GitHub CLI path is required.",
+                nameof(credentialHelperExecutable));
+        }
+
+        var normalizedHelperPath = helperPath.Replace('\\', '/');
+        var normalizedHelperNeedle = SensitiveProcessValue.Create(normalizedHelperPath);
+        if (!normalizedHelperNeedle.IsValid)
+        {
+            throw new ArgumentException(
+                "A trusted local GitHub CLI path is required.",
+                nameof(credentialHelperExecutable));
+        }
+
+        var helper = $"!\"{normalizedHelperPath}\" auth git-credential";
+
+        return Create(
+            workspace,
+            [
+                "push", remoteUrl, $"{commitId}:refs/heads/{branch}",
+            ],
+            timeout: TimeSpan.FromMinutes(2),
+            additionalConfiguration:
+            [
+                "-c", "credential.https://github.com.helper=" + helper,
+                "-c", "credential.https://github.com.useHttpPath=true",
+            ],
+            additionalEnvironment:
+            [
+                Sensitive("GH_CONFIG_DIR", gitHubConfigDirectory),
+                Safe("GH_HOST", "github.com"),
+                Safe("GH_PAGER", string.Empty),
+                Safe("GH_PROMPT_DISABLED", "1"),
+            ],
+            redactionNeedles:
+            [
+                credentialHelperExecutable,
+                normalizedHelperNeedle.Value,
+                gitHubConfigDirectory,
+            ]);
+    }
+
     private static CommandSpec Create(
         IWorkspaceFileSystem workspace,
         IEnumerable<string> operation,
-        IEnumerable<int>? allowedExitCodes = null)
+        IEnumerable<int>? allowedExitCodes = null,
+        TimeSpan? timeout = null,
+        IEnumerable<string>? additionalConfiguration = null,
+        IEnumerable<KeyValuePair<string, ProcessEnvironmentValue?>>? additionalEnvironment = null,
+        IEnumerable<SensitiveProcessValue>? redactionNeedles = null)
     {
         var command = CommandSpec.CreateAtWorkspaceRoot(
             _git,
-            _isolatedPrefix.Concat(operation),
+            _isolatedPrefix.Concat(additionalConfiguration ?? []).Concat(operation),
             workspace,
-            _environment,
-            _timeout,
+            _environment.Concat(additionalEnvironment ?? []),
+            timeout ?? _timeout,
             allowedExitCodes ?? [0],
-            []);
+            redactionNeedles ?? []);
         return command.IsValid ? command.Value : throw new InvalidOperationException();
     }
 
@@ -90,4 +196,14 @@ internal static class GitCommandFactory
         KeyValuePair.Create<string, ProcessEnvironmentValue?>(
             name,
             ProcessEnvironmentValue.CreateSafe(value).Value);
+
+    private static KeyValuePair<string, ProcessEnvironmentValue?> Sensitive(
+        string name,
+        SensitiveProcessValue value) => KeyValuePair.Create<string, ProcessEnvironmentValue?>(
+            name,
+            ProcessEnvironmentValue.CreateSensitive(value).Value);
+
+    private static bool IsSafeHelperPathCharacter(char character) =>
+        char.IsAsciiLetterOrDigit(character)
+        || character is ':' or '\\' or '/' or ' ' or '.' or '_' or '-' or '(' or ')';
 }

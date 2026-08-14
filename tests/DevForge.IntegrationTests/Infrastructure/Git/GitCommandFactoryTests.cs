@@ -76,11 +76,81 @@ public sealed class GitCommandFactoryTests
         Assert.Equal(["rev-parse", "--verify", "HEAD"], OperationArguments(head));
     }
 
+    [Fact]
+    public void PublicationCommandsUseOnlyExactOriginAndOrdinaryBranchPushes()
+    {
+        var workspace = new CommandWorkspace();
+        var remoteUrl = "https://github.com/octocat/devforge.git";
+        var commitId = new string('a', 40);
+        var helper = SensitiveProcessValue.Create(
+            "C:\\Program Files\\GitHub CLI\\gh.exe").Value;
+        var config = SensitiveProcessValue.Create("C:\\private-gh-config").Value;
+        var commands = new[]
+        {
+            GitCommandFactory.Remotes(workspace),
+            GitCommandFactory.OriginUrl(workspace, allowMissing: true),
+            GitCommandFactory.PushOriginUrl(workspace),
+            GitCommandFactory.AddOrigin(workspace, remoteUrl),
+            GitCommandFactory.PushBranch(workspace, "main", commitId, remoteUrl, helper, config),
+            GitCommandFactory.PushBranch(workspace, "develop", commitId, remoteUrl, helper, config),
+        };
+
+        Assert.Equal(["remote"], OperationArguments(commands[0]));
+        Assert.Equal(["remote", "get-url", "origin"], OperationArguments(commands[1]));
+        Assert.Equal([0, 2], commands[1].AllowedExitCodes.Order());
+        Assert.Equal(
+            ["remote", "get-url", "--push", "--all", "origin"],
+            OperationArguments(commands[2]));
+        Assert.Equal(["remote", "add", "origin", remoteUrl], OperationArguments(commands[3]));
+        Assert.Equal(
+            ["push", remoteUrl, $"{commitId}:refs/heads/main"],
+            OperationArguments(commands[4]));
+        Assert.Equal(
+            ["push", remoteUrl, $"{commitId}:refs/heads/develop"],
+            OperationArguments(commands[5]));
+        Assert.Contains(
+            commands[4].ArgumentList,
+            argument => argument.StartsWith(
+                "credential.https://github.com.helper=",
+                StringComparison.Ordinal));
+        Assert.Contains(helper, commands[4].RedactionNeedles);
+        Assert.Contains(config, commands[4].RedactionNeedles);
+        Assert.Equal(
+            ProcessValueSensitivity.Sensitive,
+            commands[4].EnvironmentVariables["GH_CONFIG_DIR"].Sensitivity);
+        Assert.Contains(
+            "credential.https://github.com.helper=!\"C:/Program Files/GitHub CLI/gh.exe\" auth git-credential",
+            commands[4].ArgumentList);
+        Assert.DoesNotContain(commands[4].ArgumentList, argument =>
+            argument.Contains("auth token", StringComparison.OrdinalIgnoreCase)
+            || argument.Contains("setup-git", StringComparison.OrdinalIgnoreCase));
+        Assert.All(commands.SelectMany(OperationArguments), argument =>
+            Assert.DoesNotContain("force", argument, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Theory]
+    [InlineData("C:\\tools\\$(malicious)\\gh.exe")]
+    [InlineData("C:\\tools\\`malicious`\\gh.exe")]
+    [InlineData("C:\\tools\\evil&command\\gh.exe")]
+    [InlineData("C:\\tools\\not-gh.exe.bat")]
+    public void CredentialHelperRejectsShellShapedOrWrongExecutablePaths(string path)
+    {
+        var helper = SensitiveProcessValue.Create(path).Value;
+
+        Assert.Throws<ArgumentException>(() => GitCommandFactory.PushBranch(
+            new CommandWorkspace(),
+            "main",
+            new string('a', 40),
+            "https://github.com/octocat/devforge.git",
+            helper,
+            SensitiveProcessValue.Create("C:\\private-gh-config").Value));
+    }
+
     private static string[] OperationArguments(CommandSpec command)
     {
         var operations = new HashSet<string>(StringComparer.Ordinal)
         {
-            "--version", "init", "add", "commit", "status", "rev-parse", "branch",
+            "--version", "init", "add", "commit", "status", "rev-parse", "branch", "remote", "push",
         };
         var index = -1;
         for (var candidate = 0; candidate < command.ArgumentList.Length; candidate++)
