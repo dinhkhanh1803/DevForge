@@ -17,8 +17,13 @@ public sealed class GitHubCliPublicationTests
     {
         var runner = new GitHubRemoteSimulator();
         var service = CreateService(runner);
+        var progress = new GitHubProgress();
 
         var result = await service.PublishAsync(
+            CreateRequest(GitBranchPolicy.Main, isPrivate: true),
+            progress,
+            CancellationToken.None);
+        var verified = await service.VerifyAsync(
             CreateRequest(GitBranchPolicy.Main, isPrivate: true),
             CancellationToken.None);
 
@@ -30,10 +35,40 @@ public sealed class GitHubCliPublicationTests
         Assert.Equal(["main"], runner.PushedBranches);
         Assert.Equal("https://github.com/octocat/devforge.git", runner.LocalOrigin);
         Assert.Equal("DevForge ownership " + Nonce, runner.Description);
+        Assert.Equal(result.RepositoryUrl, verified.RepositoryUrl);
+        Assert.Equal(1, progress.RemoteCreatedCount);
         Assert.DoesNotContain(runner.Commands.SelectMany(command => command.ArgumentList), argument =>
             argument.Contains("--force", StringComparison.OrdinalIgnoreCase)
             || argument.Equals("delete", StringComparison.OrdinalIgnoreCase)
             || argument.Equals("token", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task VerificationOnlyRefusesRemoteDriftWithoutCreatingOrPushing()
+    {
+        var runner = GitHubRemoteSimulator.Existing(
+            isPrivate: true,
+            ("main", new string('f', 40)));
+        runner.LocalOrigin = "https://github.com/octocat/devforge.git";
+        var service = CreateService(runner);
+
+        await Assert.ThrowsAsync<InfrastructureOperationException>(() => service.VerifyAsync(
+            CreateRequest(GitBranchPolicy.Main, isPrivate: true),
+            CancellationToken.None));
+
+        Assert.Equal(0, runner.CreateCount);
+        Assert.Empty(runner.PushedBranches);
+    }
+
+    private sealed class GitHubProgress : IGitHubPublicationProgress
+    {
+        public int RemoteCreatedCount { get; private set; }
+
+        public Task RemoteCreatedAsync(CancellationToken cancellationToken)
+        {
+            RemoteCreatedCount++;
+            return Task.CompletedTask;
+        }
     }
 
     [Fact]

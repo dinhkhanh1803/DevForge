@@ -317,6 +317,21 @@ public interface IAtomicFileWorkspaceFileSystem : IWorkspaceFileSystem
         CancellationToken cancellationToken);
 }
 
+public interface IWorkspaceExclusiveLease : IAsyncDisposable
+{
+}
+
+/// <summary>
+/// Acquires an OS-exclusive handle to a guarded workspace-relative lease file. A null result means
+/// another process owns the lease; implementations must not expose the underlying path or handle.
+/// </summary>
+public interface IExclusiveLeaseWorkspaceFileSystem : IWorkspaceFileSystem
+{
+    Task<IWorkspaceExclusiveLease?> TryAcquireExclusiveLeaseAsync(
+        WorkspaceRelativePath path,
+        CancellationToken cancellationToken);
+}
+
 public interface IFileSystem
 {
     Task<IWorkspaceFileSystem> OpenWorkspaceAsync(

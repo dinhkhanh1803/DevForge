@@ -9,7 +9,7 @@ namespace DevForge.Infrastructure.Git;
 
 public sealed class LocalGitService(
     IProcessRunner processRunner,
-    ISecretScanner secretScanner) : IGitService
+    ISecretScanner secretScanner) : IGitService, IPublicationGitService
 {
     private const int MaximumGitConfigBytes = 32 * 1024;
     private const int MaximumReflogBytes = 64 * 1024;
@@ -24,9 +24,18 @@ public sealed class LocalGitService(
         GitBootstrapRequest request,
         CancellationToken cancellationToken)
     {
+        return BootstrapAsync(request, NullGitPublicationProgress.Instance, cancellationToken);
+    }
+
+    public Task<GitRepositoryReceipt> BootstrapAsync(
+        GitBootstrapRequest request,
+        IGitPublicationProgress progress,
+        CancellationToken cancellationToken)
+    {
         ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(progress);
         return GuardAsync(
-            () => BootstrapCoreAsync(request, cancellationToken),
+            () => BootstrapCoreAsync(request, progress, cancellationToken),
             cancellationToken);
     }
 
@@ -42,6 +51,7 @@ public sealed class LocalGitService(
 
     private async Task<GitRepositoryReceipt> BootstrapCoreAsync(
         GitBootstrapRequest request,
+        IGitPublicationProgress progress,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -65,6 +75,7 @@ public sealed class LocalGitService(
 
         await VerifyRepositoryMetadataAsync(request.Workspace, expectedOriginUrl: null, cancellationToken)
             .ConfigureAwait(false);
+        await progress.RepositoryInitializedAsync(CancellationToken.None).ConfigureAwait(false);
         var head = await ReadHeadAsync(
             request.Workspace,
             allowMissing: true,
@@ -141,6 +152,14 @@ public sealed class LocalGitService(
             allowIncompleteBranches: false,
             expectedOriginUrl: null,
             cancellationToken).ConfigureAwait(false);
+    }
+
+    private sealed class NullGitPublicationProgress : IGitPublicationProgress
+    {
+        public static NullGitPublicationProgress Instance { get; } = new();
+
+        public Task RepositoryInitializedAsync(CancellationToken cancellationToken) =>
+            Task.CompletedTask;
     }
 
     private async Task<GitRepositoryReceipt> VerifyCoreAsync(

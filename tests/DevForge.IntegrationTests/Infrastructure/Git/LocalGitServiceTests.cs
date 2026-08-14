@@ -23,9 +23,10 @@ public sealed class LocalGitServiceTests
         await fixture.WriteAsync("README.md", "# Sample\n");
         await fixture.WriteAsync("src\\App.cs", "namespace Sample;\n");
         var request = await fixture.CreateBootstrapRequestAsync(branchPolicy);
+        var progress = new GitProgress();
 
-        var first = await fixture.Service.BootstrapAsync(request, CancellationToken.None);
-        var second = await fixture.Service.BootstrapAsync(request, CancellationToken.None);
+        var first = await fixture.Service.BootstrapAsync(request, progress, CancellationToken.None);
+        var second = await fixture.Service.BootstrapAsync(request, progress, CancellationToken.None);
         var verified = await fixture.Service.VerifyAsync(
             GitVerificationRequest.Create(
                 fixture.Workspace,
@@ -45,6 +46,18 @@ public sealed class LocalGitServiceTests
         Assert.Equal(GitCommandFactory.BootstrapMessage, await fixture.ReadCommitSubjectAsync());
         Assert.Equal(GitCommandFactory.AuthorName, await fixture.ReadCommitAuthorNameAsync());
         Assert.Equal(GitCommandFactory.AuthorEmail, await fixture.ReadCommitAuthorEmailAsync());
+        Assert.Equal(2, progress.RepositoryInitializedCount);
+    }
+
+    private sealed class GitProgress : IGitPublicationProgress
+    {
+        public int RepositoryInitializedCount { get; private set; }
+
+        public Task RepositoryInitializedAsync(CancellationToken cancellationToken)
+        {
+            RepositoryInitializedCount++;
+            return Task.CompletedTask;
+        }
     }
 
     [Fact]

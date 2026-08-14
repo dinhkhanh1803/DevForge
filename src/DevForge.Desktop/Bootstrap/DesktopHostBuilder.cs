@@ -5,6 +5,7 @@ using DevForge.Application.Creation;
 using DevForge.Application.Execution;
 using DevForge.Application.Planning;
 using DevForge.Application.Planning.CompatibilityRules;
+using DevForge.Application.Publication;
 using DevForge.Desktop.BlueprintCatalog;
 using DevForge.Desktop.CreateProject;
 using DevForge.Desktop.Dashboard;
@@ -27,6 +28,7 @@ using DevForge.Infrastructure.Persistence;
 using DevForge.Infrastructure.Persistence.Migrations;
 using DevForge.Infrastructure.Persistence.Repositories;
 using DevForge.Infrastructure.Processes;
+using DevForge.Infrastructure.Publication;
 using DevForge.Infrastructure.Security;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -118,8 +120,19 @@ public static class DesktopHostBuilder
         services.AddSingleton<IExecutionHandlerRegistryProvider>(provider =>
             provider.GetRequiredService<ClosedExecutionHandlerRegistryProvider>());
         services.AddSingleton<ISecretScanner, WorkspaceSecretScanner>();
-        services.AddSingleton<IGitService, LocalGitService>();
-        services.AddSingleton<IGitHubService, GitHubCliService>();
+        services.AddSingleton<LocalGitService>();
+        services.AddSingleton<IGitService>(provider => provider.GetRequiredService<LocalGitService>());
+        services.AddSingleton<IPublicationGitService>(provider =>
+            provider.GetRequiredService<LocalGitService>());
+        services.AddSingleton<GitHubCliService>();
+        services.AddSingleton<IGitHubService>(provider => provider.GetRequiredService<GitHubCliService>());
+        services.AddSingleton<IPublicationGitHubService>(provider =>
+            provider.GetRequiredService<GitHubCliService>());
+        services.AddSingleton<IPublicationLeaseProvider, WindowsPublicationLeaseProvider>();
+        services.AddSingleton<IProjectPublicationWorkspaceFactory, ProjectPublicationWorkspaceFactory>();
+        services.AddSingleton<IPublicationReceiptStore, AtomicPublicationReceiptStore>();
+        services.AddSingleton<IPublicationNonceGenerator, CryptographicPublicationNonceGenerator>();
+        services.AddSingleton<IProjectPublicationCoordinator, ProjectPublicationCoordinator>();
         services.AddSingleton<IProjectFinalizer, AtomicProjectFinalizer>();
         services.AddSingleton<IGenerationReportWriter, CanonicalGenerationReportWriter>();
         services.AddSingleton<IRunCompletionCoordinator, ValidatedRunCompletionCoordinator>();

@@ -7,6 +7,7 @@ namespace DevForge.Infrastructure.FileSystem;
 internal sealed class WindowsWorkspaceFileSystem :
     IAtomicWorkspaceFileSystem,
     IAtomicFileWorkspaceFileSystem,
+    IExclusiveLeaseWorkspaceFileSystem,
     IBoundedWorkspaceEnumerator
 {
     private const int ErrorFileExists = 80;
@@ -141,6 +142,94 @@ internal sealed class WindowsWorkspaceFileSystem :
                 }
             },
             cancellationToken);
+    }
+
+    public Task<IWorkspaceExclusiveLease?> TryAcquireExclusiveLeaseAsync(
+        WorkspaceRelativePath path,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        cancellationToken.ThrowIfCancellationRequested();
+        try
+        {
+            var fullPath = _guard.Resolve(path);
+            var parentPath = Path.GetDirectoryName(fullPath);
+            if (parentPath is null || !Directory.Exists(parentPath))
+            {
+                throw new IOException();
+            }
+
+            _guard.VerifyExisting(parentPath);
+            FileStream stream;
+            try
+            {
+                stream = new FileStream(
+                    fullPath,
+                    new FileStreamOptions
+                    {
+                        Access = FileAccess.ReadWrite,
+                        Mode = FileMode.OpenOrCreate,
+                        Share = FileShare.None,
+                        Options = FileOptions.Asynchronous
+                            | FileOptions.WriteThrough
+                            | FileOptions.DeleteOnClose,
+                    });
+            }
+            catch (IOException exception) when (IsSharingViolation(exception))
+            {
+                return Task.FromResult<IWorkspaceExclusiveLease?>(null);
+            }
+
+            try
+            {
+                var verified = _guard.Resolve(path);
+                if (!StringComparer.OrdinalIgnoreCase.Equals(fullPath, verified))
+                {
+                    throw new WorkspaceContainmentException();
+                }
+
+                _guard.VerifyExisting(fullPath);
+                return Task.FromResult<IWorkspaceExclusiveLease?>(
+                    new WorkspaceExclusiveLease(stream));
+            }
+            catch
+            {
+                stream.Dispose();
+                throw;
+            }
+        }
+        catch (WorkspaceContainmentException)
+        {
+            throw new InfrastructureOperationException(
+                "DF-FS-003",
+                "Workspace containment could not be proven.");
+        }
+        catch (Exception exception) when (IsExpectedFileSystemFailure(exception))
+        {
+            throw new InfrastructureOperationException(
+                "DF-FS-002",
+                "The guarded workspace lease could not be acquired.");
+        }
+    }
+
+    private static bool IsSharingViolation(IOException exception)
+    {
+        var code = exception.HResult & 0xFFFF;
+        return code is 32 or 33;
+    }
+
+    private sealed class WorkspaceExclusiveLease(FileStream stream) : IWorkspaceExclusiveLease
+    {
+        private FileStream? _stream = stream;
+
+        public async ValueTask DisposeAsync()
+        {
+            var owned = Interlocked.Exchange(ref _stream, null);
+            if (owned is not null)
+            {
+                await owned.DisposeAsync().ConfigureAwait(false);
+            }
+        }
     }
 
     public async Task WriteFileAtomicallyAsync(

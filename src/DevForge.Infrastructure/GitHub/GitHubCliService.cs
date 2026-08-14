@@ -5,7 +5,7 @@ using DevForge.Infrastructure.Processes;
 
 namespace DevForge.Infrastructure.GitHub;
 
-public sealed class GitHubCliService : IGitHubService
+public sealed class GitHubCliService : IGitHubService, IPublicationGitHubService
 {
     private readonly SensitiveProcessValue _configDirectory;
     private readonly Func<SensitiveProcessValue> _credentialHelperFactory;
@@ -65,9 +65,28 @@ public sealed class GitHubCliService : IGitHubService
         GitHubPublishRequest request,
         CancellationToken cancellationToken)
     {
+        return PublishAsync(request, NullGitHubPublicationProgress.Instance, cancellationToken);
+    }
+
+    public Task<GitHubPublishResult> PublishAsync(
+        GitHubPublishRequest request,
+        IGitHubPublicationProgress progress,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(progress);
+        return GuardAsync(
+            () => PublishCoreAsync(request, progress, cancellationToken),
+            cancellationToken);
+    }
+
+    public Task<GitHubPublishResult> VerifyAsync(
+        GitHubPublishRequest request,
+        CancellationToken cancellationToken)
+    {
         ArgumentNullException.ThrowIfNull(request);
         return GuardAsync(
-            () => PublishCoreAsync(request, cancellationToken),
+            () => VerifyPublicationCoreAsync(request, cancellationToken),
             cancellationToken);
     }
 
@@ -127,6 +146,7 @@ public sealed class GitHubCliService : IGitHubService
 
     private async Task<GitHubPublishResult> PublishCoreAsync(
         GitHubPublishRequest request,
+        IGitHubPublicationProgress progress,
         CancellationToken cancellationToken)
     {
         var authenticationRequest = GitHubAuthenticationRequest.Create(request.Repository);
@@ -205,6 +225,8 @@ public sealed class GitHubCliService : IGitHubService
             throw RemoteUnsafe();
         }
 
+        await progress.RemoteCreatedAsync(CancellationToken.None).ConfigureAwait(false);
+
         await EnsureExactOriginAsync(request, cancellationToken).ConfigureAwait(false);
         var credentialHelper = _credentialHelperFactory();
         foreach (var branch in request.Branches)
@@ -256,6 +278,67 @@ public sealed class GitHubCliService : IGitHubService
             request.IsPrivate,
             request.OwnershipNonce);
         return result.IsValid ? result.Value : throw RemoteUnsafe();
+    }
+
+    private async Task<GitHubPublishResult> VerifyPublicationCoreAsync(
+        GitHubPublishRequest request,
+        CancellationToken cancellationToken)
+    {
+        var authenticationRequest = GitHubAuthenticationRequest.Create(request.Repository);
+        if (!authenticationRequest.IsValid)
+        {
+            throw UnexpectedEvidence();
+        }
+
+        var authentication = await CheckAuthenticationCoreAsync(
+            authenticationRequest.Value,
+            request.Workspace,
+            cancellationToken).ConfigureAwait(false);
+        if (authentication.State != GitHubAuthenticationState.Authenticated || _gitService is null)
+        {
+            throw new InfrastructureOperationException(
+                "DF-GH-003",
+                "GitHub verification requires the exact reviewed personal account.");
+        }
+
+        await VerifyLocalRepositoryAsync(
+            request,
+            request.Repository.HttpsRemoteUrl,
+            cancellationToken).ConfigureAwait(false);
+        var repository = GitHubEvidenceParser.ParseRepository(
+            OutputLines(await RunRequiredAsync(
+                GitHubCommandFactory.ViewRepository(
+                    request.Workspace,
+                    _configDirectory,
+                    request.Repository,
+                    allowMissing: false),
+                cancellationToken).ConfigureAwait(false)),
+            request);
+        var references = await ReadReferencesAsync(request, cancellationToken).ConfigureAwait(false);
+        if (repository.IsEmpty
+            || references.Count != request.Branches.Length
+            || request.Branches.Any(branch => !references.ContainsKey(branch)))
+        {
+            throw RemoteUnsafe();
+        }
+
+        await VerifyExactOriginAsync(request, cancellationToken).ConfigureAwait(false);
+        var result = GitHubPublishResult.Create(
+            request.Repository,
+            repository.Url,
+            request.InitialCommitId,
+            request.Branches,
+            request.BranchPolicy,
+            request.IsPrivate,
+            request.OwnershipNonce);
+        return result.IsValid ? result.Value : throw RemoteUnsafe();
+    }
+
+    private sealed class NullGitHubPublicationProgress : IGitHubPublicationProgress
+    {
+        public static NullGitHubPublicationProgress Instance { get; } = new();
+
+        public Task RemoteCreatedAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private async Task EnsureAuthenticatedAsync(

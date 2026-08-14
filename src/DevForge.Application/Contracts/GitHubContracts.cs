@@ -293,4 +293,5 @@ public interface IGitHubService
     Task<GitHubPublishResult> PublishAsync(
         GitHubPublishRequest request,
         CancellationToken cancellationToken);
+
 }

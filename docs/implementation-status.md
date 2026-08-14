@@ -1,7 +1,7 @@
 # DevForge Studio Implementation Status
 
 **Current milestone:** M8 - Git and GitHub Completion
-**Status:** M0-M7 complete; M8 Tasks 1-3 complete and locally verified
+**Status:** M0-M7 complete; M8 Tasks 1-5 complete and locally verified
 **Last updated:** 2026-08-14
 
 ## Current M7 scope
@@ -336,7 +336,7 @@ Verification used the workspace-local SDK at `.tools/dotnet/dotnet.exe` with `DO
 - The M7 E2E package is test-only; the three production MVP blueprints remain assigned to M9.
 - Environment probing and IDE launch support only the fixed trusted tool catalog; arbitrary executable discovery remains intentionally unsupported.
 - SQLite's online backup API is synchronous during the copy itself; cancellation is honored immediately before and after the bounded call, and recovery always completes before post-mutation cancellation is propagated.
-- Git/GitHub completion remains disabled in the desktop workflow until the M8 publication coordinator is wired; the closed production Git and GitHub services are implemented, while successful M7 runs still stop at `LocalReady`.
+- Git/GitHub completion remains disabled in the desktop workflow until M8 Tasks 6-7 bind reviewed intent and WPF actions; the closed production services and recoverable publication coordinator are implemented, while successful Create Project runs still stop at `LocalReady`.
 - Support bundles, production log browsing, Open Staging/folder handoff, packaging, and release hardening remain assigned to M10.
 - Guarded Windows operations remain path-based. M5's owned staging, process-wide lease, detached verified packages, and closed sequential handlers exclude an in-scope blueprint actor from racing ancestor replacement; a future threat model that includes a separate hostile same-user process requires handle-relative no-follow native operations.
 
@@ -374,4 +374,18 @@ Fresh Task 4 verification on 2026-08-14 used the workspace-local .NET SDK 10.0.3
 | Full tests | Four Release project test commands with `--no-build --no-restore` | Exit 0; UnitTests 563, IntegrationTests 475, BlueprintTests 108, E2ETests 140; total 1,286 passed, 0 failed, 0 skipped. |
 | Review | independent read-only Task 4 review | Approved; no Critical or Important findings. |
 
-M8 Task 5, the publication coordinator with a cross-process lease, durable phase checkpoints, atomic receipt persistence, and exact recovery across Git/GitHub kill windows, is the recommended next slice. No GitHub repository was created, changed, or contacted by the Task 4 test suite.
+M8 Task 5 is complete locally. `ProjectPublicationCoordinator` serializes publication with the shared activity gate and a guarded OS-exclusive per-run lease, reloads the authoritative checkpoint, validates immutable reviewed intent and finalized workspaces, and persists every Git, GitHub, and receipt phase with `CancellationToken.None`. Failures and cancellation remain durably recoverable as `PublishPending`; retries adopt only exact local/remote effects and never rerun generation. Persisted Git/GitHub success is reverified before receipt creation or terminal `Completed`, and the atomic receipt store either adopts byte-identical orphan content or fails closed without overwrite. Safe-read-only mode refuses before lease or mutation. No GitHub repository was created, changed, or contacted by the Task 5 test suite.
+
+Fresh Task 5 verification on 2026-08-14 used the workspace-local .NET SDK 10.0.302:
+
+| Gate | Command | Exact result |
+| --- | --- | --- |
+| Locked restore | `dotnet restore DevForge.sln --locked-mode --disable-build-servers --verbosity minimal` | Exit 0; all projects up-to-date from pinned lock files. |
+| Format | `dotnet format DevForge.sln --verify-no-changes --no-restore --verbosity minimal` | Exit 0; no formatting diagnostics. |
+| Release build | `dotnet build DevForge.sln -c Release --no-restore --disable-build-servers -m:1 /nodeReuse:false` | Exit 0; all 12 projects built; 0 warnings, 0 errors. |
+| Focused tests | Publication/Architecture Unit, Publication/Git Integration, and Desktop DI E2E filters | Exit 0; 92 + 97 + 2 passed, 0 failed, 0 skipped. |
+| Full tests | Four Release project test commands with `--no-build --no-restore` | Exit 0; UnitTests 599, IntegrationTests 480, BlueprintTests 108, E2ETests 140; total 1,327 passed, 0 failed, 0 skipped. |
+| EF model consistency | local `dotnet-ef migrations has-pending-model-changes ... --configuration Release --no-build` with pinned `DOTNET_ROOT`/`PATH` | Exit 0; `No changes have been made to the model since the last migration.` |
+| Review | independent read-only Task 5 review | Approved; no Critical or Important findings. |
+
+M8 Task 6, enabling the reviewed Git/GitHub intent in Create Project while preserving plan-hash authority and private-by-default behavior, is the recommended next slice. Desktop completion presentation remains Task 7 and the full M8 integration/closure matrix remains Task 8.
