@@ -105,6 +105,23 @@ internal sealed class CanonicalPlanSerializer : ICanonicalPlanSerializer
         writer.WriteBoolean("useDevelopBranch", git.UseDevelopBranch);
         writer.WriteBoolean("publishToGitHub", git.PublishToGitHub);
         writer.WriteBoolean("isPrivate", git.IsPrivate);
+        if (git.GitHubAccount is null)
+        {
+            writer.WriteNull("githubAccount");
+        }
+        else
+        {
+            writer.WriteString("githubAccount", git.GitHubAccount);
+        }
+
+        if (git.GitHubRepository is null)
+        {
+            writer.WriteNull("githubRepository");
+        }
+        else
+        {
+            writer.WriteString("githubRepository", git.GitHubRepository);
+        }
         writer.WriteEndObject();
     }
 

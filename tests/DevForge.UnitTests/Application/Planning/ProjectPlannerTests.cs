@@ -48,7 +48,7 @@ public sealed class ProjectPlannerTests
             Assert.Single(result.Value.Preview.Validators).ProcessPreview?.Value);
         Assert.StartsWith("sha256:", result.Value.Preview.PlanHash, StringComparison.Ordinal);
         Assert.Equal(
-            "sha256:f1fdb5c413502541bb81ddcbf0627fb16dfdc78667d12df90fe20160725a79a8",
+            "sha256:6c7ebebe7e6a269b7737b469b52e060ea1a636fe66f28f5f37ac8655f1d4f920",
             result.Value.Preview.PlanHash);
         Assert.Equal(result.Value.Preview.PlanHash, result.Value.Plan.Id);
         Assert.Equal("Sample App", result.Value.Plan.TemplateContext["project.name"]);

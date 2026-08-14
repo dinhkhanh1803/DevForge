@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using DevForge.Blueprints.Abstractions.Models;
 using DevForge.Domain.Execution;
+using DevForge.Domain.Projects;
 using DevForge.Domain.Runs;
 using DevForge.Domain.Validation;
 
@@ -423,7 +424,8 @@ public sealed class RunCheckpoint
         RunArtifactDescriptor runArtifacts,
         ImmutableArray<ExecutionEvidence> evidence,
         FinalizationState finalizationState,
-        ReportPersistenceState reportState)
+        ReportPersistenceState reportState,
+        PublicationSnapshot publication)
     {
         Run = run;
         Plan = plan;
@@ -436,6 +438,7 @@ public sealed class RunCheckpoint
         Evidence = evidence;
         FinalizationState = finalizationState;
         ReportState = reportState;
+        Publication = publication;
     }
 
     public ProjectRun Run { get; }
@@ -462,6 +465,8 @@ public sealed class RunCheckpoint
 
     public ReportPersistenceState ReportState { get; }
 
+    public PublicationSnapshot Publication { get; }
+
     public static ValidationResult<RunCheckpoint> Create(
         ProjectRun? run,
         ExecutionPlan? plan,
@@ -476,7 +481,8 @@ public sealed class RunCheckpoint
     {
         return Create(
             run, plan, null, blueprint, blueprintFingerprint, staging, target,
-            runArtifacts, evidence, finalizationState, reportState);
+            runArtifacts, evidence, finalizationState, reportState,
+            PublicationSnapshot.LegacyNotRequested());
     }
 
     public static ValidationResult<RunCheckpoint> Create(
@@ -492,6 +498,35 @@ public sealed class RunCheckpoint
         FinalizationState finalizationState,
         ReportPersistenceState reportState)
     {
+        return Create(
+            run,
+            plan,
+            preview,
+            blueprint,
+            blueprintFingerprint,
+            staging,
+            target,
+            runArtifacts,
+            evidence,
+            finalizationState,
+            reportState,
+            PublicationSnapshot.LegacyNotRequested());
+    }
+
+    public static ValidationResult<RunCheckpoint> Create(
+        ProjectRun? run,
+        ExecutionPlan? plan,
+        PlanPreview? preview,
+        BlueprintReference? blueprint,
+        BlueprintFingerprint? blueprintFingerprint,
+        StagingDescriptor? staging,
+        TargetDescriptor? target,
+        RunArtifactDescriptor? runArtifacts,
+        IEnumerable<ExecutionEvidence?>? evidence,
+        FinalizationState finalizationState,
+        ReportPersistenceState reportState,
+        PublicationSnapshot? publication)
+    {
         var snapshot = evidence?.ToImmutableArray() ?? [];
         var issues = new List<ValidationIssue>();
         AddRequired(run, "run", "run", issues);
@@ -501,6 +536,7 @@ public sealed class RunCheckpoint
         AddRequired(staging, "staging", "staging", issues);
         AddRequired(target, "target", "target", issues);
         AddRequired(runArtifacts, "run-artifacts", "runArtifacts", issues);
+        AddRequired(publication, "publication", "publication", issues);
         if (plan is not null && !ExecutionContractValidation.IsCanonicalDigest(plan.Id))
         {
             issues.Add(new ValidationIssue(
@@ -558,6 +594,56 @@ public sealed class RunCheckpoint
                 "run.status"));
         }
 
+        if (publication is not null && preview is not null)
+        {
+            ValidatePublicationIntent(run, preview, publication, issues);
+        }
+
+        if (run?.Status is RunStatus.PublishPending or RunStatus.Completed && preview is null)
+        {
+            issues.Add(new ValidationIssue(
+                "checkpoint.publication.preview-required",
+                "Publication requires the exact persisted reviewed plan preview.",
+                "preview"));
+        }
+
+        if (run?.Status == RunStatus.LocalReady
+            && publication is not null
+            && (publication.GitState != GitPublicationState.NotRequested
+                || publication.GitHubState != GitHubPublicationState.NotRequested
+                || publication.ReceiptState != PublicationReceiptState.NotRequested))
+        {
+            issues.Add(new ValidationIssue(
+                "checkpoint.local-ready.publication-started",
+                "LocalReady cannot contain started publication side effects.",
+                "publication"));
+        }
+
+        if (run is not null
+            && run.Status is not (RunStatus.LocalReady
+                or RunStatus.PublishPending
+                or RunStatus.Completed)
+            && publication is not null
+            && (publication.GitState != GitPublicationState.NotRequested
+                || publication.GitHubState != GitHubPublicationState.NotRequested
+                || publication.ReceiptState != PublicationReceiptState.NotRequested))
+        {
+            issues.Add(new ValidationIssue(
+                "checkpoint.publication.status-invalid",
+                "Publication evidence is not allowed before LocalReady or after a terminal failure.",
+                "run.status"));
+        }
+
+        if (run?.Status is RunStatus.PublishPending or RunStatus.Completed
+            && (finalizationState != FinalizationState.Succeeded
+                || reportState != ReportPersistenceState.Succeeded))
+        {
+            issues.Add(new ValidationIssue(
+                "checkpoint.publication.before-local-ready",
+                "Publication requires successful finalization and report persistence.",
+                "run.status"));
+        }
+
         return issues.Count == 0
             ? ValidationResult.Success(new RunCheckpoint(
                 run!,
@@ -570,8 +656,96 @@ public sealed class RunCheckpoint
                 runArtifacts!,
                 [.. snapshot.Select(item => item!)],
                 finalizationState,
-                reportState))
+                reportState,
+                publication!))
             : ValidationResult.Failure<RunCheckpoint>(issues);
+    }
+
+    private static void ValidatePublicationIntent(
+        ProjectRun? run,
+        PlanPreview preview,
+        PublicationSnapshot publication,
+        List<ValidationIssue> issues)
+    {
+        var git = preview.Git;
+        var githubRequested = publication.GitHubState != GitHubPublicationState.NotRequested;
+        if ((!git.InitializeRepository && publication.GitState != GitPublicationState.NotRequested)
+            || (!git.PublishToGitHub && githubRequested))
+        {
+            issues.Add(new ValidationIssue(
+                "checkpoint.publication.intent-mismatch",
+                "Publication evidence does not match the reviewed Git intent.",
+                "publication"));
+        }
+
+        if (git.PublishToGitHub && githubRequested
+            && (publication.RepositoryIdentity is null
+                || !StringComparer.Ordinal.Equals(
+                    git.GitHubAccount,
+                    publication.RepositoryIdentity.Account)
+                || !StringComparer.Ordinal.Equals(
+                    git.GitHubRepository,
+                    publication.RepositoryIdentity.RepositoryName)
+                || git.IsPrivate != publication.IsPrivate))
+        {
+            issues.Add(new ValidationIssue(
+                "checkpoint.publication.github-intent-mismatch",
+                "GitHub evidence does not match the reviewed repository identity and visibility.",
+                "publication.repositoryIdentity"));
+        }
+
+        var branchEvidenceMatches = git.BranchPolicy switch
+        {
+            GitBranchPolicy.Main => publication.Branches.SequenceEqual(
+                ["main"], StringComparer.Ordinal),
+            GitBranchPolicy.MainAndDevelop when publication.GitState == GitPublicationState.Succeeded =>
+                publication.Branches.SequenceEqual(["main", "develop"], StringComparer.Ordinal),
+            GitBranchPolicy.MainAndDevelop => publication.Branches.SequenceEqual(
+                    ["main"], StringComparer.Ordinal)
+                || publication.Branches.SequenceEqual(["main", "develop"], StringComparer.Ordinal),
+            _ => false,
+        };
+        if (publication.InitialCommitId is not null && !branchEvidenceMatches)
+        {
+            issues.Add(new ValidationIssue(
+                "checkpoint.publication.branch-policy-mismatch",
+                "Git branch evidence does not match the reviewed branch policy.",
+                "publication.branches"));
+        }
+
+        if (git.PublishToGitHub
+            && publication.ReceiptState != PublicationReceiptState.NotRequested
+            && publication.GitHubState != GitHubPublicationState.Succeeded)
+        {
+            issues.Add(new ValidationIssue(
+                "checkpoint.publication.receipt-before-github",
+                "Receipt persistence requires verified reviewed GitHub publication.",
+                "publication.receiptState"));
+        }
+
+        if (run?.Status == RunStatus.PublishPending
+            && (!git.InitializeRepository
+                || publication.GitState == GitPublicationState.NotRequested))
+        {
+            issues.Add(new ValidationIssue(
+                "checkpoint.publication.pending-without-intent",
+                "PublishPending requires persisted reviewed Git intent.",
+                "run.status"));
+        }
+
+        if (run?.Status == RunStatus.Completed
+            && (publication.GitState != GitPublicationState.Succeeded
+                || publication.ReceiptState != PublicationReceiptState.Succeeded
+                || (git.PublishToGitHub
+                    && publication.GitHubState != GitHubPublicationState.Succeeded)
+                || (!git.PublishToGitHub
+                    && publication.GitHubState != GitHubPublicationState.NotRequested)))
+        {
+            issues.Add(new ValidationIssue(
+                "checkpoint.publication.incomplete",
+                "Completed requires exact Git, reviewed GitHub, and receipt evidence.",
+                "run.status"));
+        }
     }
 
     private static bool PreviewMatchesPlan(PlanPreview preview, ExecutionPlan plan)

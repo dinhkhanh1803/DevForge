@@ -61,6 +61,8 @@ internal static class CheckpointPreviewCodec
                 Develop = preview.Git.UseDevelopBranch,
                 Publish = preview.Git.PublishToGitHub,
                 Private = preview.Git.IsPrivate,
+                Account = preview.Git.GitHubAccount,
+                Repository = preview.Git.GitHubRepository,
             },
             Completion = new CompletionDto
             {
@@ -122,7 +124,9 @@ internal static class CheckpointPreviewCodec
                     "main",
                     dto.Git?.Develop ?? false,
                     dto.Git?.Publish ?? false,
-                    dto.Git?.Private ?? true)),
+                    dto.Git?.Private ?? true,
+                    dto.Git?.Account,
+                    dto.Git?.Repository)),
                 Require(CompletionOptions.Create(
                     dto.Completion?.Report ?? false,
                     dto.Completion?.Handoff ?? false,
@@ -208,7 +212,17 @@ internal static class CheckpointPreviewCodec
     private sealed class IssueDto { public string? Code { get; set; } public string? Message { get; set; } public string? Location { get; set; } }
     private sealed class InputDto { public string? Name { get; set; } public ValueDto? Value { get; set; } }
     private sealed class ValueDto { public string? Kind { get; set; } public string? Text { get; set; } public bool Boolean { get; set; } public long Integer { get; set; } public ValueDto[]? Items { get; set; } public InputDto[]? Entries { get; set; } }
-    private sealed class GitDto { public bool Initialize { get; set; } public bool Develop { get; set; } public bool Publish { get; set; } public bool Private { get; set; } }
+    private sealed class GitDto
+    {
+        public bool Initialize { get; set; }
+        public bool Develop { get; set; }
+        public bool Publish { get; set; }
+        public bool Private { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? Account { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? Repository { get; set; }
+    }
     private sealed class CompletionDto { public bool Report { get; set; } public bool Handoff { get; set; } public bool OpenIde { get; set; } public string? IdeId { get; set; } }
 
     internal sealed record EncodedPreview(string Json, string BodyChecksum);

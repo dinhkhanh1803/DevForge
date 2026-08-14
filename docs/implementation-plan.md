@@ -2,7 +2,7 @@
 
 **Goal:** Convert reviewed `LocalReady` projects into recoverable, evidence-backed Git/GitHub completion through trusted CLI boundaries.
 
-**Status:** M8 design independently approved; executable TDD implementation not started.
+**Status:** M8 design independently approved; Task 1 contracts complete and Task 2 persistence is next.
 
 **Architecture:** Application owns post-finalization publication and durable state; Infrastructure implements closed Git/`gh` operations over `IProcessRunner` and guarded workspaces; Desktop projects immutable publication status and actions. The persisted reviewed plan remains authoritative.
 
@@ -18,7 +18,7 @@
 
 - [x] Read the complete baseline and isolate M8 from M9-M11.
 - [x] Define files, RED/GREEN tests, commit boundaries, and exit gate before code.
-- [ ] Add publication domain/Application contracts and checkpoint invariants.
+- [x] Add publication domain/Application contracts and checkpoint invariants.
 - [ ] Persist integrity-bound publication state through a versioned migration.
 - [ ] Implement closed Git and GitHub CLI services through `IProcessRunner`.
 - [ ] Implement recoverable post-finalization publication orchestration.

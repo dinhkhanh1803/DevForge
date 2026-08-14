@@ -92,7 +92,12 @@ public sealed class ProjectOptionTests
 
         Assert.False(result.IsValid);
         Assert.Equal(
-            ["git.develop.requires-initialization", "git.publish.requires-initialization"],
+            [
+                "git.develop.requires-initialization",
+                "git.publish.requires-initialization",
+                "git.github-account.required",
+                "git.github-repository.required",
+            ],
             result.Issues.Select(issue => issue.Code));
     }
 

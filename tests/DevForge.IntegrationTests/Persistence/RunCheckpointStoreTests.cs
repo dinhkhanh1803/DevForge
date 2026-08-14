@@ -9,6 +9,7 @@ using DevForge.Domain.Projects;
 using DevForge.Domain.Runs;
 using DevForge.Domain.Validation;
 using DevForge.Infrastructure.Persistence;
+using DevForge.Infrastructure.Persistence.Mapping;
 using DevForge.Infrastructure.Persistence.Migrations;
 using DevForge.Infrastructure.Persistence.Repositories;
 using Microsoft.Data.Sqlite;
@@ -25,6 +26,21 @@ public sealed class RunCheckpointStoreTests
     {
         WriteIndented = true,
     };
+
+    [Fact]
+    public void NonPublishingM7PreviewShapeRemainsCanonicalWithoutM8IdentityFields()
+    {
+        var preview = CreateCheckpoint("run-m7-preview").Preview!;
+
+        var encoded = CheckpointPreviewCodec.Encode(preview);
+        var decoded = CheckpointPreviewCodec.Decode(encoded.Json, encoded.BodyChecksum);
+
+        Assert.DoesNotContain("\"account\"", encoded.Json, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"repository\"", encoded.Json, StringComparison.Ordinal);
+        Assert.Null(decoded.Git.GitHubAccount);
+        Assert.Null(decoded.Git.GitHubRepository);
+        Assert.Equal(preview.PlanHash, decoded.PlanHash);
+    }
 
     [Fact]
     public async Task StartupRecoveryDurablyClosesInterruptedAttemptAndIsIdempotent()

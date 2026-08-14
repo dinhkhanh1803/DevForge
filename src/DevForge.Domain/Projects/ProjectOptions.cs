@@ -103,13 +103,17 @@ public sealed class GitOptions
         bool initializeRepository,
         bool useDevelopBranch,
         bool publishToGitHub,
-        bool isPrivate)
+        bool isPrivate,
+        string? gitHubAccount,
+        string? gitHubRepository)
     {
         InitializeRepository = initializeRepository;
         PrimaryBranch = "main";
         UseDevelopBranch = useDevelopBranch;
         PublishToGitHub = publishToGitHub;
         IsPrivate = isPrivate;
+        GitHubAccount = gitHubAccount;
+        GitHubRepository = gitHubRepository;
         BranchPolicy = useDevelopBranch ? GitBranchPolicy.MainAndDevelop : GitBranchPolicy.Main;
     }
 
@@ -123,6 +127,10 @@ public sealed class GitOptions
 
     public bool IsPrivate { get; }
 
+    public string? GitHubAccount { get; }
+
+    public string? GitHubRepository { get; }
+
     public GitBranchPolicy BranchPolicy { get; }
 
     public static ValidationResult<GitOptions> Create(
@@ -130,7 +138,9 @@ public sealed class GitOptions
         string? primaryBranch = "main",
         bool useDevelopBranch = false,
         bool publishToGitHub = false,
-        bool isPrivate = true)
+        bool isPrivate = true,
+        string? githubAccount = null,
+        string? githubRepository = null)
     {
         var issues = new List<ValidationIssue>();
         if (string.IsNullOrWhiteSpace(primaryBranch))
@@ -166,13 +176,57 @@ public sealed class GitOptions
                     "publishToGitHub"));
         }
 
+        var normalizedAccount = githubAccount?.Trim().ToLowerInvariant();
+        var normalizedRepository = githubRepository?.Trim().ToLowerInvariant();
+        if (publishToGitHub)
+        {
+            if (string.IsNullOrWhiteSpace(normalizedAccount))
+            {
+                issues.Add(new ValidationIssue(
+                    "git.github-account.required",
+                    "GitHub publishing requires a reviewed personal account.",
+                    "githubAccount"));
+            }
+            else if (!GitHubRepositoryIdentity.IsValidAccount(normalizedAccount))
+            {
+                issues.Add(new ValidationIssue(
+                    "git.github-account.invalid",
+                    "The reviewed GitHub personal account is invalid.",
+                    "githubAccount"));
+            }
+
+            if (string.IsNullOrWhiteSpace(normalizedRepository))
+            {
+                issues.Add(new ValidationIssue(
+                    "git.github-repository.required",
+                    "GitHub publishing requires a reviewed repository name.",
+                    "githubRepository"));
+            }
+            else if (!GitHubRepositoryIdentity.IsValidRepositoryName(normalizedRepository))
+            {
+                issues.Add(new ValidationIssue(
+                    "git.github-repository.invalid",
+                    "The reviewed GitHub repository name is invalid.",
+                    "githubRepository"));
+            }
+        }
+        else if (githubAccount is not null || githubRepository is not null)
+        {
+            issues.Add(new ValidationIssue(
+                "git.github-identity.not-requested",
+                "GitHub identity is not allowed when publishing is disabled.",
+                "publishToGitHub"));
+        }
+
         return issues.Count == 0
             ? ValidationResult.Success(
                 new GitOptions(
                     initializeRepository,
                     useDevelopBranch,
                     publishToGitHub,
-                    isPrivate))
+                    isPrivate,
+                    normalizedAccount,
+                    normalizedRepository))
             : ValidationResult.Failure<GitOptions>(issues);
     }
 }

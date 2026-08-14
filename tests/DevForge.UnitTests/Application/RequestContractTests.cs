@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using DevForge.Application.Contracts;
 using DevForge.Domain.Privacy;
+using DevForge.Domain.Projects;
 
 namespace DevForge.UnitTests.Application;
 
@@ -49,8 +50,17 @@ public sealed class RequestContractTests
     {
         Assert.False(TemplateRenderRequest.Create(null, null).IsValid);
         Assert.False(SecretScanRequest.ExplicitPaths(null, null).IsValid);
-        Assert.False(GitCommitRequest.Create(null, null).IsValid);
-        Assert.False(GitHubPublishRequest.Create(null, null, isPrivate: true).IsValid);
+        Assert.False(GitBootstrapRequest.Create(null, (GitBranchPolicy)999, null).IsValid);
+        Assert.False(GitVerificationRequest.Create(null, (GitBranchPolicy)999, null, null).IsValid);
+        Assert.False(
+            GitHubPublishRequest.Create(
+                null,
+                null,
+                (GitBranchPolicy)999,
+                null,
+                null,
+                isPrivate: true,
+                null).IsValid);
         Assert.False(IdeLaunchRequest.Create(null, null).IsValid);
     }
 
