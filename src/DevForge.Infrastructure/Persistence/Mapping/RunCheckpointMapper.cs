@@ -84,6 +84,11 @@ internal static class RunCheckpointMapper
             return RequireValid(RunCheckpoint.Create(
                 run,
                 plan,
+                entity.PlanPreviewJson is null
+                    ? null
+                    : CheckpointPreviewCodec.Decode(
+                        entity.PlanPreviewJson,
+                        entity.PlanPreviewBodyChecksum!),
                 blueprint,
                 fingerprint,
                 staging,
@@ -105,6 +110,11 @@ internal static class RunCheckpointMapper
         entity.PlanHash = checkpoint.PlanHash;
         entity.PlanJson = encodedPlan.Json;
         entity.PlanBodyChecksum = encodedPlan.BodyChecksum;
+        var encodedPreview = checkpoint.Preview is null
+            ? null
+            : CheckpointPreviewCodec.Encode(checkpoint.Preview);
+        entity.PlanPreviewJson = encodedPreview?.Json;
+        entity.PlanPreviewBodyChecksum = encodedPreview?.BodyChecksum;
         entity.BlueprintId = checkpoint.Blueprint.Id;
         entity.BlueprintVersion = checkpoint.Blueprint.Version;
         entity.BlueprintSourceId = checkpoint.BlueprintFingerprint.SourceId;
@@ -213,6 +223,11 @@ internal static class RunCheckpointMapper
 
         EnsureUtf8Bound(entity.PlanHash!, 71);
         EnsureUtf8Bound(entity.PlanBodyChecksum!, 71);
+        if (entity.PlanPreviewJson is not null)
+        {
+            EnsureUtf8Bound(entity.PlanPreviewJson, CheckpointPreviewCodec.MaximumPreviewJsonBytes);
+            EnsureUtf8Bound(entity.PlanPreviewBodyChecksum!, 71);
+        }
         EnsureUtf8Bound(entity.BlueprintId!, 128);
         EnsureUtf8Bound(entity.BlueprintVersion!, 64);
         EnsureUtf8Bound(entity.BlueprintSourceId!, 128);

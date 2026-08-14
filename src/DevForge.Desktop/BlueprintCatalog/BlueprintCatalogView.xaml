@@ -28,7 +28,9 @@
                         <TextBlock Grid.Column="1" Text="{Binding TrustLabel}" />
                         <StackPanel Grid.Column="2">
                             <TextBlock Text="{Binding Issue}" TextWrapping="Wrap" />
-                            <Button Content="Create" IsEnabled="{Binding CanCreate}" />
+                            <Button Content="Create" IsEnabled="{Binding CanCreate}"
+                                    Command="{Binding DataContext.CreateCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                    CommandParameter="{Binding}" />
                         </StackPanel>
                     </Grid>
                 </DataTemplate>

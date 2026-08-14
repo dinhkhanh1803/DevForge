@@ -29,7 +29,8 @@ public sealed partial class DashboardViewModel : ObservableObject
         _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
         _notifications = notifications ?? throw new ArgumentNullException(nameof(notifications));
         RefreshCommand = new AsyncRelayCommand(LoadAsync, () => !IsBusy);
-        CreateProjectCommand = new RelayCommand(static () => { }, static () => false);
+        CreateProjectCommand = new RelayCommand(
+            () => _navigation.TryNavigate(DesktopRoute.CreateProject));
         OpenEnvironmentDoctorCommand = new RelayCommand(
             () => _navigation.TryNavigate(DesktopRoute.EnvironmentDoctor));
     }

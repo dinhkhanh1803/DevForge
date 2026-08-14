@@ -1,8 +1,11 @@
 using System.IO;
 using System.Windows;
+using DevForge.Desktop.BlueprintCatalog;
 using DevForge.Desktop.Bootstrap;
+using DevForge.Desktop.CreateProject;
 using DevForge.Desktop.Dashboard;
 using DevForge.Desktop.EnvironmentDoctor;
+using DevForge.Desktop.Execution;
 using DevForge.Desktop.Navigation;
 using DevForge.Desktop.Settings;
 using DevForge.Desktop.Shell;
@@ -32,16 +35,40 @@ public partial class App : System.Windows.Application, IDisposable
                 .GetRequiredService<IDesktopStartupCoordinator>()
                 .InitializeAsync(_shutdown.Token)
                 .ConfigureAwait(true);
+            var blueprintSourcesReady = state.Mode != DesktopStartupMode.Normal;
+            if (state.Mode == DesktopStartupMode.Normal)
+            {
+                try
+                {
+                    await _host.Services.GetRequiredService<DesktopBlueprintSourceRegistry>()
+                        .InitializeAsync(_shutdown.Token)
+                        .ConfigureAwait(true);
+                    blueprintSourcesReady = true;
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception)
+                {
+                    blueprintSourcesReady = false;
+                }
+            }
+
             var shell = _host.Services.GetRequiredService<ShellViewModel>();
             _host.Services.GetRequiredService<SettingsViewModel>().ApplySnapshot(state.Settings);
             _host.Services.GetRequiredService<EnvironmentDoctorViewModel>()
                 .ApplySnapshot(state.EnvironmentHealth);
             _host.Services.GetRequiredService<DashboardViewModel>().ApplySnapshot(state.Dashboard);
-            if (state.Mode == DesktopStartupMode.SafeReadOnly)
+            if (state.Mode == DesktopStartupMode.SafeReadOnly || !blueprintSourcesReady)
             {
-                shell.SetSafeMode(state.UserSafeMessage!);
+                shell.SetSafeMode(state.UserSafeMessage
+                    ?? "Trusted blueprint storage could not be prepared safely. DevForge is read-only.");
                 _host.Services.GetRequiredService<SettingsViewModel>().EnterReadOnlyMode();
                 _host.Services.GetRequiredService<EnvironmentDoctorViewModel>().EnterReadOnlyMode();
+                _host.Services.GetRequiredService<CreateProjectViewModel>().EnterReadOnlyMode();
+                _host.Services.GetRequiredService<BlueprintCatalogViewModel>().EnterReadOnlyMode();
+                _host.Services.GetRequiredService<ExecutionSessionCoordinator>().EnterReadOnlyMode();
             }
 
             _host.Services.GetRequiredService<NavigationService>()

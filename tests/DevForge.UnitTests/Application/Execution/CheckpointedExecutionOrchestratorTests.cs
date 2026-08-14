@@ -707,7 +707,7 @@ public sealed class CheckpointedExecutionOrchestratorTests
                 $"sha256:{new string('2', 64)}").Value;
             var preview = PlanPreview.Create(
                 blueprint,
-                [new PlanPreviewStep(step.Id, step.Handler, step.Timeout)],
+                steps.Select(item => new PlanPreviewStep(item.Id, item.Handler, item.Timeout)),
                 [],
                 [],
                 [],

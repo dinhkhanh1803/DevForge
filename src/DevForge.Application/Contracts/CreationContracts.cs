@@ -724,3 +724,106 @@ public interface IProjectCreationWorkflow
         IProgress<ExecutionProgressLine>? progress,
         CancellationToken cancellationToken);
 }
+
+public sealed record ProjectRecoveryEligibility(bool CanResume, bool CanRetry, bool CanCleanup)
+{
+    public static ProjectRecoveryEligibility None { get; } = new(false, false, false);
+}
+
+public sealed record ProjectRecoverySnapshot(PlannedProject PlannedProject, RunCheckpoint Checkpoint);
+
+public sealed record ProjectRecoveryWorkspaces(
+    IWorkspaceFileSystem TargetParent,
+    IWorkspaceFileSystem RunArtifacts);
+
+public sealed class LocalReadyPresentation
+{
+    private LocalReadyPresentation(
+        string targetDisplayPath,
+        ImmutableArray<string> reportReferences)
+    {
+        TargetDisplayPath = targetDisplayPath;
+        ReportReferences = reportReferences;
+    }
+
+    public string TargetDisplayPath { get; }
+
+    public ImmutableArray<string> ReportReferences { get; }
+
+    public static ValidationResult<LocalReadyPresentation> Create(
+        string? targetDisplayPath,
+        IEnumerable<string?>? reportReferences)
+    {
+        var reports = reportReferences?.ToImmutableArray() ?? [];
+        var issues = new List<ValidationIssue>();
+        if (string.IsNullOrWhiteSpace(targetDisplayPath) || targetDisplayPath.Length > 4_096)
+        {
+            issues.Add(new ValidationIssue(
+                "local-ready.target-display.invalid",
+                "A bounded target display path is required.",
+                "targetDisplayPath"));
+        }
+
+        if (reports.Length != 2
+            || reports.Any(item => string.IsNullOrWhiteSpace(item) || item.Length > 4_096)
+            || !reports.Any(item => item!.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+            || !reports.Any(item => item!.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
+            || reports.Distinct(StringComparer.Ordinal).Count() != reports.Length)
+        {
+            issues.Add(new ValidationIssue(
+                "local-ready.report-references.invalid",
+                "Exact bounded JSON and Markdown report references are required.",
+                "reportReferences"));
+        }
+
+        return issues.Count == 0
+            ? ValidationResult.Success(new LocalReadyPresentation(
+                targetDisplayPath!, [.. reports.Select(item => item!)]))
+            : ValidationResult.Failure<LocalReadyPresentation>(issues);
+    }
+}
+
+public interface IBlueprintRecoveryInspector
+{
+    Task<bool> IsCurrentAsync(
+        BlueprintReference blueprint,
+        BlueprintFingerprint fingerprint,
+        CancellationToken cancellationToken);
+}
+
+public interface IProjectRecoveryWorkspaceFactory
+{
+    Task<ProjectRecoveryWorkspaces> OpenAsync(
+        RunCheckpoint checkpoint,
+        CancellationToken cancellationToken);
+
+    Task<IWorkspaceFileSystem> OpenFinalProjectAsync(
+        RunCheckpoint checkpoint,
+        CancellationToken cancellationToken);
+
+    LocalReadyPresentation DescribeLocalReady(RunCheckpoint checkpoint);
+}
+
+public interface ILocalReadyService
+{
+    LocalReadyPresentation Describe(RunCheckpoint checkpoint);
+
+    Task OpenIdeAsync(
+        RunCheckpoint checkpoint,
+        string ideId,
+        CancellationToken cancellationToken);
+}
+
+public interface IProjectRecoveryWorkflow
+{
+    Task<ProjectRecoveryEligibility> InspectAsync(
+        RunCheckpoint checkpoint,
+        CancellationToken cancellationToken);
+
+    Task<ProjectRecoverySnapshot> ContinueAsync(
+        string runId,
+        ExecutionMode mode,
+        CancellationToken cancellationToken);
+
+    Task CleanupAsync(string runId, CancellationToken cancellationToken);
+}

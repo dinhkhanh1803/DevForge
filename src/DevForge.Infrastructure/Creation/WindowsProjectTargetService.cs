@@ -5,7 +5,8 @@ namespace DevForge.Infrastructure.Creation;
 
 public sealed class WindowsProjectTargetService(
     IFileSystem fileSystem,
-    WorkspaceRoot localDataRoot) : IProjectTargetPreflight, IProjectExecutionWorkspaceFactory
+    WorkspaceRoot localDataRoot) : IProjectTargetPreflight, IProjectExecutionWorkspaceFactory,
+    IProjectRecoveryWorkspaceFactory
 {
     private const string RunsDirectoryName = "runs";
     private const string ProbePrefix = ".devforge-write-probe-";
@@ -201,6 +202,57 @@ public sealed class WindowsProjectTargetService(
                 "Guarded project execution workspaces could not be opened.",
                 "target");
         }
+    }
+
+    async Task<ProjectRecoveryWorkspaces> IProjectRecoveryWorkspaceFactory.OpenAsync(
+        RunCheckpoint checkpoint,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(checkpoint);
+        var target = await _fileSystem.OpenWorkspaceAsync(
+            checkpoint.Target.ParentRoot,
+            cancellationToken).ConfigureAwait(false);
+        var artifacts = await _fileSystem.OpenWorkspaceAsync(
+            checkpoint.RunArtifacts.Root,
+            cancellationToken).ConfigureAwait(false);
+        return new ProjectRecoveryWorkspaces(target, artifacts);
+    }
+
+    async Task<IWorkspaceFileSystem> IProjectRecoveryWorkspaceFactory.OpenFinalProjectAsync(
+        RunCheckpoint checkpoint,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(checkpoint);
+        var fullPath = Path.Combine(
+            checkpoint.Target.ParentRoot.RevealForFileSystem(),
+            checkpoint.Target.TargetDirectory.RevealForFileSystem());
+        var root = WorkspaceRoot.Create(fullPath);
+        if (!root.IsValid)
+        {
+            throw new InfrastructureOperationException(
+                "DF-FS-003",
+                "The finalized project root could not be proven.");
+        }
+
+        return await _fileSystem.OpenWorkspaceAsync(root.Value, cancellationToken).ConfigureAwait(false);
+    }
+
+    LocalReadyPresentation IProjectRecoveryWorkspaceFactory.DescribeLocalReady(
+        RunCheckpoint checkpoint)
+    {
+        ArgumentNullException.ThrowIfNull(checkpoint);
+        var targetPath = Path.GetFullPath(Path.Combine(
+            checkpoint.Target.ParentRoot.RevealForFileSystem(),
+            checkpoint.Target.TargetDirectory.RevealForFileSystem()));
+        var reportDirectory = Path.Combine(
+            checkpoint.RunArtifacts.Root.RevealForFileSystem(),
+            "reports");
+        return LocalReadyPresentation.Create(
+            targetPath,
+            [
+                Path.Combine(reportDirectory, $"{checkpoint.Run.Id}.json"),
+                Path.Combine(reportDirectory, $"{checkpoint.Run.Id}.md"),
+            ]).Value;
     }
 
     private static async Task TryCleanupRunArtifactsAsync(

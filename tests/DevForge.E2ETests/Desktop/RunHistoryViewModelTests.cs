@@ -1,3 +1,4 @@
+using DevForge.Application.Contracts;
 using DevForge.Desktop.RunHistory;
 using DevForge.Domain.Diagnostics;
 using DevForge.Domain.Privacy;
@@ -21,7 +22,9 @@ public sealed class RunHistoryViewModelTests
     {
         var run = ProjectRun.Rehydrate("run-1", "recipe-1", status, null, [], []).Value;
 
-        var item = RunHistoryItemViewModel.From(run);
+        var item = RunHistoryItemViewModel.From(
+            run,
+            new ProjectRecoveryEligibility(canResume, canRetry, canCleanup));
 
         Assert.Equal(canResume, item.CanResume);
         Assert.Equal(canRetry, item.CanRetry);
@@ -43,7 +46,9 @@ public sealed class RunHistoryViewModelTests
         var run = ProjectRun.Rehydrate(
             "run-1", "recipe-1", RunStatus.Executing, null, [attempt], [error]).Value;
 
-        var item = RunHistoryItemViewModel.From(run);
+        var item = RunHistoryItemViewModel.From(
+            run,
+            new ProjectRecoveryEligibility(true, true, false));
 
         Assert.True(item.CanResume);
         Assert.True(item.CanRetry);

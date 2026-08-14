@@ -3,12 +3,31 @@ using DevForge.Application.Contracts;
 using DevForge.Blueprints.Abstractions.Models;
 using DevForge.Desktop.CreateProject;
 using DevForge.Desktop.Execution;
+using DevForge.Desktop.Navigation;
 using DevForge.Domain.Validation;
 
 namespace DevForge.E2ETests.Desktop;
 
 public sealed class CreateProjectViewModelTests
 {
+    [Fact]
+    public async Task SafeReadOnlyModePreventsTargetPreflightAndPlanning()
+    {
+        var workflow = new StubWorkflow(CreateBlueprint());
+        var sut = CreateViewModel(workflow);
+        sut.Name = "Sample";
+        sut.RootPath = "C:\\Projects";
+        sut.OutputFolder = "sample";
+        await sut.LoadAsync(CancellationToken.None);
+
+        sut.EnterReadOnlyMode();
+        await sut.ReviewPlanAsync(CancellationToken.None);
+
+        Assert.True(sut.IsReadOnly);
+        Assert.False(sut.ReviewPlanCommand.CanExecute(null));
+        Assert.Null(workflow.Draft);
+    }
+
     [Fact]
     public void DynamicEditorsApplyTypedDefaultsAndValidateBounds()
     {
@@ -99,7 +118,10 @@ public sealed class CreateProjectViewModelTests
     {
         return new CreateProjectViewModel(
             workflow,
-            new ExecutionSessionCoordinator(workflow, new UnsupportedRecovery()));
+            new ExecutionCenterViewModel(
+                new ExecutionSessionCoordinator(workflow, new UnsupportedRecovery())),
+            new UnusedLocalReadyService(),
+            new ProjectCreationSelection());
     }
 
     private static ResolvedBlueprint CreateBlueprint()

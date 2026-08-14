@@ -26,13 +26,12 @@ public sealed partial class NavigationService : ObservableObject
 
     private static ImmutableArray<RouteDescriptor> CreateDescriptors()
     {
-        const string future = "Available in M7";
         return
         [
             new(DesktopRoute.Dashboard, "Dashboard", "Home", true),
-            new(DesktopRoute.CreateProject, "Create Project", "Add", false, future),
-            new(DesktopRoute.Projects, "Projects", "Folder", false, future),
-            new(DesktopRoute.BlueprintCatalog, "Blueprint Catalog", "Catalog", false, future),
+            new(DesktopRoute.CreateProject, "Create Project", "Add", true),
+            new(DesktopRoute.RunHistory, "Run History", "Folder", true),
+            new(DesktopRoute.BlueprintCatalog, "Blueprint Catalog", "Catalog", true),
             new(DesktopRoute.EnvironmentDoctor, "Environment Doctor", "Health", true),
             new(DesktopRoute.Settings, "Settings", "Settings", true),
         ];

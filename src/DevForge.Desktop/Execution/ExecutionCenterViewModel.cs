@@ -30,6 +30,9 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
     private bool _isBusy;
 
     [ObservableProperty]
+    private RunCheckpoint? _recoveredCheckpoint;
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanResume))]
     private ExecutionRequest? _resumeRequest;
 
@@ -83,7 +86,26 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
     public bool CanCreateSupportBundle => _m10ActionsEnabled;
 
     public RunStatusProjection Status => ProjectStatus(
-        Snapshot?.Checkpoint.Run.Status ?? RunStatus.Draft);
+        Snapshot?.Checkpoint.Run.Status ?? RecoveredCheckpoint?.Run.Status ?? RunStatus.Draft);
+
+    public void ApplyRecovered(PlannedProject plannedProject, RunCheckpoint checkpoint)
+    {
+        ArgumentNullException.ThrowIfNull(plannedProject);
+        ArgumentNullException.ThrowIfNull(checkpoint);
+        RecoveredCheckpoint = checkpoint;
+        Snapshot = null;
+        ValidationIssues = [];
+        Steps =
+        [
+            .. plannedProject.Plan.Steps.Select(step =>
+                ExecutionStepViewModel.From(
+                    step.Id,
+                    step.Name,
+                    checkpoint.Run.Attempts.LastOrDefault(
+                        attempt => StringComparer.Ordinal.Equals(attempt.StepId, step.Id)))),
+        ];
+        OnPropertyChanged(nameof(Status));
+    }
 
     public async Task ExecuteAsync(
         ProjectCreationPlanSnapshot plan,
@@ -94,6 +116,12 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
             return;
         }
 
+        Snapshot = null;
+        RecoveredCheckpoint = null;
+        ValidationIssues = [];
+        Steps = [];
+        ProgressLines = [];
+        OnPropertyChanged(nameof(Status));
         SetBusy(true);
         try
         {

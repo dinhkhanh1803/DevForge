@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using DevForge.Application.Contracts;
 using DevForge.Blueprints.Abstractions.Models;
 using DevForge.Desktop.Execution;
+using DevForge.Desktop.Navigation;
 using DevForge.Domain.Validation;
 
 namespace DevForge.Desktop.CreateProject;
@@ -12,7 +13,8 @@ namespace DevForge.Desktop.CreateProject;
 public sealed partial class CreateProjectViewModel : ObservableObject
 {
     private readonly IProjectCreationWorkflow _workflow;
-    private readonly ExecutionSessionCoordinator _execution;
+    private readonly ILocalReadyService _localReadyService;
+    private readonly ProjectCreationSelection _selection;
 
     [ObservableProperty]
     private string? _name;
@@ -42,22 +44,34 @@ public sealed partial class CreateProjectViewModel : ObservableObject
     private ProjectCreationExecutionSnapshot? _executionSnapshot;
 
     [ObservableProperty]
+    private LocalReadyViewModel? _localReady;
+
+    [ObservableProperty]
     private ImmutableArray<ValidationIssue> _validationIssues = [];
 
     [ObservableProperty]
     private bool _isBusy;
 
+    [ObservableProperty]
+    private bool _isReadOnly;
+
     public CreateProjectViewModel(
         IProjectCreationWorkflow workflow,
-        ExecutionSessionCoordinator execution)
+        ExecutionCenterViewModel executionCenter,
+        ILocalReadyService localReadyService,
+        ProjectCreationSelection selection)
     {
         _workflow = workflow ?? throw new ArgumentNullException(nameof(workflow));
-        _execution = execution ?? throw new ArgumentNullException(nameof(execution));
+        ExecutionCenter = executionCenter ?? throw new ArgumentNullException(nameof(executionCenter));
+        _localReadyService = localReadyService ?? throw new ArgumentNullException(nameof(localReadyService));
+        _selection = selection ?? throw new ArgumentNullException(nameof(selection));
         LoadCommand = new AsyncRelayCommand(LoadAsync, () => !IsBusy);
-        ReviewPlanCommand = new AsyncRelayCommand(ReviewPlanAsync, () => !IsBusy);
+        ReviewPlanCommand = new AsyncRelayCommand(ReviewPlanAsync, () => !IsBusy && !IsReadOnly);
     }
 
     public ImmutableArray<ResolvedBlueprint> Blueprints { get; private set; } = [];
+
+    public ExecutionCenterViewModel ExecutionCenter { get; }
 
     public ObservableCollection<DynamicInputViewModel> Inputs { get; } = [];
 
@@ -83,7 +97,11 @@ public sealed partial class CreateProjectViewModel : ObservableObject
                 cancellationToken).ConfigureAwait(true);
             Blueprints = catalog.ExecutableBlueprints;
             OnPropertyChanged(nameof(Blueprints));
-            SelectedBlueprint ??= Blueprints.FirstOrDefault();
+            SelectedBlueprint = Blueprints.FirstOrDefault(blueprint =>
+                    blueprint.Manifest.Id == _selection.Blueprint?.Id
+                    && blueprint.Manifest.Version == _selection.Blueprint?.Version)
+                ?? SelectedBlueprint
+                ?? Blueprints.FirstOrDefault();
         }
         finally
         {
@@ -93,7 +111,7 @@ public sealed partial class CreateProjectViewModel : ObservableObject
 
     public async Task ReviewPlanAsync(CancellationToken cancellationToken)
     {
-        if (IsBusy)
+        if (IsBusy || IsReadOnly)
         {
             return;
         }
@@ -168,6 +186,12 @@ public sealed partial class CreateProjectViewModel : ObservableObject
         }
     }
 
+    public void EnterReadOnlyMode()
+    {
+        IsReadOnly = true;
+        ReviewPlanCommand.NotifyCanExecuteChanged();
+    }
+
     partial void OnSelectedBlueprintChanged(ResolvedBlueprint? value)
     {
         foreach (var input in Inputs)
@@ -204,6 +228,7 @@ public sealed partial class CreateProjectViewModel : ObservableObject
         ReviewedPlan = null;
         PlanPreview = null;
         ExecutionSnapshot = null;
+        LocalReady = null;
         ValidationIssues = [];
         Stage = ProjectCreationStage.Configure;
     }
@@ -212,20 +237,21 @@ public sealed partial class CreateProjectViewModel : ObservableObject
         ProjectCreationPlanSnapshot plan,
         CancellationToken cancellationToken)
     {
-        var result = await _execution.ExecuteAsync(
-            plan,
-            cancellationToken).ConfigureAwait(true);
-        if (!result.IsValid)
+        Stage = ProjectCreationStage.Execute;
+        await ExecutionCenter.ExecuteAsync(plan, cancellationToken).ConfigureAwait(true);
+        if (ExecutionCenter.Snapshot is null)
         {
-            ValidationIssues = result.Issues;
+            ValidationIssues = ExecutionCenter.ValidationIssues;
             return;
         }
 
-        ExecutionSnapshot = result.Value;
+        ExecutionSnapshot = ExecutionCenter.Snapshot;
         ValidationIssues = [];
-        Stage = result.Value.Checkpoint.Run.Status == DevForge.Domain.Runs.RunStatus.LocalReady
-            ? ProjectCreationStage.LocalReady
-            : ProjectCreationStage.Execute;
+        if (ExecutionSnapshot.Checkpoint.Run.Status == DevForge.Domain.Runs.RunStatus.LocalReady)
+        {
+            LocalReady = new LocalReadyViewModel(ExecutionSnapshot, _localReadyService);
+            Stage = ProjectCreationStage.LocalReady;
+        }
     }
 
     private void BackToConfigure()

@@ -415,6 +415,7 @@ public sealed class RunCheckpoint
     private RunCheckpoint(
         ProjectRun run,
         ExecutionPlan plan,
+        PlanPreview? preview,
         BlueprintReference blueprint,
         BlueprintFingerprint blueprintFingerprint,
         StagingDescriptor staging,
@@ -426,6 +427,7 @@ public sealed class RunCheckpoint
     {
         Run = run;
         Plan = plan;
+        Preview = preview;
         Blueprint = blueprint;
         BlueprintFingerprint = blueprintFingerprint;
         Staging = staging;
@@ -439,6 +441,8 @@ public sealed class RunCheckpoint
     public ProjectRun Run { get; }
 
     public ExecutionPlan Plan { get; }
+
+    public PlanPreview? Preview { get; }
 
     public string PlanHash => Plan.Id;
 
@@ -470,6 +474,24 @@ public sealed class RunCheckpoint
         FinalizationState finalizationState,
         ReportPersistenceState reportState)
     {
+        return Create(
+            run, plan, null, blueprint, blueprintFingerprint, staging, target,
+            runArtifacts, evidence, finalizationState, reportState);
+    }
+
+    public static ValidationResult<RunCheckpoint> Create(
+        ProjectRun? run,
+        ExecutionPlan? plan,
+        PlanPreview? preview,
+        BlueprintReference? blueprint,
+        BlueprintFingerprint? blueprintFingerprint,
+        StagingDescriptor? staging,
+        TargetDescriptor? target,
+        RunArtifactDescriptor? runArtifacts,
+        IEnumerable<ExecutionEvidence?>? evidence,
+        FinalizationState finalizationState,
+        ReportPersistenceState reportState)
+    {
         var snapshot = evidence?.ToImmutableArray() ?? [];
         var issues = new List<ValidationIssue>();
         AddRequired(run, "run", "run", issues);
@@ -485,6 +507,19 @@ public sealed class RunCheckpoint
                 "checkpoint.plan-hash.invalid",
                 "The checkpoint plan identifier must be a canonical plan hash.",
                 "plan.id"));
+        }
+
+        if (preview is not null
+            && (plan is null
+                || !StringComparer.Ordinal.Equals(preview.PlanHash, plan.Id)
+                || blueprint is null
+                || !preview.Blueprint.Equals(blueprint)
+                || !PreviewMatchesPlan(preview, plan)))
+        {
+            issues.Add(new ValidationIssue(
+                "checkpoint.preview.mismatch",
+                "The persisted plan preview must match the exact plan and blueprint.",
+                "preview"));
         }
 
         ValidateEvidence(evidence, snapshot, plan, issues);
@@ -527,6 +562,7 @@ public sealed class RunCheckpoint
             ? ValidationResult.Success(new RunCheckpoint(
                 run!,
                 plan!,
+                preview,
                 blueprint!,
                 blueprintFingerprint!,
                 staging!,
@@ -536,6 +572,21 @@ public sealed class RunCheckpoint
                 finalizationState,
                 reportState))
             : ValidationResult.Failure<RunCheckpoint>(issues);
+    }
+
+    private static bool PreviewMatchesPlan(PlanPreview preview, ExecutionPlan plan)
+    {
+        return preview.Steps.Length == plan.Steps.Length
+            && preview.Validators.Length == plan.Validators.Length
+            && preview.Steps.Zip(plan.Steps).All(pair =>
+                StringComparer.Ordinal.Equals(pair.First.Id, pair.Second.Id)
+                && StringComparer.Ordinal.Equals(pair.First.HandlerId, pair.Second.Handler)
+                && pair.First.Timeout == pair.Second.Timeout)
+            && preview.Validators.Zip(plan.Validators).All(pair =>
+                StringComparer.Ordinal.Equals(pair.First.Id, pair.Second.Id)
+                && StringComparer.Ordinal.Equals(pair.First.HandlerId, pair.Second.Handler)
+                && pair.First.Timeout == pair.Second.Timeout
+                && pair.First.Required == pair.Second.Required);
     }
 
     private static void ValidateEvidence(

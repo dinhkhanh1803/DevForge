@@ -20,9 +20,15 @@
                             <TextBlock Text="{Binding ErrorCode}" />
                         </StackPanel>
                         <StackPanel Grid.Column="1" Orientation="Horizontal">
-                            <Button Content="Resume" IsEnabled="{Binding CanResume}" />
-                            <Button Content="Retry" IsEnabled="{Binding CanRetry}" Margin="8,0,0,0" />
-                            <Button Content="Cleanup" IsEnabled="{Binding CanCleanup}" Margin="8,0,0,0" />
+                            <Button Content="Resume" IsEnabled="{Binding CanResume}"
+                                    Command="{Binding DataContext.ResumeCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                    CommandParameter="{Binding}" />
+                            <Button Content="Retry" IsEnabled="{Binding CanRetry}" Margin="8,0,0,0"
+                                    Command="{Binding DataContext.RetryCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                    CommandParameter="{Binding}" />
+                            <Button Content="Cleanup" IsEnabled="{Binding CanCleanup}" Margin="8,0,0,0"
+                                    Command="{Binding DataContext.CleanupCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                    CommandParameter="{Binding}" />
                         </StackPanel>
                     </Grid>
                 </DataTemplate>

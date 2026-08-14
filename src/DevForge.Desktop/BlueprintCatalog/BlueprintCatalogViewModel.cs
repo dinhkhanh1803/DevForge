@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DevForge.Application.Contracts;
+using DevForge.Desktop.Navigation;
 
 namespace DevForge.Desktop.BlueprintCatalog;
 
@@ -15,6 +16,8 @@ public sealed record BlueprintCatalogItemViewModel(
 public sealed partial class BlueprintCatalogViewModel : ObservableObject
 {
     private readonly IProjectCreationWorkflow _workflow;
+    private readonly NavigationService _navigation;
+    private readonly ProjectCreationSelection _selection;
 
     [ObservableProperty]
     private ImmutableArray<BlueprintCatalogItemViewModel> _items = [];
@@ -22,24 +25,43 @@ public sealed partial class BlueprintCatalogViewModel : ObservableObject
     [ObservableProperty]
     private bool _isBusy;
 
-    public BlueprintCatalogViewModel(IProjectCreationWorkflow workflow)
+    [ObservableProperty]
+    private bool _isReadOnly;
+
+    public BlueprintCatalogViewModel(
+        IProjectCreationWorkflow workflow,
+        NavigationService navigation,
+        ProjectCreationSelection selection)
     {
         _workflow = workflow ?? throw new ArgumentNullException(nameof(workflow));
+        _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
+        _selection = selection ?? throw new ArgumentNullException(nameof(selection));
         RefreshCommand = new AsyncRelayCommand(
             cancellationToken => LoadCoreAsync(forceRefresh: true, cancellationToken),
-            () => !IsBusy);
+            () => !IsBusy && !IsReadOnly);
+        CreateCommand = new RelayCommand<BlueprintCatalogItemViewModel>(
+            SelectForCreation,
+            item => item?.CanCreate == true);
     }
 
     public IAsyncRelayCommand RefreshCommand { get; }
+
+    public IRelayCommand<BlueprintCatalogItemViewModel> CreateCommand { get; }
 
     public Task LoadAsync(CancellationToken cancellationToken)
     {
         return LoadCoreAsync(forceRefresh: false, cancellationToken);
     }
 
+    public void EnterReadOnlyMode()
+    {
+        IsReadOnly = true;
+        RefreshCommand.NotifyCanExecuteChanged();
+    }
+
     private async Task LoadCoreAsync(bool forceRefresh, CancellationToken cancellationToken)
     {
-        if (IsBusy)
+        if (IsBusy || (forceRefresh && IsReadOnly))
         {
             return;
         }
@@ -95,6 +117,21 @@ public sealed partial class BlueprintCatalogViewModel : ObservableObject
     }
 
     private static string Key(string id, string version) => $"{id}\0{version}";
+
+    private void SelectForCreation(BlueprintCatalogItemViewModel? item)
+    {
+        if (item?.CanCreate != true)
+        {
+            return;
+        }
+
+        var reference = BlueprintReference.Create(item.Id, item.Version);
+        if (reference.IsValid)
+        {
+            _selection.Select(reference.Value);
+            _navigation.TryNavigate(DesktopRoute.CreateProject);
+        }
+    }
 
     private void SetBusy(bool value)
     {

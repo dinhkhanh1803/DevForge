@@ -1,9 +1,12 @@
 using System.Runtime.ExceptionServices;
 using System.Windows;
 using System.Windows.Controls;
+using DevForge.Desktop.BlueprintCatalog;
 using DevForge.Desktop.CreateProject;
 using DevForge.Desktop.Dashboard;
 using DevForge.Desktop.EnvironmentDoctor;
+using DevForge.Desktop.Execution;
+using DevForge.Desktop.RunHistory;
 using DevForge.Desktop.Settings;
 
 namespace DevForge.E2ETests.Desktop;
@@ -32,6 +35,10 @@ public sealed class WpfResourceSmokeTests
                 new SettingsView(),
                 new EnvironmentDoctorView(),
                 new CreateProjectView(),
+                new BlueprintCatalogView(),
+                new RunHistoryView(),
+                new ExecutionCenterView(),
+                new LocalReadyView(),
                 new DevForge.Desktop.MainWindow(),
             ];
 

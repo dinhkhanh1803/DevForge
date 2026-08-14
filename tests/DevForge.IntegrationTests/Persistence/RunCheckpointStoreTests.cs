@@ -5,7 +5,9 @@ using DevForge.Application.Contracts;
 using DevForge.Application.Execution;
 using DevForge.Blueprints.Abstractions.Models;
 using DevForge.Domain.Execution;
+using DevForge.Domain.Projects;
 using DevForge.Domain.Runs;
+using DevForge.Domain.Validation;
 using DevForge.Infrastructure.Persistence;
 using DevForge.Infrastructure.Persistence.Migrations;
 using DevForge.Infrastructure.Persistence.Repositories;
@@ -88,6 +90,9 @@ public sealed class RunCheckpointStoreTests
         Assert.Equal(checkpoint.FinalizationState, loaded.FinalizationState);
         Assert.Equal(checkpoint.ReportState, loaded.ReportState);
         Assert.Equal(checkpoint.Evidence.ToArray(), loaded.Evidence.ToArray());
+        Assert.NotNull(loaded.Preview);
+        Assert.Equal(checkpoint.Preview!.PlanHash, loaded.Preview.PlanHash);
+        Assert.Equal("vscode", loaded.Preview.Completion.IdeId);
 
         var step = Assert.Single(loaded.Plan.Steps);
         Assert.Equal("create-directory", step.Handler);
@@ -169,6 +174,26 @@ public sealed class RunCheckpointStoreTests
 
         Assert.Equal("DF-DB-001", exception.Code);
         Assert.DoesNotContain(secretShapedContent, exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CanonicalPreviewContentTamperingFailsChecksumValidation()
+    {
+        await using var database = PersistenceTestDatabase.Create();
+        var factory = await CreateMigratedFactoryAsync(database);
+        var store = new SqliteRunCheckpointStore(factory);
+        await store.SaveAsync(CreateCheckpoint("run-preview-tamper"), CancellationToken.None);
+        using (var connection = database.OpenConnection())
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText =
+                "UPDATE ProjectRuns SET PlanPreviewJson = replace(PlanPreviewJson, "
+                + "'Safe warning.', 'Changed warning.') WHERE Id = 'run-preview-tamper';";
+            Assert.Equal(1, command.ExecuteNonQuery());
+        }
+
+        await Assert.ThrowsAsync<PersistenceDataException>(
+            () => store.FindAsync("run-preview-tamper", CancellationToken.None));
     }
 
     [Fact]
@@ -432,6 +457,18 @@ public sealed class RunCheckpointStoreTests
             WorkspaceRelativePath.Create("desktop.csharp-wpf-tool\\1.0.0").Value,
             BlueprintTrust.BuiltIn,
             $"sha256:{new string('2', 64)}").Value;
+        var preview = PlanPreview.Create(
+            blueprint,
+            [new PlanPreviewStep(step.Id, step.Handler, step.Timeout)],
+            [new PlanPreviewValidator(
+                validator.Id, validator.Handler, validator.Timeout, validator.Required)],
+            [], [], [], [],
+            [new ValidationIssue("preview.warning", "Safe warning.", "preview")],
+            [KeyValuePair.Create<string, PlanValue?>("framework", PlanValue.FromString("net10.0").Value)],
+            ["tests"],
+            GitOptions.Create(initializeRepository: false).Value,
+            CompletionOptions.Create(openIde: true, ideId: "vscode").Value,
+            planHash).Value;
         var staging = StagingDescriptor.Create(
             WorkspaceRelativePath.Create($".devforge-staging\\{runId}").Value,
             WorkspaceRelativePath.Create($".devforge-staging\\{runId}\\payload").Value,
@@ -451,6 +488,7 @@ public sealed class RunCheckpointStoreTests
         return RunCheckpoint.Create(
             run,
             plan,
+            preview,
             blueprint,
             fingerprint,
             staging,
@@ -471,6 +509,7 @@ public sealed class RunCheckpointStoreTests
         return RunCheckpoint.Create(
             run,
             checkpoint.Plan,
+            checkpoint.Preview,
             checkpoint.Blueprint,
             checkpoint.BlueprintFingerprint,
             checkpoint.Staging,

@@ -2,12 +2,25 @@ using System.Collections.Immutable;
 using DevForge.Application.Contracts;
 using DevForge.Blueprints.Abstractions.Models;
 using DevForge.Desktop.BlueprintCatalog;
+using DevForge.Desktop.Navigation;
 using DevForge.Domain.Validation;
 
 namespace DevForge.E2ETests.Desktop;
 
 public sealed class BlueprintCatalogViewModelTests
 {
+    [Fact]
+    public void SafeReadOnlyModeDisablesCatalogRefresh()
+    {
+        var snapshot = BlueprintCatalogSnapshot.Create([], []).Value;
+        var sut = CreateViewModel(snapshot);
+
+        sut.EnterReadOnlyMode();
+
+        Assert.True(sut.IsReadOnly);
+        Assert.False(sut.RefreshCommand.CanExecute(null));
+    }
+
     [Fact]
     public async Task CatalogSeparatesExecutableAndInspectOnlyInDeterministicOrder()
     {
@@ -20,8 +33,8 @@ public sealed class BlueprintCatalogViewModelTests
             BlueprintTrust.Untrusted,
             [issue],
             isDisabled: true).Value;
-        var sut = new BlueprintCatalogViewModel(new CatalogWorkflow(
-            BlueprintCatalogSnapshot.Create([executable], [inspection]).Value));
+        var sut = CreateViewModel(
+            BlueprintCatalogSnapshot.Create([executable], [inspection]).Value);
 
         await sut.LoadAsync(CancellationToken.None);
 
@@ -31,6 +44,28 @@ public sealed class BlueprintCatalogViewModelTests
         Assert.True(sut.Items[1].CanCreate);
         Assert.Equal("TrustedLocal", sut.Items[1].TrustLabel);
     }
+
+    [Fact]
+    public async Task CreateActionCarriesExactBlueprintSelectionToCreateRoute()
+    {
+        var blueprint = CreateResolved("sample.local", BlueprintTrust.TrustedLocal);
+        var navigation = new NavigationService();
+        var selection = new ProjectCreationSelection();
+        var sut = new BlueprintCatalogViewModel(
+            new CatalogWorkflow(BlueprintCatalogSnapshot.Create([blueprint], []).Value),
+            navigation,
+            selection);
+        await sut.LoadAsync(CancellationToken.None);
+
+        sut.CreateCommand.Execute(sut.Items.Single());
+
+        Assert.Equal(DesktopRoute.CreateProject, navigation.CurrentRoute);
+        Assert.Equal("sample.local", selection.Blueprint?.Id);
+        Assert.Equal("1.0.0", selection.Blueprint?.Version);
+    }
+
+    private static BlueprintCatalogViewModel CreateViewModel(BlueprintCatalogSnapshot snapshot) =>
+        new(new CatalogWorkflow(snapshot), new NavigationService(), new ProjectCreationSelection());
 
     private static ResolvedBlueprint CreateResolved(string id, BlueprintTrust trust)
     {

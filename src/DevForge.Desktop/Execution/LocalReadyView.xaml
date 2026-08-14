@@ -6,11 +6,20 @@
         <StackPanel Margin="{StaticResource Page.Padding}" MaxWidth="840" HorizontalAlignment="Left">
             <TextBlock Style="{StaticResource PageHeading}" Text="LOCAL PROJECT READY" />
             <TextBlock Text="The project passed required validation and is available locally." />
+            <TextBlock Margin="0,16,0,0" Text="{Binding TargetDisplayPath, StringFormat=Target: {0}}" />
+            <TextBlock Text="{Binding BlueprintLabel, StringFormat=Blueprint: {0}}" />
+            <TextBlock Text="{Binding PlanHash, StringFormat=Plan: {0}}" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding Elapsed, StringFormat=Elapsed: {0}}" />
             <TextBlock Margin="0,16,0,0" Text="{Binding FinalizationState, StringFormat=Finalization: {0}}" />
             <TextBlock Text="{Binding ReportState, StringFormat=Generation report: {0}}" />
+            <ItemsControl ItemsSource="{Binding ReportReferences}" />
+            <TextBlock Style="{StaticResource SectionHeading}" Text="Evidence" Margin="0,16,0,4" />
+            <ItemsControl ItemsSource="{Binding Evidence}" DisplayMemberPath="DisplayText" />
             <TextBlock Style="{StaticResource SectionHeading}" Text="Warnings" Margin="0,16,0,4" />
             <ItemsControl ItemsSource="{Binding Warnings}" DisplayMemberPath="Message" />
             <TextBlock Foreground="#FFD13438" Text="{Binding IdeErrorMessage}" Margin="0,12,0,0" />
+            <Button Content="Open IDE" Command="{Binding OpenIdeCommand}"
+                    HorizontalAlignment="Left" Margin="0,12,0,0" />
         </StackPanel>
     </ScrollViewer>
 </UserControl>

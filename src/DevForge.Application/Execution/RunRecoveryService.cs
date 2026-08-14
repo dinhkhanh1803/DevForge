@@ -149,6 +149,7 @@ public sealed class RunRecoveryService : IRunRecoveryService
         RunCheckpoint.Create(
             run,
             checkpoint.Plan,
+            checkpoint.Preview,
             checkpoint.Blueprint,
             checkpoint.BlueprintFingerprint,
             checkpoint.Staging,

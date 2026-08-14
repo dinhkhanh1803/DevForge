@@ -15,19 +15,27 @@ public sealed class LocalReadyViewModelTests
     public async Task LocalReadyNeverClaimsDomainCompletedAndIdeFailureDoesNotMutateCheckpoint()
     {
         var snapshot = CreateLocalReadySnapshot();
-        var launcher = new FailingIdeLauncher();
+        var launcher = new FailingLocalReadyService();
         var sut = new LocalReadyViewModel(snapshot, launcher);
         var checkpoint = snapshot.Checkpoint;
 
-        await sut.OpenIdeAsync(new StubWorkspace(), "vscode", CancellationToken.None);
+        Assert.False(sut.CanOpenIde);
 
         Assert.Equal("LOCAL PROJECT READY", sut.StatusLabel);
         Assert.False(sut.IsDomainCompleted);
         Assert.DoesNotContain("COMPLETED", sut.StatusLabel, StringComparison.Ordinal);
         Assert.Same(checkpoint, sut.Snapshot.Checkpoint);
-        Assert.Equal("IDE could not be opened.", sut.IdeErrorMessage);
+        Assert.Null(sut.IdeErrorMessage);
         Assert.Equal(FinalizationState.Succeeded, sut.FinalizationState);
         Assert.Equal(ReportPersistenceState.Succeeded, sut.ReportState);
+        Assert.Equal(snapshot.Checkpoint.PlanHash, sut.PlanHash);
+        Assert.Contains("sample.local", sut.BlueprintLabel, StringComparison.Ordinal);
+        Assert.Equal("C:\\Projects\\sample", sut.TargetDisplayPath);
+        Assert.Equal(
+            ["C:\\DevForgeData\\runs\\run-0123456789abcdef0123456789abcdef\\reports\\run-0123456789abcdef0123456789abcdef.json",
+             "C:\\DevForgeData\\runs\\run-0123456789abcdef0123456789abcdef\\reports\\run-0123456789abcdef0123456789abcdef.md"],
+            sut.ReportReferences.ToArray());
+        Assert.Equal("Step | create | Passed", Assert.Single(sut.Evidence).DisplayText);
     }
 
     private static ProjectCreationExecutionSnapshot CreateLocalReadySnapshot()
@@ -64,7 +72,7 @@ public sealed class LocalReadyViewModelTests
             .TransitionTo(RunStatus.Executing).Value
             .TransitionTo(RunStatus.LocalReady).Value;
         var checkpoint = RunCheckpoint.Create(
-            run, plan, reference, fingerprint,
+            run, plan, preview, reference, fingerprint,
             StagingDescriptor.Create(
                 WorkspaceRelativePath.Create($".devforge-staging\\{planSnapshot.RunId}").Value,
                 WorkspaceRelativePath.Create($".devforge-staging\\{planSnapshot.RunId}\\payload").Value,
@@ -74,30 +82,27 @@ public sealed class LocalReadyViewModelTests
                 target.ParentRoot, target.TargetDirectory,
                 WorkspaceRelativePath.Create($".devforge-finalize-{planSnapshot.RunId}").Value).Value,
             RunArtifactDescriptor.Create(WorkspaceRoot.Create("C:\\DevForgeData\\runs\\run-0123456789abcdef0123456789abcdef").Value).Value,
-            [], FinalizationState.Succeeded, ReportPersistenceState.Succeeded).Value;
+            [ExecutionEvidence.Create(
+                ExecutionEvidenceKind.Step,
+                "create",
+                ExecutionEvidenceStatus.Passed,
+                $"sha256:{new string('3', 64)}").Value],
+            FinalizationState.Succeeded,
+            ReportPersistenceState.Succeeded).Value;
         return ProjectCreationExecutionSnapshot.Create(planSnapshot, checkpoint).Value;
     }
 
-    private sealed class FailingIdeLauncher : IIdeLauncher
+    private sealed class FailingLocalReadyService : ILocalReadyService
     {
-        public Task LaunchAsync(IdeLaunchRequest request, CancellationToken cancellationToken) =>
-            throw new InvalidOperationException("Failure must remain UI-only.");
-    }
+        public LocalReadyPresentation Describe(RunCheckpoint checkpoint) =>
+            LocalReadyPresentation.Create(
+                "C:\\Projects\\sample",
+                [
+                    "C:\\DevForgeData\\runs\\run-0123456789abcdef0123456789abcdef\\reports\\run-0123456789abcdef0123456789abcdef.json",
+                    "C:\\DevForgeData\\runs\\run-0123456789abcdef0123456789abcdef\\reports\\run-0123456789abcdef0123456789abcdef.md",
+                ]).Value;
 
-    private sealed class StubWorkspace : IWorkspaceFileSystem
-    {
-        public WorkspaceRoot Root { get; } = WorkspaceRoot.Create("C:\\Projects\\sample").Value;
-        public Task<bool> FileExistsAsync(WorkspaceRelativePath path, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<bool> DirectoryExistsAsync(WorkspaceRelativePath path, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task CreateDirectoryAsync(WorkspaceRelativePath path, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<Stream> OpenReadAsync(WorkspaceRelativePath path, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<Stream> OpenWriteAsync(WorkspaceRelativePath path, bool overwrite, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task DeleteFileAsync(WorkspaceRelativePath path, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<ImmutableArray<WorkspaceRelativePath>> EnumerateAllFilesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<ImmutableArray<WorkspaceRelativePath>> EnumerateRootDirectoriesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<ImmutableArray<WorkspaceRelativePath>> EnumerateFilesAsync(WorkspaceRelativePath directory, bool recursive, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<ImmutableArray<WorkspaceRelativePath>> EnumerateDirectoriesAsync(WorkspaceRelativePath directory, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task DeleteDirectoryAsync(WorkspaceRelativePath path, DirectoryCleanupIntent intent, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task MoveDirectoryAsync(WorkspaceRelativePath source, WorkspaceRelativePath destination, WorkspaceMoveIntent intent, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task OpenIdeAsync(RunCheckpoint checkpoint, string ideId, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Failure must remain UI-only.");
     }
 }

@@ -26,6 +26,10 @@ internal sealed class ProjectRunEntity
 
     public string? PlanBodyChecksum { get; set; }
 
+    public string? PlanPreviewJson { get; set; }
+
+    public string? PlanPreviewBodyChecksum { get; set; }
+
     public string? BlueprintId { get; set; }
 
     public string? BlueprintVersion { get; set; }

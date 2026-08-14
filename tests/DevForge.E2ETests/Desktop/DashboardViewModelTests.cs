@@ -8,7 +8,7 @@ namespace DevForge.E2ETests.Desktop;
 public sealed class DashboardViewModelTests
 {
     [Fact]
-    public async Task LoadPublishesSnapshotAndKeepsM7CreateDisabled()
+    public async Task LoadPublishesSnapshotAndNavigatesToM7Create()
     {
         var snapshot = new DashboardSnapshot(
             [], [], [],
@@ -23,8 +23,9 @@ public sealed class DashboardViewModelTests
 
         Assert.Same(snapshot, sut.Snapshot);
         Assert.True(sut.HasNoRecentProjects);
-        Assert.False(sut.CreateProjectCommand.CanExecute(null));
-        Assert.Equal(DesktopRoute.Dashboard, navigation.CurrentRoute);
+        Assert.True(sut.CreateProjectCommand.CanExecute(null));
+        sut.CreateProjectCommand.Execute(null);
+        Assert.Equal(DesktopRoute.CreateProject, navigation.CurrentRoute);
     }
 
     [Fact]

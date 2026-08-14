@@ -9,16 +9,18 @@ namespace DevForge.E2ETests.Desktop;
 public sealed class DesktopBehaviorMatrixTests
 {
     [Fact]
-    public void M6RouteMatrixHasExactEnabledBoundary()
+    public void M7RouteMatrixHasExactEnabledBoundary()
     {
         var matrix = NavigationService.Descriptors.ToDictionary(item => item.Route, item => item.IsEnabled);
 
         Assert.True(matrix[DesktopRoute.Dashboard]);
         Assert.True(matrix[DesktopRoute.EnvironmentDoctor]);
         Assert.True(matrix[DesktopRoute.Settings]);
-        Assert.False(matrix[DesktopRoute.CreateProject]);
-        Assert.False(matrix[DesktopRoute.Projects]);
-        Assert.False(matrix[DesktopRoute.BlueprintCatalog]);
+        Assert.True(matrix[DesktopRoute.CreateProject]);
+        Assert.True(matrix[DesktopRoute.RunHistory]);
+        Assert.True(matrix[DesktopRoute.BlueprintCatalog]);
+        Assert.Equal("Run History", NavigationService.Descriptors.Single(
+            item => item.Route == DesktopRoute.RunHistory).Label);
     }
 
     [Fact]

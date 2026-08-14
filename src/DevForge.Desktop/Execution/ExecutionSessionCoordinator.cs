@@ -18,6 +18,7 @@ public sealed class ExecutionSessionCoordinator : IDisposable
     private CancellationTokenSource? _activeCancellation;
     private int _progressCharacterCount;
     private int _active;
+    private int _isReadOnly;
 
     public ExecutionSessionCoordinator(
         IProjectCreationWorkflow workflow,
@@ -30,6 +31,13 @@ public sealed class ExecutionSessionCoordinator : IDisposable
     public event EventHandler? ProgressChanged;
 
     public bool IsActive => Volatile.Read(ref _active) != 0;
+
+    public bool IsReadOnly => Volatile.Read(ref _isReadOnly) != 0;
+
+    public void EnterReadOnlyMode()
+    {
+        Interlocked.Exchange(ref _isReadOnly, 1);
+    }
 
     public ImmutableArray<ExecutionProgressItem> ProgressLines
     {
@@ -146,6 +154,11 @@ public sealed class ExecutionSessionCoordinator : IDisposable
         bool clearProgress,
         CancellationToken shutdownToken)
     {
+        if (IsReadOnly)
+        {
+            throw new InvalidOperationException("Project execution is unavailable in safe read-only mode.");
+        }
+
         if (Interlocked.CompareExchange(ref _active, 1, 0) != 0)
         {
             throw new InvalidOperationException("A creation session is already active.");

@@ -948,6 +948,7 @@ public sealed class CheckpointedExecutionOrchestrator : IExecutionOrchestrator
         var checkpoint = RunCheckpoint.Create(
             run,
             request.PlannedProject.Plan,
+            request.PlannedProject.Preview,
             request.PlannedProject.Preview.Blueprint,
             request.PlannedProject.BlueprintFingerprint,
             staging,
@@ -969,6 +970,7 @@ public sealed class CheckpointedExecutionOrchestrator : IExecutionOrchestrator
         var result = RunCheckpoint.Create(
             run,
             checkpoint.Plan,
+            checkpoint.Preview,
             checkpoint.Blueprint,
             checkpoint.BlueprintFingerprint,
             checkpoint.Staging,

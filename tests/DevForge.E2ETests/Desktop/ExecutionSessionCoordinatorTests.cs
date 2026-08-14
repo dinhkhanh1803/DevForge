@@ -12,6 +12,19 @@ namespace DevForge.E2ETests.Desktop;
 public sealed class ExecutionSessionCoordinatorTests
 {
     [Fact]
+    public async Task SafeReadOnlyModeRefusesExecutionAndRecovery()
+    {
+        var sut = new ExecutionSessionCoordinator(new ProgressWorkflow(), new UnusedRecovery());
+        sut.EnterReadOnlyMode();
+
+        Assert.True(sut.IsReadOnly);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            sut.ExecuteAsync(CreatePlan(), CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            sut.RecoverInterruptedAsync(CancellationToken.None));
+    }
+
+    [Fact]
     public async Task RefusesSecondSessionAndCancellationReachesWorkflow()
     {
         var workflow = new BlockingWorkflow();

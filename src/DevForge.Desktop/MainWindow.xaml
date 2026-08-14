@@ -2,7 +2,11 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:dashboard="clr-namespace:DevForge.Desktop.Dashboard"
+        xmlns:catalog="clr-namespace:DevForge.Desktop.BlueprintCatalog"
+        xmlns:create="clr-namespace:DevForge.Desktop.CreateProject"
         xmlns:doctor="clr-namespace:DevForge.Desktop.EnvironmentDoctor"
+        xmlns:execution="clr-namespace:DevForge.Desktop.Execution"
+        xmlns:history="clr-namespace:DevForge.Desktop.RunHistory"
         xmlns:settings="clr-namespace:DevForge.Desktop.Settings"
         Title="DevForge Studio — Leader Edition"
         Width="1280"
@@ -19,6 +23,21 @@
         </DataTemplate>
         <DataTemplate DataType="{x:Type doctor:EnvironmentDoctorViewModel}">
             <doctor:EnvironmentDoctorView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type create:CreateProjectViewModel}">
+            <create:CreateProjectView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type catalog:BlueprintCatalogViewModel}">
+            <catalog:BlueprintCatalogView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type history:RunHistoryViewModel}">
+            <history:RunHistoryView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type execution:ExecutionCenterViewModel}">
+            <execution:ExecutionCenterView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type execution:LocalReadyViewModel}">
+            <execution:LocalReadyView />
         </DataTemplate>
     </Window.Resources>
     <Grid>

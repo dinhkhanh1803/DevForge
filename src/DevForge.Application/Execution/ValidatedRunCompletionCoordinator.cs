@@ -367,6 +367,7 @@ public sealed class ValidatedRunCompletionCoordinator : IRunCompletionCoordinato
         RunCheckpoint.Create(
             run ?? checkpoint.Run,
             checkpoint.Plan,
+            checkpoint.Preview,
             checkpoint.Blueprint,
             checkpoint.BlueprintFingerprint,
             checkpoint.Staging,

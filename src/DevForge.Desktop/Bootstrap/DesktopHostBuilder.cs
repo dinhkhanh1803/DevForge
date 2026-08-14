@@ -1,17 +1,31 @@
+using System.IO;
 using DevForge.Application.Contracts;
 using DevForge.Application.Contracts.Persistence;
+using DevForge.Application.Creation;
+using DevForge.Application.Execution;
+using DevForge.Application.Planning;
+using DevForge.Application.Planning.CompatibilityRules;
+using DevForge.Desktop.BlueprintCatalog;
+using DevForge.Desktop.CreateProject;
 using DevForge.Desktop.Dashboard;
 using DevForge.Desktop.EnvironmentDoctor;
+using DevForge.Desktop.Execution;
 using DevForge.Desktop.Navigation;
 using DevForge.Desktop.Notifications;
+using DevForge.Desktop.RunHistory;
 using DevForge.Desktop.Settings;
 using DevForge.Desktop.Shell;
 using DevForge.Desktop.Theming;
+using DevForge.Infrastructure.Blueprints;
+using DevForge.Infrastructure.Creation;
+using DevForge.Infrastructure.Execution;
 using DevForge.Infrastructure.FileSystem;
+using DevForge.Infrastructure.Ide;
 using DevForge.Infrastructure.Persistence;
 using DevForge.Infrastructure.Persistence.Migrations;
 using DevForge.Infrastructure.Persistence.Repositories;
 using DevForge.Infrastructure.Processes;
+using DevForge.Infrastructure.Security;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -59,11 +73,57 @@ public static class DesktopHostBuilder
         services.AddSingleton<IRecentProjectStore, RecentProjectStore>();
         services.AddSingleton<IPresetStore, PresetStore>();
         services.AddSingleton<IRunCheckpointStore, SqliteRunCheckpointStore>();
+        services.AddSingleton<IBlueprintMetadataStore, BlueprintMetadataStore>();
 
         services.AddSingleton<IFileSystem, WindowsFileSystem>();
         services.AddSingleton<IProjectLocationProbe, GuardedProjectLocationProbe>();
         services.AddSingleton<IProcessRunner, WindowsProcessRunner>();
+        services.AddSingleton<IIdeLauncher, WindowsIdeLauncher>();
         services.AddSingleton<IEnvironmentDoctor, DeferredEnvironmentDoctor>();
+
+        var workspaceRoot = WorkspaceRoot.Create(location.LocalDataRoot);
+        if (!workspaceRoot.IsValid)
+        {
+            throw new InvalidOperationException("The application data workspace root is invalid.");
+        }
+
+        services.AddSingleton(workspaceRoot.Value);
+        services.AddSingleton<DesktopBlueprintSourceRegistry>();
+        services.AddSingleton<IEnumerable<BlueprintPackageSource>>(provider =>
+            provider.GetRequiredService<DesktopBlueprintSourceRegistry>());
+        services.AddSingleton<DevForge.Infrastructure.Blueprints.BlueprintCatalog>();
+        services.AddSingleton<IBlueprintCatalog>(provider =>
+            provider.GetRequiredService<DevForge.Infrastructure.Blueprints.BlueprintCatalog>());
+        services.AddSingleton<IBlueprintExecutionSource, BlueprintExecutionSource>();
+        services.AddSingleton<IBlueprintRecoveryInspector, BlueprintRecoveryInspector>();
+        services.AddSingleton<IInputSchemaValidator, InputSchemaValidator>();
+        services.AddSingleton<ICompatibilityRuleEvaluator, CompatibilityRuleEvaluator>();
+        services.AddSingleton<IVariableTemplateResolver, VariableTemplateResolver>();
+        services.AddSingleton<IPlanningRuntimeContextProvider, DesktopPlanningRuntimeContextProvider>();
+        services.AddSingleton<IProjectPlanner, ProjectPlanner>();
+
+        services.AddSingleton<WindowsProjectTargetService>();
+        services.AddSingleton<IProjectTargetPreflight>(provider =>
+            provider.GetRequiredService<WindowsProjectTargetService>());
+        services.AddSingleton<IProjectExecutionWorkspaceFactory>(provider =>
+            provider.GetRequiredService<WindowsProjectTargetService>());
+        services.AddSingleton<IProjectRecoveryWorkspaceFactory>(provider =>
+            provider.GetRequiredService<WindowsProjectTargetService>());
+        services.AddSingleton<IRunIdentityGenerator, GuidRunIdentityGenerator>();
+        services.AddSingleton<IStagingWorkspaceManager, OwnedStagingWorkspaceManager>();
+        services.AddSingleton(provider => new ClosedExecutionHandlerRegistryProvider(
+            provider.GetRequiredService<IProcessRunner>()));
+        services.AddSingleton<IExecutionHandlerRegistryProvider>(provider =>
+            provider.GetRequiredService<ClosedExecutionHandlerRegistryProvider>());
+        services.AddSingleton<ISecretScanner, WorkspaceSecretScanner>();
+        services.AddSingleton<IProjectFinalizer, AtomicProjectFinalizer>();
+        services.AddSingleton<IGenerationReportWriter, CanonicalGenerationReportWriter>();
+        services.AddSingleton<IRunCompletionCoordinator, ValidatedRunCompletionCoordinator>();
+        services.AddSingleton<IExecutionOrchestrator, CheckpointedExecutionOrchestrator>();
+        services.AddSingleton<IRunRecoveryService, RunRecoveryService>();
+        services.AddSingleton<IProjectCreationWorkflow, ProjectCreationWorkflow>();
+        services.AddSingleton<IProjectRecoveryWorkflow, ProjectRecoveryWorkflow>();
+        services.AddSingleton<ILocalReadyService, LocalReadyService>();
 
         services.AddSingleton(themeResourceHost);
         services.AddSingleton<ISystemThemeSource, WindowsSystemThemeSource>();
@@ -77,11 +137,27 @@ public static class DesktopHostBuilder
         services.AddSingleton<IDesktopStartupCoordinator, DesktopStartupCoordinator>();
 
         services.AddSingleton<NavigationService>();
+        services.AddSingleton<ProjectCreationSelection>();
         services.AddSingleton<NotificationService>();
         services.AddSingleton<ShellViewModel>();
         services.AddSingleton<DashboardViewModel>();
         services.AddSingleton<SettingsViewModel>();
         services.AddSingleton<EnvironmentDoctorViewModel>();
+        services.AddSingleton<ExecutionSessionCoordinator>();
+        services.AddSingleton<ExecutionCenterViewModel>();
+        services.AddSingleton<RunHistoryActionCoordinator>();
+        services.AddSingleton(provider => new CreateProjectViewModel(
+            provider.GetRequiredService<IProjectCreationWorkflow>(),
+            provider.GetRequiredService<ExecutionCenterViewModel>(),
+            provider.GetRequiredService<ILocalReadyService>(),
+            provider.GetRequiredService<ProjectCreationSelection>()));
+        services.AddSingleton<BlueprintCatalogViewModel>();
+        services.AddSingleton(provider => new RunHistoryViewModel(
+            provider.GetRequiredService<IRunCheckpointStore>(),
+            provider.GetRequiredService<RunHistoryActionCoordinator>(),
+            provider.GetRequiredService<ExecutionCenterViewModel>(),
+            provider.GetRequiredService<ILocalReadyService>()));
         services.AddTransient<MainWindow>();
     }
+
 }

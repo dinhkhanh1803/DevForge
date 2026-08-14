@@ -2,6 +2,7 @@ using DevForge.Application.Contracts;
 using DevForge.Blueprints.Abstractions.Models;
 using DevForge.Desktop.CreateProject;
 using DevForge.Desktop.Execution;
+using DevForge.Desktop.Navigation;
 using DevForge.Domain.Execution;
 using DevForge.Domain.Privacy;
 using DevForge.Domain.Projects;
@@ -54,7 +55,10 @@ public sealed class PlanPreviewViewModelTests
         var workflow = new NoOpWorkflow();
         var sut = new CreateProjectViewModel(
             workflow,
-            new ExecutionSessionCoordinator(workflow, new UnsupportedRecovery()))
+            new ExecutionCenterViewModel(
+                new ExecutionSessionCoordinator(workflow, new UnsupportedRecovery())),
+            new UnusedLocalReadyService(),
+            new ProjectCreationSelection())
         {
             ReviewedPlan = CreateSnapshot(),
             Stage = ProjectCreationStage.ReviewPlan,

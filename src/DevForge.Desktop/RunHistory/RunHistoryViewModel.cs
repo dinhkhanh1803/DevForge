@@ -19,28 +19,25 @@ public sealed record RunHistoryItemViewModel(
 {
     public static RunHistoryItemViewModel From(ProjectRun run)
     {
+        return From(run, ProjectRecoveryEligibility.None);
+    }
+
+    public static RunHistoryItemViewModel From(
+        ProjectRun run,
+        ProjectRecoveryEligibility eligibility)
+    {
         ArgumentNullException.ThrowIfNull(run);
+        ArgumentNullException.ThrowIfNull(eligibility);
         var projection = ExecutionCenterViewModel.ProjectStatus(run.Status);
-        var hasRunningAttempt = run.CurrentStepId is not null
-            || run.Attempts.Any(attempt => attempt.Outcome == StepAttemptOutcome.Running);
         var lastAttempt = run.Attempts.LastOrDefault();
-        var canResume = run.ResumeExecution().IsValid;
-        var canRetry = run.Status == RunStatus.Executing
-            && !hasRunningAttempt
-            && lastAttempt?.Outcome == StepAttemptOutcome.Failed
-            && lastAttempt.Error?.IsRetryable == true;
-        var canCleanup = run.Status is RunStatus.PreflightFailed
-            or RunStatus.ValidationFailed
-            or RunStatus.Cancelled
-            or RunStatus.Failed;
         return new RunHistoryItemViewModel(
             run.Id,
             projection.Label,
             projection.Glyph,
             run.CurrentStepId,
-            canResume,
-            canRetry,
-            canCleanup,
+            eligibility.CanResume,
+            eligibility.CanRetry,
+            eligibility.CanCleanup,
             run.Errors.LastOrDefault()?.Code ?? lastAttempt?.Error?.Code);
     }
 }
@@ -48,6 +45,9 @@ public sealed record RunHistoryItemViewModel(
 public sealed partial class RunHistoryViewModel : ObservableObject
 {
     private readonly IRunCheckpointStore _store;
+    private readonly RunHistoryActionCoordinator _actions;
+    private readonly ExecutionCenterViewModel _executionCenter;
+    private readonly ILocalReadyService _localReadyService;
 
     [ObservableProperty]
     private ImmutableArray<RunHistoryItemViewModel> _items = [];
@@ -55,13 +55,39 @@ public sealed partial class RunHistoryViewModel : ObservableObject
     [ObservableProperty]
     private bool _isBusy;
 
-    public RunHistoryViewModel(IRunCheckpointStore store)
+    public RunHistoryViewModel(
+        IRunCheckpointStore store,
+        RunHistoryActionCoordinator actions,
+        ExecutionCenterViewModel executionCenter,
+        ILocalReadyService localReadyService)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
+        _actions = actions ?? throw new ArgumentNullException(nameof(actions));
+        _executionCenter = executionCenter ?? throw new ArgumentNullException(nameof(executionCenter));
+        _localReadyService = localReadyService ?? throw new ArgumentNullException(nameof(localReadyService));
         RefreshCommand = new AsyncRelayCommand(LoadAsync, () => !IsBusy);
+        ResumeCommand = new AsyncRelayCommand<RunHistoryItemViewModel>(
+            (item, token) => ContinueAsync(item, ExecutionMode.Resume, token),
+            item => !IsBusy && item?.CanResume == true);
+        RetryCommand = new AsyncRelayCommand<RunHistoryItemViewModel>(
+            (item, token) => ContinueAsync(item, ExecutionMode.ManualRetry, token),
+            item => !IsBusy && item?.CanRetry == true);
+        CleanupCommand = new AsyncRelayCommand<RunHistoryItemViewModel>(
+            CleanupAsync,
+            item => !IsBusy && item?.CanCleanup == true);
     }
 
     public IAsyncRelayCommand RefreshCommand { get; }
+
+    public IAsyncRelayCommand<RunHistoryItemViewModel> ResumeCommand { get; }
+
+    public IAsyncRelayCommand<RunHistoryItemViewModel> RetryCommand { get; }
+
+    public IAsyncRelayCommand<RunHistoryItemViewModel> CleanupCommand { get; }
+
+    public event EventHandler? ExecutionOpened;
+
+    public object? OpenedPage { get; private set; }
 
     public async Task LoadAsync(CancellationToken cancellationToken)
     {
@@ -74,11 +100,16 @@ public sealed partial class RunHistoryViewModel : ObservableObject
         try
         {
             var checkpoints = await _store.ListAsync(cancellationToken).ConfigureAwait(true);
-            Items =
-            [
-                .. checkpoints.OrderBy(item => item.Run.Id, StringComparer.Ordinal)
-                    .Select(item => RunHistoryItemViewModel.From(item.Run)),
-            ];
+            var items = new List<RunHistoryItemViewModel>();
+            foreach (var checkpoint in checkpoints.OrderBy(item => item.Run.Id, StringComparer.Ordinal))
+            {
+                var eligibility = await _actions.InspectAsync(
+                    checkpoint,
+                    cancellationToken).ConfigureAwait(true);
+                items.Add(RunHistoryItemViewModel.From(checkpoint.Run, eligibility));
+            }
+
+            Items = [.. items];
         }
         finally
         {
@@ -90,5 +121,70 @@ public sealed partial class RunHistoryViewModel : ObservableObject
     {
         IsBusy = value;
         RefreshCommand.NotifyCanExecuteChanged();
+        ResumeCommand.NotifyCanExecuteChanged();
+        RetryCommand.NotifyCanExecuteChanged();
+        CleanupCommand.NotifyCanExecuteChanged();
+    }
+
+    private async Task ContinueAsync(
+        RunHistoryItemViewModel? item,
+        ExecutionMode mode,
+        CancellationToken cancellationToken)
+    {
+        if (item is null || IsBusy)
+        {
+            return;
+        }
+
+        SetBusy(true);
+        try
+        {
+            var recovered = await _actions.ContinueAsync(
+                item.RunId,
+                mode,
+                cancellationToken).ConfigureAwait(true);
+            _executionCenter.ApplyRecovered(recovered.PlannedProject, recovered.Checkpoint);
+            OpenedPage = recovered.Checkpoint.Run.Status == RunStatus.LocalReady
+                ? new LocalReadyViewModel(
+                    recovered.Checkpoint,
+                    recovered.PlannedProject.Preview,
+                    _localReadyService)
+                : _executionCenter;
+            ExecutionOpened?.Invoke(this, EventArgs.Empty);
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
+    private async Task CleanupAsync(
+        RunHistoryItemViewModel? item,
+        CancellationToken cancellationToken)
+    {
+        if (item is null || IsBusy)
+        {
+            return;
+        }
+
+        SetBusy(true);
+        try
+        {
+            await _actions.CleanupAsync(item.RunId, cancellationToken).ConfigureAwait(true);
+            var checkpoints = await _store.ListAsync(cancellationToken).ConfigureAwait(true);
+            var items = new List<RunHistoryItemViewModel>();
+            foreach (var checkpoint in checkpoints.OrderBy(value => value.Run.Id, StringComparer.Ordinal))
+            {
+                items.Add(RunHistoryItemViewModel.From(
+                    checkpoint.Run,
+                    await _actions.InspectAsync(checkpoint, cancellationToken).ConfigureAwait(true)));
+            }
+
+            Items = [.. items];
+        }
+        finally
+        {
+            SetBusy(false);
+        }
     }
 }

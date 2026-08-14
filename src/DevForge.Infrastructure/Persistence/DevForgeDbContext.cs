@@ -128,6 +128,8 @@ public sealed class DevForgeDbContext : DbContext
         entity.Property(item => item.PlanHash).HasMaxLength(71);
         entity.Property(item => item.PlanJson).HasMaxLength(1_048_576);
         entity.Property(item => item.PlanBodyChecksum).HasMaxLength(71);
+        entity.Property(item => item.PlanPreviewJson).HasMaxLength(1_048_576);
+        entity.Property(item => item.PlanPreviewBodyChecksum).HasMaxLength(71);
         entity.Property(item => item.BlueprintId).HasMaxLength(128);
         entity.Property(item => item.BlueprintVersion).HasMaxLength(64);
         entity.Property(item => item.BlueprintSourceId).HasMaxLength(128);
