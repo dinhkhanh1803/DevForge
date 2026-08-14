@@ -43,6 +43,96 @@ public sealed class RunCheckpointStoreTests
     }
 
     [Fact]
+    public async Task CompletedPublicationRoundTripsEveryFieldAndRejectsCanonicalTampering()
+    {
+        await using var database = PersistenceTestDatabase.Create();
+        var factory = await CreateMigratedFactoryAsync(database);
+        var store = new SqliteRunCheckpointStore(factory);
+        var checkpoint = CreateCompletedPublicationCheckpoint("run-publication");
+        var publication = checkpoint.Publication;
+        await store.SaveAsync(checkpoint, CancellationToken.None);
+
+        var loaded = Assert.IsType<RunCheckpoint>(
+            await store.FindAsync(checkpoint.Run.Id, CancellationToken.None));
+        Assert.Equal(RunStatus.Completed, loaded.Run.Status);
+        Assert.Equal(publication.GitState, loaded.Publication.GitState);
+        Assert.Equal(publication.GitHubState, loaded.Publication.GitHubState);
+        Assert.Equal(publication.ReceiptState, loaded.Publication.ReceiptState);
+        Assert.Equal(publication.FinalTreeDigest, loaded.Publication.FinalTreeDigest);
+        Assert.Equal(publication.InitialCommitId, loaded.Publication.InitialCommitId);
+        Assert.Equal(publication.Branches.ToArray(), loaded.Publication.Branches.ToArray());
+        Assert.Equal(publication.RepositoryIdentity, loaded.Publication.RepositoryIdentity);
+        Assert.Equal(publication.IsPrivate, loaded.Publication.IsPrivate);
+        Assert.Equal(publication.OwnershipNonce, loaded.Publication.OwnershipNonce);
+        Assert.Equal(publication.RepositoryUrl, loaded.Publication.RepositoryUrl);
+        Assert.Equal(publication.ReceiptPath, loaded.Publication.ReceiptPath);
+        Assert.Equal(publication.ReceiptBodyDigest, loaded.Publication.ReceiptBodyDigest);
+
+        await using (var context = factory.CreateDbContext())
+        {
+            await context.Database.ExecuteSqlRawAsync(
+                "UPDATE ProjectRuns SET PublicationJson = replace(PublicationJson, 'sha256:9', 'sha256:8') "
+                + "WHERE Id = 'run-publication'");
+        }
+
+        await Assert.ThrowsAsync<PersistenceDataException>(() =>
+            store.FindAsync(checkpoint.Run.Id, CancellationToken.None));
+    }
+
+    [Theory]
+    [InlineData("json")]
+    [InlineData("checksum")]
+    public async Task PublicationColumnNullMismatchIsRejected(string column)
+    {
+        await using var database = PersistenceTestDatabase.Create();
+        var factory = await CreateMigratedFactoryAsync(database);
+        var store = new SqliteRunCheckpointStore(factory);
+        var checkpoint = CreateCompletedPublicationCheckpoint($"run-null-{column}");
+        await store.SaveAsync(checkpoint, CancellationToken.None);
+
+        await using (var context = factory.CreateDbContext())
+        {
+            var command = column switch
+            {
+                "json" =>
+                    "UPDATE ProjectRuns SET PublicationJson = NULL WHERE Id = {0}",
+                "checksum" =>
+                    "UPDATE ProjectRuns SET PublicationBodyChecksum = NULL WHERE Id = {0}",
+                _ => throw new InvalidOperationException(),
+            };
+            await context.Database.ExecuteSqlRawAsync(
+                command,
+                checkpoint.Run.Id);
+        }
+
+        await Assert.ThrowsAsync<PersistenceDataException>(() =>
+            store.FindAsync(checkpoint.Run.Id, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task LegacyCheckpointWithoutPublicationBodyLoadsAsM7NotRequested()
+    {
+        await using var database = PersistenceTestDatabase.Create();
+        var factory = await CreateMigratedFactoryAsync(database);
+        var store = new SqliteRunCheckpointStore(factory);
+        var checkpoint = CreateCheckpoint("run-legacy-publication");
+        await store.SaveAsync(checkpoint, CancellationToken.None);
+
+        var loaded = Assert.IsType<RunCheckpoint>(
+            await store.FindAsync(checkpoint.Run.Id, CancellationToken.None));
+
+        Assert.Null(loaded.Publication.FinalTreeDigest);
+        Assert.Equal(GitPublicationState.NotRequested, loaded.Publication.GitState);
+        using var connection = database.OpenConnection(SqliteOpenMode.ReadOnly);
+        Assert.Equal(
+            0L,
+            ReadCount(
+                connection,
+                "SELECT COUNT(*) FROM ProjectRuns WHERE Id = 'run-legacy-publication' "
+                + "AND PublicationJson IS NOT NULL"));
+    }
+
+    [Fact]
     public async Task StartupRecoveryDurablyClosesInterruptedAttemptAndIsIdempotent()
     {
         await using var database = PersistenceTestDatabase.Create();
@@ -395,6 +485,8 @@ public sealed class RunCheckpointStoreTests
         Assert.Contains("OwnershipMarkerId", projectRunColumns);
         Assert.Contains("FinalizationState", projectRunColumns);
         Assert.Contains("ReportState", projectRunColumns);
+        Assert.Contains("PublicationJson", projectRunColumns);
+        Assert.Contains("PublicationBodyChecksum", projectRunColumns);
         Assert.Contains("OutputDigest", runStepColumns);
         Assert.Contains("SequenceNumber", runStepColumns);
     }
@@ -534,6 +626,65 @@ public sealed class RunCheckpointStoreTests
             [],
             checkpoint.FinalizationState,
             checkpoint.ReportState).Value;
+    }
+
+    private static RunCheckpoint CreateCompletedPublicationCheckpoint(string runId)
+    {
+        var original = CreateCheckpoint(runId);
+        var git = GitOptions.Create(
+            initializeRepository: true,
+            useDevelopBranch: true,
+            publishToGitHub: true,
+            isPrivate: true,
+            githubAccount: "octocat",
+            githubRepository: "devforge").Value;
+        var preview = PlanPreview.Create(
+            original.Preview!.Blueprint,
+            original.Preview.Steps,
+            original.Preview.Validators,
+            original.Preview.RequiredTools,
+            original.Preview.ToolStatuses,
+            original.Preview.Dependencies,
+            original.Preview.Artifacts,
+            original.Preview.Warnings,
+            original.Preview.EffectiveInputs.Select(pair =>
+                KeyValuePair.Create<string, PlanValue?>(pair.Key, pair.Value)),
+            original.Preview.EnabledFeatures,
+            git,
+            original.Preview.Completion,
+            original.Preview.PlanHash).Value;
+        var run = original.Run
+            .TransitionTo(RunStatus.LocalReady).Value
+            .TransitionTo(RunStatus.PublishPending).Value
+            .TransitionTo(RunStatus.Completed).Value;
+        var identity = GitHubRepositoryIdentity.Create("octocat", "devforge").Value;
+        var publication = PublicationSnapshot.Create(
+            GitPublicationState.Succeeded,
+            GitHubPublicationState.Succeeded,
+            PublicationReceiptState.Succeeded,
+            $"sha256:{new string('9', 64)}",
+            new string('a', 40),
+            ["main", "develop"],
+            identity,
+            isPrivate: true,
+            ownershipNonce: new string('b', 32),
+            repositoryUrl: identity.HttpsWebUrl,
+            WorkspaceRelativePath.Create($"reports\\{runId}.publication.json").Value,
+            $"sha256:{new string('c', 64)}").Value;
+
+        return RunCheckpoint.Create(
+            run,
+            original.Plan,
+            preview,
+            original.Blueprint,
+            original.BlueprintFingerprint,
+            original.Staging,
+            original.Target,
+            original.RunArtifacts,
+            original.Evidence,
+            FinalizationState.Succeeded,
+            ReportPersistenceState.Succeeded,
+            publication).Value;
     }
 
     private static async Task<DevForgeDbContextFactory> CreateMigratedFactoryAsync(

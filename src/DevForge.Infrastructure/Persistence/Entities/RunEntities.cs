@@ -60,6 +60,10 @@ internal sealed class ProjectRunEntity
 
     public string? ReportState { get; set; }
 
+    public string? PublicationJson { get; set; }
+
+    public string? PublicationBodyChecksum { get; set; }
+
     public string ErrorsJson { get; set; } = "[]";
 
     public List<RunStepEntity> Steps { get; } = [];

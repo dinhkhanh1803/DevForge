@@ -47,6 +47,15 @@ public sealed class ValidatedRunCompletionCoordinatorTests
         Assert.Equal(RunStatus.LocalReady, result.Run.Status);
         Assert.Equal(ReportPersistenceState.Succeeded, result.ReportState);
         Assert.Equal(FinalizationState.Succeeded, result.FinalizationState);
+        Assert.Equal($"sha256:{new string('3', 64)}", result.Publication.FinalTreeDigest);
+        Assert.Equal(GitPublicationState.NotRequested, result.Publication.GitState);
+        var finalizationCheckpoint = Assert.Single(fixture.Store.SavedCheckpoints, saved =>
+            saved.FinalizationState == FinalizationState.Succeeded
+            && saved.ReportState == ReportPersistenceState.NotStarted);
+        Assert.Equal(
+            result.Publication.FinalTreeDigest,
+            finalizationCheckpoint.Publication.FinalTreeDigest);
+        Assert.Equal(RunStatus.Executing, finalizationCheckpoint.Run.Status);
         Assert.True(
             fixture.Events.IndexOf("finalizer.run")
                 < fixture.Events.IndexOf("report.write"));
@@ -339,10 +348,13 @@ public sealed class ValidatedRunCompletionCoordinatorTests
     {
         public RunCheckpoint? LastCheckpoint { get; private set; }
 
+        public List<RunCheckpoint> SavedCheckpoints { get; } = [];
+
         public Task SaveAsync(RunCheckpoint checkpoint, CancellationToken cancellationToken)
         {
             events.Add("checkpoint.save");
             LastCheckpoint = checkpoint;
+            SavedCheckpoints.Add(checkpoint);
             return Task.CompletedTask;
         }
         public Task<RunCheckpoint?> FindAsync(string runId, CancellationToken cancellationToken) =>

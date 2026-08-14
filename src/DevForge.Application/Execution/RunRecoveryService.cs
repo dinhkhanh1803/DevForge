@@ -157,7 +157,8 @@ public sealed class RunRecoveryService : IRunRecoveryService
             checkpoint.RunArtifacts,
             checkpoint.Evidence,
             checkpoint.FinalizationState,
-            checkpoint.ReportState).Value;
+            checkpoint.ReportState,
+            checkpoint.Publication).Value;
 
     private async Task<ExecutionOperationResult<RunCheckpoint>> NormalizeAuthoritativeAsync(
         string runId,

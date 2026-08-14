@@ -978,7 +978,8 @@ public sealed class CheckpointedExecutionOrchestrator : IExecutionOrchestrator
             checkpoint.RunArtifacts,
             evidence,
             checkpoint.FinalizationState,
-            checkpoint.ReportState);
+            checkpoint.ReportState,
+            checkpoint.Publication);
         return result.IsValid
             ? result.Value
             : throw new InvalidOperationException("The evolved run checkpoint was invalid.");

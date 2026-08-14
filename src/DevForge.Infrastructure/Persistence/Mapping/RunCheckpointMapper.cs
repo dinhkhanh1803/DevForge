@@ -81,14 +81,33 @@ internal static class RunCheckpointMapper
                     : RequireValid(WorkspaceRelativePath.Create(entity.CrossVolumeTemporaryPath))));
             var runArtifacts = RequireValid(RunArtifactDescriptor.Create(
                 RequireValid(WorkspaceRoot.Create(entity.RunArtifactRoot))));
-            return RequireValid(RunCheckpoint.Create(
+            var preview = entity.PlanPreviewJson is null
+                ? null
+                : CheckpointPreviewCodec.Decode(
+                    entity.PlanPreviewJson,
+                    entity.PlanPreviewBodyChecksum!);
+            var publication = entity.PublicationJson is null
+                ? null
+                : CheckpointPublicationCodec.Decode(
+                    entity.PublicationJson,
+                    entity.PublicationBodyChecksum!);
+            return RequireValid(publication is null
+                ? RunCheckpoint.Create(
+                    run,
+                    plan,
+                    preview,
+                    blueprint,
+                    fingerprint,
+                    staging,
+                    target,
+                    runArtifacts,
+                    DeserializeEvidence(entity.EvidenceJson!),
+                    ParseDefined<FinalizationState>(entity.FinalizationState),
+                    ParseDefined<ReportPersistenceState>(entity.ReportState))
+                : RunCheckpoint.Create(
                 run,
                 plan,
-                entity.PlanPreviewJson is null
-                    ? null
-                    : CheckpointPreviewCodec.Decode(
-                        entity.PlanPreviewJson,
-                        entity.PlanPreviewBodyChecksum!),
+                preview,
                 blueprint,
                 fingerprint,
                 staging,
@@ -96,7 +115,8 @@ internal static class RunCheckpointMapper
                 runArtifacts,
                 DeserializeEvidence(entity.EvidenceJson!),
                 ParseDefined<FinalizationState>(entity.FinalizationState),
-                ParseDefined<ReportPersistenceState>(entity.ReportState)));
+                ParseDefined<ReportPersistenceState>(entity.ReportState),
+                publication));
         }
         catch (Exception exception) when (IsDataException(exception))
         {
@@ -132,6 +152,17 @@ internal static class RunCheckpointMapper
         entity.EvidenceJson = SerializeEvidence(checkpoint.Evidence);
         entity.FinalizationState = checkpoint.FinalizationState.ToString();
         entity.ReportState = checkpoint.ReportState.ToString();
+        if (checkpoint.Publication.FinalTreeDigest is null)
+        {
+            entity.PublicationJson = null;
+            entity.PublicationBodyChecksum = null;
+        }
+        else
+        {
+            var encodedPublication = CheckpointPublicationCodec.Encode(checkpoint.Publication);
+            entity.PublicationJson = encodedPublication.Json;
+            entity.PublicationBodyChecksum = encodedPublication.BodyChecksum;
+        }
     }
 
     private static string SerializeEvidence(IEnumerable<ExecutionEvidence> evidence)
@@ -227,6 +258,17 @@ internal static class RunCheckpointMapper
         {
             EnsureUtf8Bound(entity.PlanPreviewJson, CheckpointPreviewCodec.MaximumPreviewJsonBytes);
             EnsureUtf8Bound(entity.PlanPreviewBodyChecksum!, 71);
+        }
+        if ((entity.PublicationJson is null) != (entity.PublicationBodyChecksum is null))
+        {
+            throw new PersistenceDataException();
+        }
+        if (entity.PublicationJson is not null)
+        {
+            EnsureUtf8Bound(
+                entity.PublicationJson,
+                CheckpointPublicationCodec.MaximumPublicationJsonBytes);
+            EnsureUtf8Bound(entity.PublicationBodyChecksum!, 71);
         }
         EnsureUtf8Bound(entity.BlueprintId!, 128);
         EnsureUtf8Bound(entity.BlueprintVersion!, 64);

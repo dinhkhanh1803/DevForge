@@ -72,6 +72,7 @@ public sealed class StartupRecoveryService : IStartupRecoveryService
         var recreated = RunCheckpoint.Create(
             run.Value,
             checkpoint.Plan,
+            checkpoint.Preview,
             checkpoint.Blueprint,
             checkpoint.BlueprintFingerprint,
             checkpoint.Staging,
@@ -79,7 +80,8 @@ public sealed class StartupRecoveryService : IStartupRecoveryService
             checkpoint.RunArtifacts,
             checkpoint.Evidence,
             checkpoint.FinalizationState,
-            checkpoint.ReportState);
+            checkpoint.ReportState,
+            checkpoint.Publication);
         return recreated.IsValid ? recreated.Value : null;
     }
 

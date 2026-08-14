@@ -145,6 +145,8 @@ public sealed class DevForgeDbContext : DbContext
         entity.Property(item => item.EvidenceJson).HasMaxLength(262_144);
         entity.Property(item => item.FinalizationState).HasMaxLength(32);
         entity.Property(item => item.ReportState).HasMaxLength(32);
+        entity.Property(item => item.PublicationJson).HasMaxLength(16_384);
+        entity.Property(item => item.PublicationBodyChecksum).HasMaxLength(71);
         entity.Property(item => item.ErrorsJson).HasMaxLength(65_536);
         entity.HasIndex(item => new { item.Status, item.UpdatedAtUnixMs });
     }

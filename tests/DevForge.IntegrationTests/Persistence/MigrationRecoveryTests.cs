@@ -39,7 +39,7 @@ public sealed class MigrationRecoveryTests
         Assert.Equal(DatabaseMigrationState.Upgraded, result.State);
         Assert.True(result.WasBackupCreated);
         Assert.Equal("dark", ReadSentinel(database));
-        Assert.Equal(4L, ReadScalar(database, "SELECT COUNT(*) FROM SchemaMigrations;"));
+        Assert.Equal(5L, ReadScalar(database, "SELECT COUNT(*) FROM SchemaMigrations;"));
         Assert.NotNull(transport.LastBackupSuffix);
         Assert.True(File.Exists(database.Location.CreateBackupPath(transport.LastBackupSuffix)));
     }

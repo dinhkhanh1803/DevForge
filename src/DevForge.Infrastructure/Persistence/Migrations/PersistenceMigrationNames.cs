@@ -11,4 +11,6 @@ public static class PersistenceMigrationNames
     public const string ExecutionCheckpoints = "20260811051654_AddExecutionCheckpoints";
 
     public const string RunPlanPreview = "20260813104744_PersistRunPlanPreview";
+
+    public const string PublicationCheckpoints = "20260814025832_PersistPublicationCheckpoints";
 }

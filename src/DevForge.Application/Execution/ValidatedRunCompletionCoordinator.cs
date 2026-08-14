@@ -194,7 +194,11 @@ public sealed class ValidatedRunCompletionCoordinator : IRunCompletionCoordinato
                 return checkpoint;
             }
 
-            checkpoint = Recreate(checkpoint, finalizationState: FinalizationState.Succeeded);
+            checkpoint = Recreate(
+                checkpoint,
+                finalizationState: FinalizationState.Succeeded,
+                publication: PublicationSnapshot.CreateNotRequested(
+                    finalized.Value.TreeDigest).Value);
             await SaveAsync(checkpoint).ConfigureAwait(false);
             checkpoint = await PersistReportAsync(
                 request,
@@ -363,7 +367,8 @@ public sealed class ValidatedRunCompletionCoordinator : IRunCompletionCoordinato
         ProjectRun? run = null,
         ImmutableArray<ExecutionEvidence>? evidence = null,
         FinalizationState? finalizationState = null,
-        ReportPersistenceState? reportState = null) =>
+        ReportPersistenceState? reportState = null,
+        PublicationSnapshot? publication = null) =>
         RunCheckpoint.Create(
             run ?? checkpoint.Run,
             checkpoint.Plan,
@@ -375,7 +380,8 @@ public sealed class ValidatedRunCompletionCoordinator : IRunCompletionCoordinato
             checkpoint.RunArtifacts,
             evidence ?? checkpoint.Evidence,
             finalizationState ?? checkpoint.FinalizationState,
-            reportState ?? checkpoint.ReportState).Value;
+            reportState ?? checkpoint.ReportState,
+            publication ?? checkpoint.Publication).Value;
 
     private static string Digest(string value) =>
         $"sha256:{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)))}";
