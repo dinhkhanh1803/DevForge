@@ -4,6 +4,7 @@ using System.Text;
 using DevForge.Application.Contracts;
 using DevForge.Domain.Diagnostics;
 using DevForge.Domain.Privacy;
+using DevForge.Infrastructure.Git;
 
 namespace DevForge.Infrastructure.Execution;
 
@@ -216,7 +217,10 @@ public sealed class AtomicProjectFinalizer : IProjectFinalizer
     private static async Task<string> ComputeTreeDigestAsync(
         IWorkspaceFileSystem workspace,
         CancellationToken cancellationToken) =>
-        await ComputeTreeDigestAsync(workspace, prefix: null, cancellationToken).ConfigureAwait(false);
+        (await CanonicalProjectTree.CaptureAsync(
+            workspace,
+            allowOwnedRootGit: false,
+            cancellationToken).ConfigureAwait(false)).Digest;
 
     private static async Task<string> ComputeTreeDigestAsync(
         IWorkspaceFileSystem workspace,

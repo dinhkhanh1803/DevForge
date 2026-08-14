@@ -1,7 +1,7 @@
 # DevForge Studio Implementation Status
 
-**Current milestone:** M7 - Dynamic Create Project, Plan Preview, Execution Center, and LocalReady UX
-**Status:** M0-M7 complete and locally verified
+**Current milestone:** M8 - Git and GitHub Completion
+**Status:** M0-M7 complete; M8 Tasks 1-3 complete and locally verified
 **Last updated:** 2026-08-14
 
 ## Current M7 scope
@@ -347,3 +347,19 @@ M8 is now active. Its independently reviewed implementation boundary is `docs/su
 M8 Task 1 is complete locally. The public ports now expose only closed Git bootstrap/verification and exact-account GitHub authentication/publication operations; reviewed identity is part of the canonical plan hash; publication snapshots are bounded and immutable; and `RunCheckpoint` rejects out-of-order, wrong-branch, wrong-identity, or evidence-free `Completed` states. Fresh verification passed format, Release build with 0 warnings/errors, UnitTests 563, IntegrationTests 387, BlueprintTests 108, and E2ETests 140. Task 2 adds the versioned durable publication snapshot and final-tree digest migration.
 
 M8 Task 2 is complete locally. Successful finalization now durably records the exact final-tree digest before report persistence and `LocalReady`; every checkpoint recreation preserves publication state. Publication evidence is stored as bounded canonical UTF-8 JSON with a SHA-256 body checksum, strict duplicate/unknown-field rejection, guarded domain reconstruction, and null-paired columns. Migration `20260814025832_PersistPublicationCheckpoints` adds the nullable publication body/checksum pair so pre-M8 rows decode as non-publishable `NotRequested` state. Integration coverage round-trips all successful Git/GitHub/receipt fields through EF Core SQLite and rejects recomputed-checksum structural/state tampering, sensitive unknown fields, oversized bodies, non-canonical JSON, checksum changes, and mismatched null columns. Fresh verification passed locked restore, format, Release build with 0 warnings/errors, UnitTests 563, IntegrationTests 397, BlueprintTests 108, E2ETests 140, and EF model consistency with no pending changes. Independent review found no Critical or Important findings. Task 3 implements the closed production Git CLI service.
+
+M8 Task 3 is complete locally. `LocalGitService` exposes only the typed bootstrap/verification port and invokes the fixed Git vocabulary through `IProcessRunner` with separated arguments, an empty inherited environment, disabled system/global config, templates, hooks, filters, pagers, prompts, credentials, signing, and line-ending mutation. It binds the parentless fixed bootstrap commit to the exact guarded final-tree path/byte set by reading loose commit/tree/blob objects, requires the loose-object set to be exactly reachable, verifies the version-2 index and cache-tree checksum/structure, and closes config/ref/reflog/branch/message evidence before accepting recovery. Kill-window adoption is limited to exact init/add/commit/develop states; nested/pre-existing repositories, extra objects/history/refs/remotes/tags/hooks/control files, dirty trees, hidden ignored files, attribute byte normalization, secrets, ambient filter execution, timeouts, and cancellation fail closed with scrubbed stable codes.
+
+Fresh Task 3 verification on 2026-08-14 used the workspace-local .NET SDK 10.0.302:
+
+| Gate | Command | Exact result |
+| --- | --- | --- |
+| Locked restore | `dotnet restore DevForge.sln --locked-mode` | Exit 0; all projects up-to-date from pinned lock files. |
+| Format | `dotnet format DevForge.sln --verify-no-changes --no-restore` | Exit 0; no formatting diagnostics. |
+| Release build | `dotnet build DevForge.sln -c Release --no-restore` | Exit 0; 0 warnings, 0 errors. |
+| Focused Git | `dotnet test tests/DevForge.IntegrationTests/DevForge.IntegrationTests.csproj -c Release --no-restore --filter "FullyQualifiedName~Infrastructure.Git"` | Exit 0; 33 passed, 0 failed, 0 skipped. |
+| Full tests | Four Release project test commands with `--no-build --no-restore` | Exit 0; UnitTests 563, IntegrationTests 430, BlueprintTests 108, E2ETests 140; total 1,241 passed, 0 failed, 0 skipped. |
+| EF model consistency | pinned SDK + local `dotnet-ef.dll migrations has-pending-model-changes ... --configuration Release --no-build` | Exit 0; `No changes have been made to the model since the last migration.` |
+| Review | independent read-only Task 3 review | Approved; no Critical or Important findings. |
+
+M8 Task 4, the production GitHub CLI service with exact account/nonce/private-repository recovery, is the recommended next slice. No remote repository was created or contacted in Task 3.

@@ -28,3 +28,15 @@
 ## Exit gate
 
 M8 exits only after the reviewed Git intent is hash-bound; Git is clean with the exact bootstrap commit and branch policy; private-by-default GitHub publication is evidence-backed; failure/cancellation remains recoverable as `PublishPending`; retry duplicates neither generation nor commit; no token/force/delete/shell path exists; and every full/focused/EF/WPF/privacy gate passes. Production blueprints remain M9.
+
+## Task 3 execution boundary
+
+**Scope:** production local Git only. Implement `Infrastructure/Git` behind the existing `IGitService`; reuse the finalizer's bounded ordinal tree digest; invoke only typed Git operations through `IProcessRunner`; register the service in Desktop composition. GitHub, publication orchestration, reviewed-input UI, receipt writing, and production blueprints remain out of scope.
+
+**Expected files:** `src/DevForge.Infrastructure/Git/*`, the shared canonical project-tree helper extracted from `AtomicProjectFinalizer`, `DesktopHostBuilder`, and focused Unit/Integration tests.
+
+**TDD matrix:** exact separated arguments and minimal environment; no shell/token/force/delete surface; pre-existing/nested repository refusal; final-tree drift and secret finding refusal before mutation; fixed author/message; clean status; exact commit/branch evidence; timeout/cancellation mapping; and phase-specific adoption after init/add/commit/develop/main kill windows. The real integration fixture uses only a guarded temporary workspace and verifies user/global Git configuration is untouched.
+
+**Task 3 exit:** focused Git security/recovery tests, the real local Git integration matrix, affected finalizer/process/DI regressions, format, Release build, full solution tests, EF consistency, and diff checks pass before a scoped local commit. No push.
+
+**Completion:** implemented and independently approved on 2026-08-14. The next bounded slice is Task 4, the production GitHub CLI service; no GitHub behavior is included in Task 3.

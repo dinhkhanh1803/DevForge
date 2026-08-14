@@ -56,6 +56,15 @@ switch (args[0])
         await Task.Delay(delayMilliseconds);
         return 0;
 
+    case "create-sentinel":
+        if (args.Length != 2)
+        {
+            return 64;
+        }
+
+        await File.WriteAllTextAsync(args[1], "invoked");
+        return 0;
+
     case "write-until-killed":
         var outputIndex = 0;
         while (true)

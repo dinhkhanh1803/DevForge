@@ -56,6 +56,7 @@ public sealed class DesktopHostBuilderTests
         Assert.NotNull(host.Services.GetRequiredService<ShellViewModel>());
         Assert.NotNull(host.Services.GetRequiredService<IBlueprintCatalog>());
         Assert.NotNull(host.Services.GetRequiredService<IProjectPlanner>());
+        Assert.NotNull(host.Services.GetRequiredService<IGitService>());
         Assert.NotNull(host.Services.GetRequiredService<IStagingWorkspaceManager>());
         Assert.NotNull(host.Services.GetRequiredService<IExecutionOrchestrator>());
         Assert.NotNull(host.Services.GetRequiredService<IRunRecoveryService>());

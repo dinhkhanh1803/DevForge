@@ -6,7 +6,8 @@ namespace DevForge.Infrastructure.FileSystem;
 
 internal sealed class WindowsWorkspaceFileSystem :
     IAtomicWorkspaceFileSystem,
-    IAtomicFileWorkspaceFileSystem
+    IAtomicFileWorkspaceFileSystem,
+    IBoundedWorkspaceEnumerator
 {
     private const int ErrorFileExists = 80;
     private const int ErrorAlreadyExists = 183;
@@ -272,6 +273,84 @@ internal sealed class WindowsWorkspaceFileSystem :
         return ExecuteAsync(
             () => EnumerateDirectories(_guard.RootPath, cancellationToken),
             cancellationToken);
+    }
+
+    public Task<BoundedWorkspaceEnumeration> EnumerateTreeBoundedAsync(
+        WorkspaceRelativePath? excludedRootDirectory,
+        int maximumFiles,
+        int maximumDirectories,
+        int maximumDepth,
+        CancellationToken cancellationToken)
+    {
+        return ExecuteAsync(
+            () => EnumerateTreeBounded(
+                excludedRootDirectory,
+                maximumFiles,
+                maximumDirectories,
+                maximumDepth,
+                cancellationToken),
+            cancellationToken);
+    }
+
+    private BoundedWorkspaceEnumeration EnumerateTreeBounded(
+        WorkspaceRelativePath? excludedRootDirectory,
+        int maximumFiles,
+        int maximumDirectories,
+        int maximumDepth,
+        CancellationToken cancellationToken)
+    {
+        _guard.VerifyExisting(_guard.RootPath);
+        var files = ImmutableArray.CreateBuilder<WorkspaceRelativePath>();
+        var directories = ImmutableArray.CreateBuilder<WorkspaceRelativePath>();
+        var pending = new Stack<string>();
+        pending.Push(_guard.RootPath);
+        while (pending.Count != 0)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var current = pending.Pop();
+            foreach (var entry in Directory.EnumerateFileSystemEntries(current))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                _guard.VerifyExisting(entry);
+                var relative = _guard.ToRelative(entry);
+                var depth = relative.Value.Count(character => character == '\\') + 1;
+                if (depth > maximumDepth)
+                {
+                    return new BoundedWorkspaceEnumeration([], [], true);
+                }
+
+                if (Directory.Exists(entry))
+                {
+                    if (excludedRootDirectory is not null
+                        && relative.Equals(excludedRootDirectory))
+                    {
+                        continue;
+                    }
+
+                    if (directories.Count >= maximumDirectories)
+                    {
+                        return new BoundedWorkspaceEnumeration([], [], true);
+                    }
+
+                    directories.Add(relative);
+                    pending.Push(entry);
+                }
+                else
+                {
+                    if (files.Count >= maximumFiles)
+                    {
+                        return new BoundedWorkspaceEnumeration([], [], true);
+                    }
+
+                    files.Add(relative);
+                }
+            }
+        }
+
+        return new BoundedWorkspaceEnumeration(
+            files.OrderBy(path => path.Value, StringComparer.Ordinal).ToImmutableArray(),
+            directories.OrderBy(path => path.Value, StringComparer.Ordinal).ToImmutableArray(),
+            false);
     }
 
     public Task<ImmutableArray<WorkspaceRelativePath>> EnumerateDirectoriesAsync(

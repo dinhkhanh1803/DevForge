@@ -20,6 +20,7 @@ using DevForge.Infrastructure.Blueprints;
 using DevForge.Infrastructure.Creation;
 using DevForge.Infrastructure.Execution;
 using DevForge.Infrastructure.FileSystem;
+using DevForge.Infrastructure.Git;
 using DevForge.Infrastructure.Ide;
 using DevForge.Infrastructure.Persistence;
 using DevForge.Infrastructure.Persistence.Migrations;
@@ -116,6 +117,7 @@ public static class DesktopHostBuilder
         services.AddSingleton<IExecutionHandlerRegistryProvider>(provider =>
             provider.GetRequiredService<ClosedExecutionHandlerRegistryProvider>());
         services.AddSingleton<ISecretScanner, WorkspaceSecretScanner>();
+        services.AddSingleton<IGitService, LocalGitService>();
         services.AddSingleton<IProjectFinalizer, AtomicProjectFinalizer>();
         services.AddSingleton<IGenerationReportWriter, CanonicalGenerationReportWriter>();
         services.AddSingleton<IRunCompletionCoordinator, ValidatedRunCompletionCoordinator>();
