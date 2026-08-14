@@ -342,4 +342,4 @@ Verification used the workspace-local SDK at `.tools/dotnet/dotnet.exe` with `DO
 
 ## Milestone progression
 
-The recommended next milestone is M8 - Git initialization and GitHub publishing, limited to the existing typed Git/GitHub ports, reviewed plan intent, guarded final project workspace, `PublishPending`, and evidence-backed `Completed` transitions.
+M8 is now active. Its independently reviewed implementation boundary is `docs/superpowers/specs/2026-08-14-m8-git-github-publishing-design.md` and its task-level TDD plan is `docs/superpowers/plans/2026-08-14-m8-git-github-publishing.md`. The scope is limited to reviewed Git intent, guarded post-finalization Git/`gh` operations, integrity-bound publication persistence, `PublishPending` recovery, and evidence-backed `Completed`. Production blueprints remain M9; CI/release hardening remains M10; catalog expansion remains M11.
