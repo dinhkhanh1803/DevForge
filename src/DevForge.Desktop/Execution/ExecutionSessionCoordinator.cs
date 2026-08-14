@@ -13,6 +13,7 @@ public sealed class ExecutionSessionCoordinator : IDisposable
 
     private readonly IProjectCreationWorkflow _workflow;
     private readonly IRunRecoveryService _recovery;
+    private readonly IProjectRecoveryWorkflow? _projectRecovery;
     private readonly object _sync = new();
     private readonly Queue<ExecutionProgressItem> _progressLines = new();
     private CancellationTokenSource? _activeCancellation;
@@ -23,9 +24,18 @@ public sealed class ExecutionSessionCoordinator : IDisposable
     public ExecutionSessionCoordinator(
         IProjectCreationWorkflow workflow,
         IRunRecoveryService recovery)
+        : this(workflow, recovery, projectRecovery: null)
+    {
+    }
+
+    public ExecutionSessionCoordinator(
+        IProjectCreationWorkflow workflow,
+        IRunRecoveryService recovery,
+        IProjectRecoveryWorkflow? projectRecovery)
     {
         _workflow = workflow ?? throw new ArgumentNullException(nameof(workflow));
         _recovery = recovery ?? throw new ArgumentNullException(nameof(recovery));
+        _projectRecovery = projectRecovery;
     }
 
     public event EventHandler? ProgressChanged;
@@ -100,27 +110,6 @@ public sealed class ExecutionSessionCoordinator : IDisposable
         }
     }
 
-    public async Task<ExecutionOperationResult<StagingCleanupReceipt>> CleanupAsync(
-        RunCheckpoint checkpoint,
-        IWorkspaceFileSystem targetParentWorkspace,
-        CancellationToken shutdownToken)
-    {
-        ArgumentNullException.ThrowIfNull(checkpoint);
-        ArgumentNullException.ThrowIfNull(targetParentWorkspace);
-        using var linked = BeginOperation(clearProgress: false, shutdownToken);
-        try
-        {
-            return await _recovery.CleanupAsync(
-                checkpoint,
-                targetParentWorkspace,
-                linked.Token).ConfigureAwait(false);
-        }
-        finally
-        {
-            EndOperation(linked);
-        }
-    }
-
     public bool Cancel()
     {
         CancellationTokenSource? source;
@@ -142,6 +131,55 @@ public sealed class ExecutionSessionCoordinator : IDisposable
         catch (ObjectDisposedException)
         {
             return false;
+        }
+    }
+
+    public Task<ProjectRecoveryEligibility> InspectAsync(
+        RunCheckpoint checkpoint,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(checkpoint);
+        return _projectRecovery is null
+            ? Task.FromResult(ProjectRecoveryEligibility.None)
+            : _projectRecovery.InspectAsync(checkpoint, cancellationToken);
+    }
+
+    public async Task<ProjectRecoverySnapshot> ContinueAsync(
+        string runId,
+        ExecutionMode mode,
+        CancellationToken shutdownToken)
+    {
+        if (_projectRecovery is null)
+        {
+            throw new InvalidOperationException("Project recovery actions are unavailable.");
+        }
+
+        using var linked = BeginOperation(clearProgress: false, shutdownToken);
+        try
+        {
+            return await _projectRecovery.ContinueAsync(runId, mode, linked.Token).ConfigureAwait(false);
+        }
+        finally
+        {
+            EndOperation(linked);
+        }
+    }
+
+    public async Task CleanupAsync(string runId, CancellationToken shutdownToken)
+    {
+        if (_projectRecovery is null)
+        {
+            throw new InvalidOperationException("Project recovery actions are unavailable.");
+        }
+
+        using var linked = BeginOperation(clearProgress: false, shutdownToken);
+        try
+        {
+            await _projectRecovery.CleanupAsync(runId, linked.Token).ConfigureAwait(false);
+        }
+        finally
+        {
+            EndOperation(linked);
         }
     }
 

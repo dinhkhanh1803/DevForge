@@ -12,11 +12,17 @@
             <TextBlock Text="{Binding Elapsed, StringFormat=Elapsed: {0}}" />
             <TextBlock Margin="0,16,0,0" Text="{Binding FinalizationState, StringFormat=Finalization: {0}}" />
             <TextBlock Text="{Binding ReportState, StringFormat=Generation report: {0}}" />
-            <ItemsControl ItemsSource="{Binding ReportReferences}" />
+            <ListBox ItemsSource="{Binding ReportReferences}"
+                     VirtualizingStackPanel.IsVirtualizing="True"
+                     AutomationProperties.Name="Generation report references" />
             <TextBlock Style="{StaticResource SectionHeading}" Text="Evidence" Margin="0,16,0,4" />
-            <ItemsControl ItemsSource="{Binding Evidence}" DisplayMemberPath="DisplayText" />
+            <ListBox ItemsSource="{Binding Evidence}" DisplayMemberPath="DisplayText"
+                     VirtualizingStackPanel.IsVirtualizing="True"
+                     AutomationProperties.Name="Execution evidence" />
             <TextBlock Style="{StaticResource SectionHeading}" Text="Warnings" Margin="0,16,0,4" />
-            <ItemsControl ItemsSource="{Binding Warnings}" DisplayMemberPath="Message" />
+            <ListBox ItemsSource="{Binding Warnings}" DisplayMemberPath="Message"
+                     VirtualizingStackPanel.IsVirtualizing="True"
+                     AutomationProperties.Name="Warnings" />
             <TextBlock Foreground="#FFD13438" Text="{Binding IdeErrorMessage}" Margin="0,12,0,0" />
             <Button Content="Open IDE" Command="{Binding OpenIdeCommand}"
                     HorizontalAlignment="Left" Margin="0,12,0,0" />

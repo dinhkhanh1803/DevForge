@@ -76,7 +76,59 @@ public sealed class ExecutionCenterViewModelTests
         Assert.False(item.CanCreateSupportBundle);
     }
 
-    private static ProjectCreationPlanSnapshot CreatePlan()
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(true, false, true)]
+    [InlineData(false, true, true)]
+    [InlineData(false, false, true)]
+    public void RecoveryEligibilityDrivesExactExecutionCenterActions(
+        bool canResume,
+        bool canRetry,
+        bool canCleanup)
+    {
+        var plan = CreatePlan();
+        var execution = CreateExecution(plan);
+        var sut = new ExecutionCenterViewModel(
+            new ExecutionSessionCoordinator(new SequencedWorkflow(execution), new UnsupportedRecovery()));
+
+        sut.ApplyRecovered(
+            plan.PlannedProject,
+            execution.Checkpoint,
+            new ProjectRecoveryEligibility(canResume, canRetry, canCleanup));
+
+        Assert.Equal(canResume, sut.CanResume);
+        Assert.Equal(canRetry, sut.CanRetry);
+        Assert.Equal(canCleanup, sut.CanCleanup);
+        Assert.Equal(canResume, sut.ResumeCommand.CanExecute(null));
+        Assert.Equal(canRetry, sut.RetryCommand.CanExecute(null));
+        Assert.Equal(canCleanup, sut.CleanupCommand.CanExecute(null));
+        Assert.False(sut.CanOpenStaging);
+        Assert.False(sut.CanCreateSupportBundle);
+    }
+
+    [Fact]
+    public async Task CleanupDelegatesOnlyTheRunIdentityToApplicationWorkflow()
+    {
+        var plan = CreatePlan();
+        var execution = CreateExecution(plan);
+        var recovery = new RecordingProjectRecovery(
+            new ProjectRecoverySnapshot(plan.PlannedProject, execution.Checkpoint));
+        var sut = new ExecutionCenterViewModel(new ExecutionSessionCoordinator(
+            new SequencedWorkflow(execution),
+            new UnsupportedRecovery(),
+            recovery));
+        sut.ApplyRecovered(
+            plan.PlannedProject,
+            execution.Checkpoint,
+            new ProjectRecoveryEligibility(false, false, true));
+
+        await sut.CleanupCommand.ExecuteAsync(null);
+
+        Assert.Equal(plan.RunId, recovery.CleanupRunId);
+        Assert.False(sut.CanCleanup);
+    }
+
+    internal static ProjectCreationPlanSnapshot CreatePlan()
     {
         var reference = BlueprintReference.Create("sample.local", "1.0.0").Value;
         var draft = ProjectCreationDraft.Create(
@@ -112,7 +164,7 @@ public sealed class ExecutionCenterViewModelTests
         return result.Value;
     }
 
-    private static ProjectCreationExecutionSnapshot CreateExecution(ProjectCreationPlanSnapshot plan)
+    internal static ProjectCreationExecutionSnapshot CreateExecution(ProjectCreationPlanSnapshot plan)
     {
         var run = ProjectRun.Create(plan.RunId, plan.RecipeId).Value
             .TransitionTo(RunStatus.Planning).Value
@@ -152,5 +204,28 @@ public sealed class ExecutionCenterViewModelTests
         public Task<ExecutionOperationResult<RunCheckpoint>> NormalizeInterruptedAsync(RunCheckpoint checkpoint, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<ExecutionOperationResult<RunCheckpoint>> ResumeAsync(ExecutionRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<ExecutionOperationResult<StagingCleanupReceipt>> CleanupAsync(RunCheckpoint checkpoint, IWorkspaceFileSystem targetParentWorkspace, CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+
+    private sealed class RecordingProjectRecovery(ProjectRecoverySnapshot snapshot)
+        : IProjectRecoveryWorkflow
+    {
+        public string? CleanupRunId { get; private set; }
+
+        public Task<ProjectRecoveryEligibility> InspectAsync(
+            RunCheckpoint checkpoint,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(ProjectRecoveryEligibility.None);
+
+        public Task<ProjectRecoverySnapshot> ContinueAsync(
+            string runId,
+            ExecutionMode mode,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(snapshot);
+
+        public Task CleanupAsync(string runId, CancellationToken cancellationToken)
+        {
+            CleanupRunId = runId;
+            return Task.CompletedTask;
+        }
     }
 }

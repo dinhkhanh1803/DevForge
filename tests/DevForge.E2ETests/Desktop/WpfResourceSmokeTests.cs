@@ -1,5 +1,6 @@
 using System.Runtime.ExceptionServices;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using DevForge.Desktop.BlueprintCatalog;
 using DevForge.Desktop.CreateProject;
@@ -53,6 +54,14 @@ public sealed class WpfResourceSmokeTests
             Assert.All(
                 inputTemplateKeys,
                 key => Assert.IsType<DataTemplate>(createProject.Resources[key]));
+            foreach (var key in inputTemplateKeys)
+            {
+                var template = Assert.IsType<DataTemplate>(createProject.Resources[key]);
+                var input = Assert.IsAssignableFrom<Control>(template.LoadContent());
+                Assert.NotNull(System.Windows.Data.BindingOperations.GetBindingExpressionBase(
+                    input,
+                    AutomationProperties.NameProperty));
+            }
 
             Size[] dpiEquivalentConstraints =
             {
@@ -72,6 +81,24 @@ public sealed class WpfResourceSmokeTests
                 }
             }
 
+            foreach (var view in views.Where(view => view is CreateProjectView or SettingsView))
+            {
+                var inputs = Descendants<Control>(view)
+                    .Where(control => control is TextBox or ComboBox)
+                    .ToArray();
+                Assert.NotEmpty(inputs);
+                Assert.All(inputs, input =>
+                    Assert.False(string.IsNullOrWhiteSpace(AutomationProperties.GetName(input))));
+            }
+
+            foreach (var view in views.Where(view =>
+                         view is CreateProjectView or BlueprintCatalogView or RunHistoryView or ExecutionCenterView or LocalReadyView))
+            {
+                Assert.All(
+                    Descendants<ListBox>(view),
+                    list => Assert.True(VirtualizingPanel.GetIsVirtualizing(list)));
+            }
+
             string[] sources =
             [
                 "/DevForge.Desktop;component/Resources/Colors.Light.xaml",
@@ -88,6 +115,24 @@ public sealed class WpfResourceSmokeTests
 
             application.Dispose();
         });
+    }
+
+    private static IEnumerable<T> Descendants<T>(DependencyObject owner)
+        where T : DependencyObject
+    {
+        for (var index = 0; index < System.Windows.Media.VisualTreeHelper.GetChildrenCount(owner); index++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(owner, index);
+            if (child is T match)
+            {
+                yield return match;
+            }
+
+            foreach (var descendant in Descendants<T>(child))
+            {
+                yield return descendant;
+            }
+        }
     }
 
     private static void RunSta(Action action)

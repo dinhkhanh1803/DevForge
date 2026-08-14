@@ -64,6 +64,44 @@ public sealed class BlueprintCatalogViewModelTests
         Assert.Equal("1.0.0", selection.Blueprint?.Version);
     }
 
+    [Theory]
+    [InlineData(BlueprintTrust.BuiltIn, true)]
+    [InlineData(BlueprintTrust.TrustedLocal, true)]
+    [InlineData(BlueprintTrust.Untrusted, false)]
+    [InlineData(BlueprintTrust.Quarantined, false)]
+    public async Task TrustMatrixEnablesOnlyExecutableCatalogEntries(
+        BlueprintTrust trust,
+        bool expectedCanCreate)
+    {
+        BlueprintCatalogSnapshot snapshot;
+        if (expectedCanCreate)
+        {
+            snapshot = BlueprintCatalogSnapshot.Create([CreateResolved("sample.local", trust)], []).Value;
+        }
+        else
+        {
+            var issue = BlueprintInspectionIssue.Create(
+                "blueprint.trust.refused",
+                "The package trust does not permit execution.").Value;
+            var inspection = BlueprintInspection.Create(
+                "local",
+                WorkspaceRelativePath.Create("sample.local\\1.0.0").Value,
+                BlueprintReference.Create("sample.local", "1.0.0").Value,
+                trust,
+                [issue],
+                isDisabled: true).Value;
+            snapshot = BlueprintCatalogSnapshot.Create([], [inspection]).Value;
+        }
+
+        var sut = CreateViewModel(snapshot);
+        await sut.LoadAsync(CancellationToken.None);
+
+        var item = Assert.Single(sut.Items);
+        Assert.Equal(expectedCanCreate, item.CanCreate);
+        Assert.Equal(trust.ToString(), item.TrustLabel);
+        Assert.Equal(expectedCanCreate, sut.CreateCommand.CanExecute(item));
+    }
+
     private static BlueprintCatalogViewModel CreateViewModel(BlueprintCatalogSnapshot snapshot) =>
         new(new CatalogWorkflow(snapshot), new NavigationService(), new ProjectCreationSelection());
 

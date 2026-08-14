@@ -2,6 +2,7 @@ using DevForge.Application.Contracts;
 using DevForge.Desktop.Bootstrap;
 using DevForge.Desktop.Dashboard;
 using DevForge.Desktop.EnvironmentDoctor;
+using DevForge.Desktop.Navigation;
 using DevForge.Desktop.Settings;
 using DevForge.Desktop.Theming;
 
@@ -31,6 +32,7 @@ public sealed class DesktopStartupCoordinatorTests
             calls);
         Assert.Equal(DesktopStartupMode.Normal, result.Mode);
         Assert.Same(dashboard, result.Dashboard);
+        Assert.Equal(DesktopRoute.Settings, result.InitialRoute);
     }
 
     [Theory]
@@ -53,6 +55,7 @@ public sealed class DesktopStartupCoordinatorTests
 
         Assert.Equal(["migrate", "settings", "theme", "environment-cache"], calls);
         Assert.Equal(DesktopStartupMode.SafeReadOnly, result.Mode);
+        Assert.Equal(DesktopRoute.Settings, result.InitialRoute);
         Assert.Null(result.Dashboard);
         Assert.False(string.IsNullOrWhiteSpace(result.UserSafeMessage));
     }
@@ -74,6 +77,31 @@ public sealed class DesktopStartupCoordinatorTests
 
         Assert.Equal(["migrate", "recover", "settings", "theme", "environment-cache"], calls);
         Assert.Equal(DesktopStartupMode.SafeReadOnly, result.Mode);
+        Assert.Equal(DesktopRoute.Settings, result.InitialRoute);
+    }
+
+    [Theory]
+    [InlineData(false, DesktopRoute.Settings)]
+    [InlineData(true, DesktopRoute.Dashboard)]
+    public async Task NormalStartupRouteMatrixFollowsOnboardingOnly(
+        bool onboardingCompleted,
+        DesktopRoute expectedRoute)
+    {
+        var calls = new List<string>();
+        var settings = Defaults() with { OnboardingCompleted = onboardingCompleted };
+        var environment = EmptyEnvironment();
+        var sut = new DesktopStartupCoordinator(
+            new FakeMigration(calls, DesktopMigrationOutcome.Ready),
+            new FakeRecovery(calls, succeeds: true),
+            new FakeSettings(calls, settings),
+            new FakeTheme(calls),
+            new FakeEnvironment(calls, environment),
+            new FakeDashboard(calls, new DashboardSnapshot([], [], [], environment)));
+
+        var result = await sut.InitializeAsync(CancellationToken.None);
+
+        Assert.Equal(DesktopStartupMode.Normal, result.Mode);
+        Assert.Equal(expectedRoute, result.InitialRoute);
     }
 
     private static DesktopSettings Defaults() =>

@@ -99,6 +99,42 @@ public sealed class CreateProjectViewModelTests
         Assert.Equal(ProjectCreationStage.Configure, sut.Stage);
     }
 
+    [Theory]
+    [InlineData("name")]
+    [InlineData("root")]
+    [InlineData("output")]
+    [InlineData("ide")]
+    [InlineData("input")]
+    public async Task AnyReviewedDraftChangeInvalidatesThePlan(string change)
+    {
+        var plan = ExecutionCenterViewModelTests.CreatePlan();
+        var workflow = new StubWorkflow(CreateBlueprint(), plan);
+        var sut = CreateViewModel(workflow);
+        sut.Name = "Sample";
+        sut.RootPath = "C:\\Projects";
+        sut.OutputFolder = "sample";
+        await sut.LoadAsync(CancellationToken.None);
+        await sut.ReviewPlanAsync(CancellationToken.None);
+        Assert.Equal(ProjectCreationStage.ReviewPlan, sut.Stage);
+        Assert.NotNull(sut.ReviewedPlan);
+
+        switch (change)
+        {
+            case "name": sut.Name = "Changed"; break;
+            case "root": sut.RootPath = "C:\\Other"; break;
+            case "output": sut.OutputFolder = "changed"; break;
+            case "ide": sut.IdeId = "vscode"; break;
+            case "input": sut.Inputs[0].TextValue = "changed"; break;
+            default: throw new ArgumentOutOfRangeException(nameof(change));
+        }
+
+        Assert.Equal(ProjectCreationStage.Configure, sut.Stage);
+        Assert.Null(sut.ReviewedPlan);
+        Assert.Null(sut.PlanPreview);
+        Assert.Null(sut.ExecutionSnapshot);
+        Assert.Null(sut.LocalReady);
+    }
+
     private static BlueprintInputPropertyDefinition Definition(
         string id,
         BlueprintInputKind kind,
@@ -158,7 +194,9 @@ public sealed class CreateProjectViewModelTests
         return ResolvedBlueprint.Create(manifest, definitions, fingerprint).Value;
     }
 
-    private sealed class StubWorkflow(ResolvedBlueprint blueprint) : IProjectCreationWorkflow
+    private sealed class StubWorkflow(
+        ResolvedBlueprint blueprint,
+        ProjectCreationPlanSnapshot? plan = null) : IProjectCreationWorkflow
     {
         public ProjectCreationDraft? Draft { get; private set; }
 
@@ -172,10 +210,12 @@ public sealed class CreateProjectViewModelTests
             CancellationToken cancellationToken)
         {
             Draft = draft;
-            return Task.FromResult(ValidationResult.Failure<ProjectCreationPlanSnapshot>(
-            [
-                new ValidationIssue("test.plan.unavailable", "Test plan unavailable.", "plan"),
-            ]));
+            return Task.FromResult(plan is null
+                ? ValidationResult.Failure<ProjectCreationPlanSnapshot>(
+                [
+                    new ValidationIssue("test.plan.unavailable", "Test plan unavailable.", "plan"),
+                ])
+                : ValidationResult.Success(plan));
         }
 
         public Task<ValidationResult<ProjectCreationExecutionSnapshot>> ExecuteAsync(

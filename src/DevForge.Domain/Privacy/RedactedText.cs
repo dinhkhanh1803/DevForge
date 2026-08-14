@@ -50,6 +50,11 @@ public sealed record RedactedText
         RegexOptions.CultureInvariant,
         _regexTimeout);
 
+    private static readonly Regex _sourceContentPattern = new(
+        @"(?i)(?:^|[;{}]\s*)(?:using\s+[a-z_][\w.]*\s*;|namespace\s+[a-z_][\w.]*(?=\s*[;{])|(?:public|internal|private|protected)\s+(?:(?:sealed|static|partial|abstract)\s+)*(?:class|record|interface|struct|enum)\s+[a-z_]\w*(?=\s*[:{(])|(?:const|let|var)\s+[a-z_$][\w$]*\s*=|def\s+[a-z_]\w*\s*\(|function\s+[a-z_$][\w$]*\s*\(|<\?xml\b|<!doctype\b)",
+        RegexOptions.CultureInvariant,
+        _regexTimeout);
+
     private static readonly string[] _secretKeyFragments =
     [
         "apikey",
@@ -86,7 +91,7 @@ public sealed record RedactedText
         }
 
         var trimmed = value.Trim();
-        if (IsSecretShapedValue(trimmed))
+        if (IsSecretShapedValue(trimmed) || IsSourceShapedContent(trimmed))
         {
             return ValidationResult.Failure<RedactedText>(
             [
@@ -120,6 +125,23 @@ public sealed record RedactedText
         }
 
         return LooksSecretShaped(value);
+    }
+
+    public static bool IsSourceShapedContent(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        try
+        {
+            return _sourceContentPattern.IsMatch(value);
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return true;
+        }
     }
 
     private static bool LooksSecretShaped(string value)

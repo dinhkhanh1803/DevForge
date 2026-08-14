@@ -6,6 +6,46 @@ namespace DevForge.UnitTests.Domain;
 public sealed class PrivacyTests
 {
     [Theory]
+    [InlineData("using System; public sealed class GeneratedProject { }")]
+    [InlineData("namespace Sample.Project;")]
+    [InlineData("const tokenValue = GetValue();")]
+    [InlineData("function generateProject() {")]
+    [InlineData("<?xml version=\"1.0\"?>")]
+    public void SourceShapedContentIsRejectedFromRedactedDisplayBoundary(string value)
+    {
+        Assert.True(RedactedText.IsSourceShapedContent(value));
+        Assert.False(RedactedText.FromTrustedRedaction(value).IsValid);
+    }
+
+    [Theory]
+    [InlineData("Source generation completed.")]
+    [InlineData("The public API validation passed.")]
+    [InlineData("The namespace setting was accepted.")]
+    [InlineData("Foreign key: FK_ProjectRun")]
+    public void SafeDiagnosticSentencesAreNotMisclassifiedAsSource(string value)
+    {
+        Assert.False(RedactedText.IsSourceShapedContent(value));
+        Assert.True(RedactedText.FromTrustedRedaction(value).IsValid);
+    }
+
+    [Theory]
+    [InlineData("public class library for internal tools")]
+    [InlineData("namespace Sample is selected by the user")]
+    public void SourceHeuristicDoesNotMakeOrdinaryProjectTextInvalid(string value)
+    {
+        Assert.True(DevForge.Application.Contracts.DynamicInputValue.Text(value).IsValid);
+        var preset = DevForge.Application.Contracts.ProjectCreationPresetDraft.Create(
+            DevForge.Application.Contracts.BlueprintReference.Create("sample.local", "1.0.0").Value,
+            new Dictionary<string, DevForge.Application.Contracts.DynamicInputValue?>
+            {
+                ["description"] = DevForge.Application.Contracts.DynamicInputValue.Text(value).Value,
+            },
+            [],
+            "none");
+        Assert.True(preset.IsValid);
+    }
+
+    [Theory]
     [InlineData("token=abc123")]
     [InlineData("db_password : hunter2")]
     [InlineData("Server=db;User Id=app;Password=secret;")]

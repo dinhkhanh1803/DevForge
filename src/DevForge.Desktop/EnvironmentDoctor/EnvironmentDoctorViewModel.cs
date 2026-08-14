@@ -4,6 +4,7 @@ using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DevForge.Desktop.Notifications;
+using DevForge.Domain.Privacy;
 
 namespace DevForge.Desktop.EnvironmentDoctor;
 
@@ -141,9 +142,11 @@ public sealed partial class EnvironmentDoctorViewModel : ObservableObject
 
         foreach (var tool in _tools)
         {
+            var safeId = SafeDiagnosticValue(tool.Id, "unknown");
+            var safeVersion = SafeDiagnosticValue(tool.Version, "unknown");
             var line = string.Create(
                 CultureInfo.InvariantCulture,
-                $"{tool.Id} | {tool.StatusLabel} | {tool.Version ?? "unknown"}");
+                $"{safeId} | {tool.StatusLabel} | {safeVersion}");
             if (builder.Length + line.Length + Environment.NewLine.Length > MaxDiagnosticLength)
             {
                 break;
@@ -153,6 +156,12 @@ public sealed partial class EnvironmentDoctorViewModel : ObservableObject
         }
 
         return builder.ToString().TrimEnd();
+    }
+
+    private static string SafeDiagnosticValue(string? value, string fallback)
+    {
+        var result = RedactedText.FromTrustedRedaction(value);
+        return result.IsValid ? result.Value.Value : fallback;
     }
 
     private void SetBusy(bool value)

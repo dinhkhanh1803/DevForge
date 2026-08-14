@@ -143,7 +143,13 @@ public sealed partial class RunHistoryViewModel : ObservableObject
                 item.RunId,
                 mode,
                 cancellationToken).ConfigureAwait(true);
-            _executionCenter.ApplyRecovered(recovered.PlannedProject, recovered.Checkpoint);
+            var eligibility = await _actions.InspectAsync(
+                recovered.Checkpoint,
+                cancellationToken).ConfigureAwait(true);
+            _executionCenter.ApplyRecovered(
+                recovered.PlannedProject,
+                recovered.Checkpoint,
+                eligibility);
             OpenedPage = recovered.Checkpoint.Run.Status == RunStatus.LocalReady
                 ? new LocalReadyViewModel(
                     recovered.Checkpoint,

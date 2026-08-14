@@ -33,20 +33,12 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
     private RunCheckpoint? _recoveredCheckpoint;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanResume))]
-    private ExecutionRequest? _resumeRequest;
-
-    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanRetry))]
-    private ExecutionRequest? _retryRequest;
-
-    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanResume))]
     [NotifyPropertyChangedFor(nameof(CanCleanup))]
-    private RunCheckpoint? _cleanupCheckpoint;
+    private ProjectRecoveryEligibility _recoveryEligibility = ProjectRecoveryEligibility.None;
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanCleanup))]
-    private IWorkspaceFileSystem? _cleanupWorkspace;
+    private string? _recoveryRunId;
 
     public ExecutionCenterViewModel(ExecutionSessionCoordinator coordinator)
     {
@@ -75,11 +67,11 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
 
     public IAsyncRelayCommand CleanupCommand { get; }
 
-    public bool CanResume => ResumeRequest?.Mode == ExecutionMode.Resume;
+    public bool CanResume => _recoveryRunId is not null && RecoveryEligibility.CanResume;
 
-    public bool CanRetry => RetryRequest?.Mode == ExecutionMode.ManualRetry;
+    public bool CanRetry => _recoveryRunId is not null && RecoveryEligibility.CanRetry;
 
-    public bool CanCleanup => CleanupCheckpoint is not null && CleanupWorkspace is not null;
+    public bool CanCleanup => _recoveryRunId is not null && RecoveryEligibility.CanCleanup;
 
     public bool CanOpenStaging => _m10ActionsEnabled;
 
@@ -88,11 +80,15 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
     public RunStatusProjection Status => ProjectStatus(
         Snapshot?.Checkpoint.Run.Status ?? RecoveredCheckpoint?.Run.Status ?? RunStatus.Draft);
 
-    public void ApplyRecovered(PlannedProject plannedProject, RunCheckpoint checkpoint)
+    public void ApplyRecovered(
+        PlannedProject plannedProject,
+        RunCheckpoint checkpoint,
+        ProjectRecoveryEligibility? eligibility = null)
     {
         ArgumentNullException.ThrowIfNull(plannedProject);
         ArgumentNullException.ThrowIfNull(checkpoint);
         RecoveredCheckpoint = checkpoint;
+        ApplyRecoveryEligibility(checkpoint.Run.Id, eligibility ?? ProjectRecoveryEligibility.None);
         Snapshot = null;
         ValidationIssues = [];
         Steps =
@@ -133,6 +129,10 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
             }
 
             ApplySnapshot(result.Value);
+            var eligibility = await _coordinator.InspectAsync(
+                result.Value.Checkpoint,
+                cancellationToken).ConfigureAwait(true);
+            ApplyRecoveryEligibility(result.Value.Checkpoint.Run.Id, eligibility);
         }
         finally
         {
@@ -163,17 +163,12 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
         _coordinator.ProgressChanged -= OnProgressChanged;
     }
 
-    partial void OnResumeRequestChanged(ExecutionRequest? value) =>
+    partial void OnRecoveryEligibilityChanged(ProjectRecoveryEligibility value)
+    {
         ResumeCommand.NotifyCanExecuteChanged();
-
-    partial void OnRetryRequestChanged(ExecutionRequest? value) =>
         RetryCommand.NotifyCanExecuteChanged();
-
-    partial void OnCleanupCheckpointChanged(RunCheckpoint? value) =>
         CleanupCommand.NotifyCanExecuteChanged();
-
-    partial void OnCleanupWorkspaceChanged(IWorkspaceFileSystem? value) =>
-        CleanupCommand.NotifyCanExecuteChanged();
+    }
 
     private void ApplySnapshot(ProjectCreationExecutionSnapshot snapshot)
     {
@@ -198,19 +193,19 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
 
     private async Task ResumeAsync(CancellationToken cancellationToken)
     {
-        await ContinueAsync(ResumeRequest, cancellationToken).ConfigureAwait(true);
+        await ContinueAsync(ExecutionMode.Resume, cancellationToken).ConfigureAwait(true);
     }
 
     private async Task RetryAsync(CancellationToken cancellationToken)
     {
-        await ContinueAsync(RetryRequest, cancellationToken).ConfigureAwait(true);
+        await ContinueAsync(ExecutionMode.ManualRetry, cancellationToken).ConfigureAwait(true);
     }
 
     private async Task ContinueAsync(
-        ExecutionRequest? request,
+        ExecutionMode mode,
         CancellationToken cancellationToken)
     {
-        if (request is null || Snapshot is null)
+        if (_recoveryRunId is null)
         {
             return;
         }
@@ -218,28 +213,14 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
         SetBusy(true);
         try
         {
-            var result = await _coordinator.ResumeAsync(request, cancellationToken).ConfigureAwait(true);
-            if (!result.IsSuccessful)
-            {
-                ValidationIssues =
-                [
-                    new ValidationIssue(
-                        result.Error!.Code,
-                        result.Error.Summary,
-                        "execution"),
-                ];
-                return;
-            }
-
-            var snapshot = ProjectCreationExecutionSnapshot.Create(Snapshot.Plan, result.Value);
-            if (snapshot.IsValid)
-            {
-                ApplySnapshot(snapshot.Value);
-            }
-            else
-            {
-                ValidationIssues = snapshot.Issues;
-            }
+            var recovered = await _coordinator.ContinueAsync(
+                _recoveryRunId,
+                mode,
+                cancellationToken).ConfigureAwait(true);
+            var eligibility = await _coordinator.InspectAsync(
+                recovered.Checkpoint,
+                cancellationToken).ConfigureAwait(true);
+            ApplyRecovered(recovered.PlannedProject, recovered.Checkpoint, eligibility);
         }
         finally
         {
@@ -249,7 +230,7 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
 
     private async Task CleanupAsync(CancellationToken cancellationToken)
     {
-        if (CleanupCheckpoint is null || CleanupWorkspace is null)
+        if (_recoveryRunId is null)
         {
             return;
         }
@@ -257,25 +238,25 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
         SetBusy(true);
         try
         {
-            var result = await _coordinator.CleanupAsync(
-                CleanupCheckpoint,
-                CleanupWorkspace,
-                cancellationToken).ConfigureAwait(true);
-            if (!result.IsSuccessful)
-            {
-                ValidationIssues =
-                [
-                    new ValidationIssue(
-                        result.Error!.Code,
-                        result.Error.Summary,
-                        "cleanup"),
-                ];
-            }
+            await _coordinator.CleanupAsync(_recoveryRunId, cancellationToken).ConfigureAwait(true);
+            ApplyRecoveryEligibility(runId: null, ProjectRecoveryEligibility.None);
         }
         finally
         {
             SetBusy(false);
         }
+    }
+
+    private void ApplyRecoveryEligibility(string? runId, ProjectRecoveryEligibility eligibility)
+    {
+        _recoveryRunId = runId;
+        RecoveryEligibility = eligibility;
+        OnPropertyChanged(nameof(CanResume));
+        OnPropertyChanged(nameof(CanRetry));
+        OnPropertyChanged(nameof(CanCleanup));
+        ResumeCommand.NotifyCanExecuteChanged();
+        RetryCommand.NotifyCanExecuteChanged();
+        CleanupCommand.NotifyCanExecuteChanged();
     }
 
     private void SetBusy(bool value)

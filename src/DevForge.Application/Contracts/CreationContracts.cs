@@ -81,6 +81,7 @@ public sealed class DynamicInputValue
                     "Credential-shaped values cannot be retained in project creation inputs.",
                     "value"));
             }
+
         }
 
         return issues.Count == 0
@@ -676,6 +677,20 @@ public sealed class ProjectCreationPresetDraft
         if (!draft.IsValid)
         {
             return ValidationResult.Failure<ProjectCreationPresetDraft>(draft.Issues);
+        }
+
+        var sourceInput = draft.Value.Inputs.FirstOrDefault(item =>
+            item.Value.Kind == DynamicInputValueKind.Text
+            && RedactedText.IsSourceShapedContent(item.Value.TextValue));
+        if (!sourceInput.Equals(default(KeyValuePair<string, DynamicInputValue>)))
+        {
+            return ValidationResult.Failure<ProjectCreationPresetDraft>(
+            [
+                new ValidationIssue(
+                    "creation.preset.input.source-content",
+                    "Source content cannot be retained in project creation presets.",
+                    $"inputs.{sourceInput.Key}"),
+            ]);
         }
 
         return ValidationResult.Success(new ProjectCreationPresetDraft(

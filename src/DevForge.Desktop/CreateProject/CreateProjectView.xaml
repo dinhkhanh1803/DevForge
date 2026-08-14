@@ -49,16 +49,20 @@
 
             <TextBlock Style="{StaticResource SectionHeading}" Text="Project" />
             <TextBlock Text="Project name" />
-            <TextBox Margin="0,4,0,12" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
+            <TextBox Margin="0,4,0,12" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
+                     AutomationProperties.Name="Project name" />
             <TextBlock Text="Parent folder" />
-            <TextBox Margin="0,4,0,12" Text="{Binding RootPath, UpdateSourceTrigger=PropertyChanged}" />
+            <TextBox Margin="0,4,0,12" Text="{Binding RootPath, UpdateSourceTrigger=PropertyChanged}"
+                     AutomationProperties.Name="Parent folder" />
             <TextBlock Text="Output folder" />
-            <TextBox Margin="0,4,0,12" Text="{Binding OutputFolder, UpdateSourceTrigger=PropertyChanged}" />
+            <TextBox Margin="0,4,0,12" Text="{Binding OutputFolder, UpdateSourceTrigger=PropertyChanged}"
+                     AutomationProperties.Name="Output folder" />
             <TextBlock Text="Blueprint" />
             <ComboBox Margin="0,4,0,12"
                       ItemsSource="{Binding Blueprints}"
                       SelectedItem="{Binding SelectedBlueprint}"
-                      DisplayMemberPath="Manifest.Id" />
+                      DisplayMemberPath="Manifest.Id"
+                      AutomationProperties.Name="Blueprint" />
 
             <TextBlock Style="{StaticResource SectionHeading}" Text="Blueprint options" />
             <ItemsControl ItemsSource="{Binding Inputs}">
@@ -95,7 +99,8 @@
             <TextBlock Text="Open after generation" />
             <ComboBox Margin="0,4,0,12"
                       ItemsSource="{Binding IdeChoices}"
-                      SelectedItem="{Binding IdeId}" />
+                      SelectedItem="{Binding IdeId}"
+                      AutomationProperties.Name="Open after generation" />
             <ItemsControl ItemsSource="{Binding ValidationIssues}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
