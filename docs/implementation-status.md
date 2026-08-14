@@ -1,8 +1,8 @@
 # DevForge Studio Implementation Status
 
-**Current milestone:** M7 - Dynamic Create Project, Plan Preview, Execution Center, and Completed UX
-**Status:** M0-M6 complete and verified; M7 design/plan approved and implementation active
-**Last updated:** 2026-08-13
+**Current milestone:** M7 - Dynamic Create Project, Plan Preview, Execution Center, and LocalReady UX
+**Status:** M0-M7 complete and locally verified
+**Last updated:** 2026-08-14
 
 ## Current M7 scope
 
@@ -10,7 +10,28 @@ The approved design is `docs/superpowers/specs/2026-08-13-m7-create-execute-ux-d
 
 The recommended four-stage flow is Configure -> Review Plan -> Execute -> LocalReady. Git/GitHub controls remain disabled until M8; M7 never labels `LocalReady` as Domain `Completed`. Blueprint Catalog is a presentation of the existing catalog only. A temporary E2E fixture proves no-terminal generation without becoming a production blueprint; the three MVP production blueprints remain M9.
 
-Before implementation, the planned boundary requires all target operations through guarded workspace ports, all execution through `IExecutionOrchestrator`/`IRunRecoveryService`, exact schema-driven input kinds, explicit plan invalidation after edits, bounded redacted progress, privacy-safe presets, and read-only safe-mode refusal. M7 is not complete until its full exit gate is recorded below this section.
+M7 is complete locally. Application owns guarded creation and exact recovery workflows; Desktop renders immutable snapshots and retains no workspace handles. All target operations use guarded workspace ports, all execution uses the M5 orchestrator/recovery boundary, every relevant edit invalidates the reviewed plan, progress is bounded and redacted, presets reject credential/`.env`/source content, and safe mode refuses every mutating route and action.
+
+The real M7 E2E fixture exercises all four input kinds, guarded create/render/copy handlers, file/content validators, secret scanning, canonical reports, finalization, durable cancellation, and duplicate-free resume to `LocalReady` without invoking a terminal or process/package handler. Architecture, privacy, behavior, accessibility, target-state, recovery, and no-overwrite matrices are closed. ADR-0012 records the final boundary; M8 is the recommended next milestone.
+
+## M7 final exit gate
+
+Fresh local verification on 2026-08-14 used workspace-local .NET SDK 10.0.302:
+
+| Gate | Command | Exact result |
+| --- | --- | --- |
+| SDK | `dotnet --version` | Exit 0; `10.0.302`. |
+| Locked restore | `dotnet restore DevForge.sln --locked-mode --verbosity minimal` | Exit 0; all 12 projects restored from pinned lock files. |
+| Format | `dotnet format DevForge.sln --verify-no-changes --no-restore` | Exit 0; no formatting diagnostics. |
+| Release build | `dotnet build DevForge.sln -c Release --no-restore --verbosity minimal -m:1` | Exit 0; all 12 projects built; 0 warnings, 0 errors. |
+| Full solution | `dotnet test DevForge.sln -c Release --no-build --no-restore --verbosity minimal -m:1` | Exit 0; UnitTests 545, IntegrationTests 386, BlueprintTests 108, E2ETests 140; total 1,179 passed, 0 failed, 0 skipped. |
+| Focused creation/architecture/privacy | `dotnet test tests/DevForge.UnitTests/DevForge.UnitTests.csproj -c Release --no-build --no-restore --filter "FullyQualifiedName~Creation\|FullyQualifiedName~Architecture\|FullyQualifiedName~Privacy" -m:1` | Exit 0; 127 passed, 0 failed, 0 skipped. |
+| Focused creation/execution/blueprints | `dotnet test tests/DevForge.IntegrationTests/DevForge.IntegrationTests.csproj -c Release --no-build --no-restore --filter "FullyQualifiedName~Creation\|FullyQualifiedName~Execution\|FullyQualifiedName~Blueprints" -m:1` | Exit 0; 215 passed, 0 failed, 0 skipped. |
+| Focused Desktop/M7 | `dotnet test tests/DevForge.E2ETests/DevForge.E2ETests.csproj -c Release --no-build --no-restore --filter "FullyQualifiedName~Desktop\|FullyQualifiedName~M7" -m:1` | Exit 0; 140 passed, 0 failed, 0 skipped. |
+| EF model consistency | `dotnet-ef migrations has-pending-model-changes --project src/DevForge.Infrastructure --startup-project src/DevForge.Infrastructure --context DevForgeDbContext --configuration Release --no-build` | Exit 0; `No changes have been made to the model since the last migration.` |
+| Diff check | `git diff --check` | Exit 0; no whitespace errors. |
+
+The first EF invocation could not locate the workspace runtime because `DOTNET_ROOT` was absent from that child process. Re-running the same model-consistency command with `DOTNET_ROOT=E:\MyProjects\DevForge\.tools\dotnet` exited 0 with no pending model changes. No product code or model change was required.
 
 ## Current M6 scope
 
@@ -312,12 +333,13 @@ Verification used the workspace-local SDK at `.tools/dotnet/dotnet.exe` with `DO
 ## Known limitations
 
 - The Windows GitHub Actions workflow mirrors the mandatory quality gates, but CI was not run remotely in this task.
-- The E2E host remains empty because end-to-end desktop workflows belong to later milestones.
+- The M7 E2E package is test-only; the three production MVP blueprints remain assigned to M9.
 - Environment probing and IDE launch support only the fixed trusted tool catalog; arbitrary executable discovery remains intentionally unsupported.
 - SQLite's online backup API is synchronous during the copy itself; cancellation is honored immediately before and after the bounded call, and recovery always completes before post-mutation cancellation is propagated.
-- Production startup composition and safe-mode UI remain assigned to M6.
+- Git/GitHub completion remains disabled until M8; successful M7 runs stop at `LocalReady`.
+- Support bundles, production log browsing, Open Staging/folder handoff, packaging, and release hardening remain assigned to M10.
 - Guarded Windows operations remain path-based. M5's owned staging, process-wide lease, detached verified packages, and closed sequential handlers exclude an in-scope blueprint actor from racing ancestor replacement; a future threat model that includes a separate hostile same-user process requires handle-relative no-follow native operations.
 
 ## Milestone progression
 
-The recommended next milestone is M5 - Orchestrator, staging, retry/resume, and finalizer, limited to executing the immutable M4 plan through existing guarded file/process abstractions.
+The recommended next milestone is M8 - Git initialization and GitHub publishing, limited to the existing typed Git/GitHub ports, reviewed plan intent, guarded final project workspace, `PublishPending`, and evidence-backed `Completed` transitions.
