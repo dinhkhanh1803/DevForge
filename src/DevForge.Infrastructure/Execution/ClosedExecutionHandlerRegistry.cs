@@ -21,6 +21,8 @@ internal sealed class ClosedExecutionHandlerRegistry : IExecutionHandlerRegistry
             "run-process",
             "package-install",
             "validate-command",
+            "validate-file-exists",
+            "validate-file-content",
         }.ToImmutableHashSet(StringComparer.Ordinal);
 
     private const string FinalizationHandlerId = "finalize-workspace";

@@ -33,6 +33,15 @@ public sealed class BlueprintActionPolicyTests
                 ("workingDirectory", Text(".")),
                 ("allowedExitCodes", Sequence(BlueprintValue.FromInteger(0))),
                 ("required", BlueprintValue.FromBoolean(true))),
+            Action(
+                "validate-file-exists",
+                ("path", Text("README.md")),
+                ("required", BlueprintValue.FromBoolean(true))),
+            Action(
+                "validate-file-content",
+                ("path", Text("README.md")),
+                ("contains", Text("Framework: net10.0")),
+                ("required", BlueprintValue.FromBoolean(true))),
             Action("git-operation", ("operation", Text("initialize")), ("payload", Map())),
             Action("github-operation", ("operation", Text("create-repository")), ("payload", Map())),
             Action("finalize-workspace"),

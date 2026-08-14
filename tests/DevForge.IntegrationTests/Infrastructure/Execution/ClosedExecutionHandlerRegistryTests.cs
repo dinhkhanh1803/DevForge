@@ -17,6 +17,8 @@ public sealed class ClosedExecutionHandlerRegistryTests
         "run-process",
         "package-install",
         "validate-command",
+        "validate-file-exists",
+        "validate-file-content",
     ];
 
     private static readonly string[] _implementationSourceFiles =

@@ -70,6 +70,8 @@ public sealed class ClosedExecutionHandlerRegistryProvider : IExecutionHandlerRe
             new RunProcessExecutionHandler(runner),
             new PackageInstallExecutionHandler(runner),
             new ValidateCommandExecutionHandler(runner),
+            new FileExistsValidationHandler(),
+            new FileContentValidationHandler(),
             new FinalizationBoundaryHandler(),
         ];
     }

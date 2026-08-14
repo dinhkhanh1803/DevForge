@@ -188,7 +188,8 @@ public sealed class CanonicalGenerationReportWriter : IGenerationReportWriter
         text.AppendLine();
         foreach (var validation in report.Validations)
         {
-            text.Append("- ").Append(validation.Status).Append(" — ")
+            text.Append("- `").Append(validation.Id).Append("`: ")
+                .Append(validation.Status).Append(" - ")
                 .AppendLine(validation.Summary.ReplaceLineEndings(" "));
         }
 

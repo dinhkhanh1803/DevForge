@@ -52,6 +52,15 @@ internal static class BlueprintActionPolicy
                 ("workingDirectory", ParameterKind.Path),
                 ("allowedExitCodes", ParameterKind.IntegerSequence),
                 ("required", ParameterKind.Boolean)),
+            ["validate-file-exists"] = Descriptor(
+                false,
+                ("path", ParameterKind.Path),
+                ("required", ParameterKind.Boolean)),
+            ["validate-file-content"] = Descriptor(
+                false,
+                ("path", ParameterKind.Path),
+                ("contains", ParameterKind.Text),
+                ("required", ParameterKind.Boolean)),
             ["git-operation"] = Descriptor(
                 true,
                 ("operation", ParameterKind.Identifier),
@@ -110,6 +119,7 @@ internal static class BlueprintActionPolicy
         return kind switch
         {
             ParameterKind.Boolean => value.Kind == BlueprintValueKind.Boolean,
+            ParameterKind.Text => value.Kind == BlueprintValueKind.Text,
             ParameterKind.Identifier or ParameterKind.Path => value.Kind == BlueprintValueKind.Text,
             ParameterKind.Sequence => value.Kind == BlueprintValueKind.Sequence,
             ParameterKind.Map => value.Kind == BlueprintValueKind.Map,
@@ -233,11 +243,12 @@ internal static class BlueprintActionPolicy
     private enum ParameterKind
     {
         Boolean = 1,
-        Identifier = 2,
-        Path = 3,
-        Sequence = 4,
-        Map = 5,
-        TextSequence = 6,
-        IntegerSequence = 7,
+        Text = 2,
+        Identifier = 3,
+        Path = 4,
+        Sequence = 5,
+        Map = 6,
+        TextSequence = 7,
+        IntegerSequence = 8,
     }
 }

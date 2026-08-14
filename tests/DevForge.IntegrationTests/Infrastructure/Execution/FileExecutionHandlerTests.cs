@@ -13,6 +13,52 @@ namespace DevForge.IntegrationTests.Infrastructure.Execution;
 public sealed class FileExecutionHandlerTests
 {
     [Fact]
+    public async Task FileAndContentValidatorsAreBoundedReadOnlyAndReturnValidationFailures()
+    {
+        await using var fixture = await HandlerFixture.CreateAsync();
+        await fixture.WriteAsync("README.md", "Framework: net10.0");
+        var file = new FileExistsValidationHandler();
+        var content = new FileContentValidationHandler();
+        var fileRequest = fixture.ValidatorRequest(
+            "validate-file-exists",
+            ("path", Text("README.md")));
+        var contentRequest = fixture.ValidatorRequest(
+            "validate-file-content",
+            ("path", Text("README.md")),
+            ("contains", Text("net10.0")));
+        var missingContentRequest = fixture.ValidatorRequest(
+            "validate-file-content",
+            ("path", Text("README.md")),
+            ("contains", Text("net11.0")));
+        await fixture.WriteAsync(
+            "oversized.txt",
+            new string('x', FileExecutionHandlerBase.MaximumFileBytes + 1));
+        var oversizedRequest = fixture.ValidatorRequest(
+            "validate-file-exists",
+            ("path", Text("oversized.txt")));
+
+        Assert.Equal(
+            ExecutionHandlerOutcome.Succeeded,
+            (await file.ExecuteAsync(fileRequest, null, CancellationToken.None)).Outcome);
+        Assert.Equal(
+            ExecutionHandlerOutcome.Succeeded,
+            (await content.ExecuteAsync(contentRequest, null, CancellationToken.None)).Outcome);
+        var failure = await content.ExecuteAsync(
+            missingContentRequest,
+            null,
+            CancellationToken.None);
+        Assert.Equal(ExecutionHandlerOutcome.Failed, failure.Outcome);
+        Assert.Equal("DF-VALID-001", failure.Error?.Code);
+        var oversized = await file.ExecuteAsync(
+            oversizedRequest,
+            null,
+            CancellationToken.None);
+        Assert.Equal(ExecutionHandlerOutcome.Failed, oversized.Outcome);
+        Assert.Equal("DF-VALID-001", oversized.Error?.Code);
+        Assert.Equal("Framework: net10.0", await fixture.ReadAsync("README.md"));
+    }
+
+    [Fact]
     public async Task CreateRenderAndCopyHandlersUseOnlyGuardedWorkspaces()
     {
         await using var fixture = await HandlerFixture.CreateAsync();
@@ -444,6 +490,35 @@ public sealed class FileExecutionHandlerTests
             return ExecutionHandlerRequest.Create(
                 "run-1",
                 step,
+                staging,
+                Package,
+                plan).Value;
+        }
+
+        public ExecutionHandlerRequest ValidatorRequest(
+            string handler,
+            params (string Key, PlanValue Value)[] inputs)
+        {
+            var validator = ExecutionValidator.Create(
+                "validator",
+                handler,
+                inputs.Select(item => KeyValuePair.Create<string, PlanValue?>(item.Key, item.Value)),
+                TimeSpan.FromMinutes(1),
+                required: true).Value;
+            var descriptor = StagingDescriptor.Create(
+                Relative(".devforge-staging\\run-1"),
+                Relative(".devforge-staging\\run-1\\payload"),
+                Relative(".devforge-staging\\run-1\\ownership.json"),
+                "marker-1").Value;
+            var staging = StagingWorkspace.Create(descriptor, Payload).Value;
+            var plan = ExecutionPlan.Create(
+                $"sha256:{new string('b', 64)}",
+                [],
+                [validator],
+                [KeyValuePair.Create<string, string?>("project.name", "Sample App")]).Value;
+            return ExecutionHandlerRequest.Create(
+                "run-1",
+                validator,
                 staging,
                 Package,
                 plan).Value;

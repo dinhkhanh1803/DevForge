@@ -78,6 +78,8 @@ internal abstract class FileExecutionHandlerBase(string id) : IExecutionHandler
 
     protected abstract ImmutableHashSet<string> RequiredInputNames { get; }
 
+    protected virtual bool HandlesValidators => false;
+
     protected static WorkspaceRelativePath PathInput(
         HandlerExecutionContext context,
         string name)
@@ -187,7 +189,8 @@ internal abstract class FileExecutionHandlerBase(string id) : IExecutionHandler
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            if (!StringComparer.Ordinal.Equals(request.HandlerId, Id) || request.IsValidator)
+            if (!StringComparer.Ordinal.Equals(request.HandlerId, Id)
+                || request.IsValidator != HandlesValidators)
             {
                 throw new HandlerInputException();
             }
@@ -231,7 +234,7 @@ internal abstract class FileExecutionHandlerBase(string id) : IExecutionHandler
         }
         catch (Exception exception) when (IsExpectedFailure(exception))
         {
-            return Failure(phase, IsTransientFailure(exception));
+            return Failure(phase, request.IsValidator, IsTransientFailure(exception));
         }
     }
 
@@ -253,13 +256,18 @@ internal abstract class FileExecutionHandlerBase(string id) : IExecutionHandler
         exception is IOException
         || exception is InfrastructureOperationException { Code: "DF-FS-002" };
 
-    private static ExecutionHandlerResult Failure(ExecutionPhase phase, bool isRetryable)
+    private static ExecutionHandlerResult Failure(
+        ExecutionPhase phase,
+        bool isValidator,
+        bool isRetryable)
     {
         var detail = RedactedText.FromTrustedRedaction(
             "A guarded file handler rejected its input, source content, workspace state, or postcondition.");
         var error = DevForgeError.Create(
-            "DF-EXEC-001",
-            "A project file operation could not be completed safely.",
+            isValidator ? "DF-VALID-001" : "DF-EXEC-001",
+            isValidator
+                ? "A project file validation did not pass."
+                : "A project file operation could not be completed safely.",
             detail.Value,
             "execution-handler",
             null,
