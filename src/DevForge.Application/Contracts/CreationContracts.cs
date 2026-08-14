@@ -134,7 +134,8 @@ public sealed class ProjectCreationDraft
         BlueprintReference blueprint,
         ImmutableSortedDictionary<string, DynamicInputValue> inputs,
         ImmutableArray<string> features,
-        string ideId)
+        string ideId,
+        GitOptions git)
     {
         Name = name;
         RootPath = rootPath;
@@ -143,6 +144,7 @@ public sealed class ProjectCreationDraft
         Inputs = inputs;
         Features = features;
         IdeId = ideId;
+        Git = git;
     }
 
     public string Name { get; }
@@ -159,6 +161,8 @@ public sealed class ProjectCreationDraft
 
     public string IdeId { get; }
 
+    public GitOptions Git { get; }
+
     public static ValidationResult<ProjectCreationDraft> Create(
         string? name,
         string? rootPath,
@@ -166,7 +170,13 @@ public sealed class ProjectCreationDraft
         BlueprintReference? blueprint,
         IEnumerable<KeyValuePair<string, DynamicInputValue?>>? inputs,
         IEnumerable<string?>? features,
-        string? ideId)
+        string? ideId,
+        bool initializeRepository = true,
+        GitBranchPolicy branchPolicy = GitBranchPolicy.Main,
+        bool publishToGitHub = false,
+        bool isPrivate = true,
+        string? githubAccount = null,
+        string? githubRepository = null)
     {
         var inputSnapshot = inputs?.ToImmutableArray() ?? [];
         var featureSnapshot = features?.ToImmutableArray() ?? [];
@@ -201,6 +211,28 @@ public sealed class ProjectCreationDraft
         ValidateInputs(inputs, inputSnapshot, issues);
         ValidateFeatures(features, featureSnapshot, issues);
 
+        var branchPolicyValid = Enum.IsDefined(branchPolicy);
+        if (!branchPolicyValid)
+        {
+            issues.Add(new ValidationIssue(
+                "creation.git.branch-policy.invalid",
+                "A supported Git branch policy is required.",
+                "branchPolicy"));
+        }
+
+        var git = GitOptions.Create(
+            initializeRepository,
+            primaryBranch: "main",
+            useDevelopBranch: branchPolicyValid && branchPolicy == GitBranchPolicy.MainAndDevelop,
+            publishToGitHub,
+            isPrivate,
+            githubAccount,
+            githubRepository);
+        if (!git.IsValid)
+        {
+            issues.AddRange(git.Issues);
+        }
+
         var canonicalIdeId = ideId?.Trim();
         if (ideId is null
             || !StringComparer.Ordinal.Equals(ideId, canonicalIdeId)
@@ -223,7 +255,8 @@ public sealed class ProjectCreationDraft
                     item => item.Value!,
                     StringComparer.Ordinal),
                 [.. featureSnapshot.Select(item => item!.Trim())],
-                canonicalIdeId!))
+                canonicalIdeId!,
+                git.Value))
             : ValidationResult.Failure<ProjectCreationDraft>(issues);
     }
 
@@ -513,6 +546,14 @@ public sealed class ProjectCreationPlanSnapshot
                 "recipe"));
         }
 
+        if (draft is not null && recipe is not null && !GitEquals(draft.Git, recipe.Git))
+        {
+            issues.Add(new ValidationIssue(
+                "creation.plan.recipe-git.mismatch",
+                "The project recipe Git intent does not match the creation draft.",
+                "recipe.git"));
+        }
+
         if (draft is not null && plannedProject is not null
             && (!StringComparer.Ordinal.Equals(
                     draft.Blueprint.Id,
@@ -527,15 +568,17 @@ public sealed class ProjectCreationPlanSnapshot
                 "plannedProject.preview.blueprint"));
         }
 
-        if (plannedProject is not null
-            && (plannedProject.Preview.Git.InitializeRepository
-                || plannedProject.Preview.Git.PublishToGitHub))
+
+        if (draft is not null
+            && plannedProject is not null
+            && !GitEquals(draft.Git, plannedProject.Preview.Git))
         {
             issues.Add(new ValidationIssue(
-                "creation.plan.git.not-disabled",
-                "M7 project creation plans must keep Git and GitHub disabled.",
+                "creation.plan.git.mismatch",
+                "The planned Git intent does not match the reviewed creation draft.",
                 "plannedProject.preview.git"));
         }
+
         ValidateIdentity(runId, "run-", "creation.plan.run-id.invalid", "runId", issues);
         ValidateIdentity(recipeId, "recipe-", "creation.plan.recipe-id.invalid", "recipeId", issues);
         if (createdAtUtc == default || createdAtUtc.Offset != TimeSpan.Zero)
@@ -550,6 +593,16 @@ public sealed class ProjectCreationPlanSnapshot
             ? ValidationResult.Success(new ProjectCreationPlanSnapshot(
                 draft!, target!, recipe!, plannedProject!, runId!, recipeId!, createdAtUtc))
             : ValidationResult.Failure<ProjectCreationPlanSnapshot>(issues);
+    }
+
+    private static bool GitEquals(GitOptions left, GitOptions right)
+    {
+        return left.InitializeRepository == right.InitializeRepository
+            && left.BranchPolicy == right.BranchPolicy
+            && left.PublishToGitHub == right.PublishToGitHub
+            && left.IsPrivate == right.IsPrivate
+            && StringComparer.Ordinal.Equals(left.GitHubAccount, right.GitHubAccount)
+            && StringComparer.Ordinal.Equals(left.GitHubRepository, right.GitHubRepository);
     }
 
     private static void AddRequired<T>(
@@ -644,12 +697,14 @@ public sealed class ProjectCreationPresetDraft
         BlueprintReference blueprint,
         ImmutableSortedDictionary<string, DynamicInputValue> inputs,
         ImmutableArray<string> features,
-        string ideId)
+        string ideId,
+        GitOptions git)
     {
         Blueprint = blueprint;
         Inputs = inputs;
         Features = features;
         IdeId = ideId;
+        Git = git;
     }
 
     public BlueprintReference Blueprint { get; }
@@ -660,11 +715,19 @@ public sealed class ProjectCreationPresetDraft
 
     public string IdeId { get; }
 
+    public GitOptions Git { get; }
+
     public static ValidationResult<ProjectCreationPresetDraft> Create(
         BlueprintReference? blueprint,
         IEnumerable<KeyValuePair<string, DynamicInputValue?>>? inputs,
         IEnumerable<string?>? features,
-        string? ideId)
+        string? ideId,
+        bool initializeRepository = true,
+        GitBranchPolicy branchPolicy = GitBranchPolicy.Main,
+        bool publishToGitHub = false,
+        bool isPrivate = true,
+        string? githubAccount = null,
+        string? githubRepository = null)
     {
         var draft = ProjectCreationDraft.Create(
             "Preset",
@@ -673,7 +736,13 @@ public sealed class ProjectCreationPresetDraft
             blueprint,
             inputs,
             features,
-            ideId);
+            ideId,
+            initializeRepository,
+            branchPolicy,
+            publishToGitHub,
+            isPrivate,
+            githubAccount,
+            githubRepository);
         if (!draft.IsValid)
         {
             return ValidationResult.Failure<ProjectCreationPresetDraft>(draft.Issues);
@@ -697,7 +766,8 @@ public sealed class ProjectCreationPresetDraft
             draft.Value.Blueprint,
             draft.Value.Inputs,
             [.. draft.Value.Features.Order(StringComparer.Ordinal)],
-            draft.Value.IdeId));
+            draft.Value.IdeId,
+            draft.Value.Git));
     }
 }
 

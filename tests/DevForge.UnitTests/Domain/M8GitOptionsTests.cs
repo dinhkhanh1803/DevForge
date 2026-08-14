@@ -34,6 +34,15 @@ public sealed class M8GitOptionsTests
         Assert.Contains(result.Issues, issue => issue.Code == "git.github-identity.not-requested");
     }
 
+    [Fact]
+    public void PublicVisibilityRequiresReviewedGitHubPublication()
+    {
+        var result = GitOptions.Create(publishToGitHub: false, isPrivate: false);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Issues, issue => issue.Code == "git.visibility.not-requested");
+    }
+
     [Theory]
     [InlineData("bad--account", "devforge", "git.github-account.invalid")]
     [InlineData("octocat", "../devforge", "git.github-repository.invalid")]

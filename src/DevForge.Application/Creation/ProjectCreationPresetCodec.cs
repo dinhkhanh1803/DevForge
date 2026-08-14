@@ -3,13 +3,15 @@ using System.Text;
 using System.Text.Json;
 using DevForge.Application.Contracts;
 using DevForge.Application.Contracts.Persistence;
+using DevForge.Domain.Projects;
 using DevForge.Domain.Validation;
 
 namespace DevForge.Application.Creation;
 
 public sealed class ProjectCreationPresetCodec
 {
-    private const int SchemaVersion = 1;
+    private const int CurrentSchemaVersion = 2;
+    private const int LegacySchemaVersion = 1;
     private const int MaximumItems = 128;
 
     private static readonly ImmutableHashSet<string> _rootProperties =
@@ -19,13 +21,24 @@ public sealed class ProjectCreationPresetCodec
             "blueprint",
             "inputs",
             "features",
-            "ideId");
+            "ideId",
+            "git");
 
     private static readonly ImmutableHashSet<string> _blueprintProperties =
         ImmutableHashSet.Create(StringComparer.Ordinal, "id", "version");
 
     private static readonly ImmutableHashSet<string> _inputProperties =
         ImmutableHashSet.Create(StringComparer.Ordinal, "kind", "value");
+
+    private static readonly ImmutableHashSet<string> _gitProperties =
+        ImmutableHashSet.Create(
+            StringComparer.Ordinal,
+            "initializeRepository",
+            "branchPolicy",
+            "publishToGitHub",
+            "isPrivate",
+            "githubAccount",
+            "githubRepository");
 
     private readonly JsonDocumentOptions _documentOptions = new()
     {
@@ -50,7 +63,7 @@ public sealed class ProjectCreationPresetCodec
         using (var writer = new Utf8JsonWriter(stream, _writerOptions))
         {
             writer.WriteStartObject();
-            writer.WriteNumber("schemaVersion", SchemaVersion);
+            writer.WriteNumber("schemaVersion", CurrentSchemaVersion);
             writer.WritePropertyName("blueprint");
             writer.WriteStartObject();
             writer.WriteString("id", draft.Blueprint.Id);
@@ -74,6 +87,7 @@ public sealed class ProjectCreationPresetCodec
 
             writer.WriteEndArray();
             writer.WriteString("ideId", draft.IdeId);
+            WriteGit(writer, draft.Git);
             writer.WriteEndObject();
         }
 
@@ -97,10 +111,11 @@ public sealed class ProjectCreationPresetCodec
             var issues = new List<ValidationIssue>();
             AddUnknownProperties(root, _rootProperties, "creation.preset.property.unknown", issues);
 
+            var versionNumber = 0;
             if (!root.TryGetProperty("schemaVersion", out var version)
                 || version.ValueKind != JsonValueKind.Number
-                || !version.TryGetInt32(out var versionNumber)
-                || versionNumber != SchemaVersion)
+                || !version.TryGetInt32(out versionNumber)
+                || versionNumber is not (LegacySchemaVersion or CurrentSchemaVersion))
             {
                 issues.Add(new ValidationIssue(
                     "creation.preset.schema-version.invalid",
@@ -112,12 +127,23 @@ public sealed class ProjectCreationPresetCodec
             var inputs = DecodeInputs(root, issues);
             var features = DecodeFeatures(root, issues);
             var ideId = ReadRequiredString(root, "ideId", "creation.preset.ide.invalid", issues);
+            var git = DecodeGit(root, versionNumber, issues);
             if (issues.Count != 0)
             {
                 return ValidationResult.Failure<ProjectCreationPresetDraft>(issues);
             }
 
-            return ProjectCreationPresetDraft.Create(blueprint, inputs, features, ideId);
+            return ProjectCreationPresetDraft.Create(
+                blueprint,
+                inputs,
+                features,
+                ideId,
+                git.InitializeRepository,
+                git.BranchPolicy,
+                git.PublishToGitHub,
+                git.IsPrivate,
+                git.GitHubAccount,
+                git.GitHubRepository);
         }
         catch (JsonException)
         {
@@ -126,6 +152,152 @@ public sealed class ProjectCreationPresetCodec
                 "The persisted project creation preset is invalid.",
                 "document");
         }
+    }
+
+    private static GitOptions DecodeGit(
+        JsonElement root,
+        int schemaVersion,
+        List<ValidationIssue> issues)
+    {
+        if (schemaVersion == LegacySchemaVersion)
+        {
+            if (root.TryGetProperty("git", out _))
+            {
+                issues.Add(new ValidationIssue(
+                    "creation.preset.git.not-supported",
+                    "Legacy presets cannot contain reviewed Git settings.",
+                    "git"));
+            }
+
+            return GitOptions.Create().Value;
+        }
+
+        if (!root.TryGetProperty("git", out var element)
+            || element.ValueKind != JsonValueKind.Object)
+        {
+            issues.Add(new ValidationIssue(
+                "creation.preset.git.invalid",
+                "Version two presets require reviewed Git settings.",
+                "git"));
+            return GitOptions.Create().Value;
+        }
+
+        AddUnknownProperties(
+            element,
+            _gitProperties,
+            "creation.preset.git.property.unknown",
+            issues);
+        var initializeRepository = ReadRequiredBoolean(
+            element,
+            "initializeRepository",
+            "creation.preset.git.initialize.invalid",
+            issues);
+        var publishToGitHub = ReadRequiredBoolean(
+            element,
+            "publishToGitHub",
+            "creation.preset.git.publish.invalid",
+            issues);
+        var isPrivate = ReadRequiredBoolean(
+            element,
+            "isPrivate",
+            "creation.preset.git.visibility.invalid",
+            issues);
+        var branchPolicyText = ReadRequiredString(
+            element,
+            "branchPolicy",
+            "creation.preset.git.branch-policy.invalid",
+            issues);
+        var branchPolicy = branchPolicyText switch
+        {
+            "main" => GitBranchPolicy.Main,
+            "main-and-develop" => GitBranchPolicy.MainAndDevelop,
+            _ => (GitBranchPolicy?)null,
+        };
+        if (branchPolicy is null && branchPolicyText is not null)
+        {
+            issues.Add(new ValidationIssue(
+                "creation.preset.git.branch-policy.invalid",
+                "A supported Git branch policy is required.",
+                "git.branchPolicy"));
+        }
+
+        var githubAccount = ReadNullableString(
+            element,
+            "githubAccount",
+            "creation.preset.git.account.invalid",
+            issues);
+        var githubRepository = ReadNullableString(
+            element,
+            "githubRepository",
+            "creation.preset.git.repository.invalid",
+            issues);
+        var result = GitOptions.Create(
+            initializeRepository,
+            primaryBranch: "main",
+            useDevelopBranch: branchPolicy == GitBranchPolicy.MainAndDevelop,
+            publishToGitHub,
+            isPrivate,
+            githubAccount,
+            githubRepository);
+        if (!result.IsValid)
+        {
+            issues.AddRange(result.Issues);
+            return GitOptions.Create().Value;
+        }
+
+        return result.Value;
+    }
+
+    private static bool ReadRequiredBoolean(
+        JsonElement owner,
+        string propertyName,
+        string code,
+        List<ValidationIssue> issues)
+    {
+        if (!owner.TryGetProperty(propertyName, out var element)
+            || element.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+        {
+            issues.Add(new ValidationIssue(
+                code,
+                "A required preset Boolean value is missing or invalid.",
+                $"git.{propertyName}"));
+            return false;
+        }
+
+        return element.GetBoolean();
+    }
+
+    private static string? ReadNullableString(
+        JsonElement owner,
+        string propertyName,
+        string code,
+        List<ValidationIssue> issues)
+    {
+        if (!owner.TryGetProperty(propertyName, out var element))
+        {
+            issues.Add(new ValidationIssue(
+                code,
+                "A required nullable preset string is missing.",
+                $"git.{propertyName}"));
+            return null;
+        }
+
+        if (element.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (element.ValueKind != JsonValueKind.String
+            || string.IsNullOrWhiteSpace(element.GetString()))
+        {
+            issues.Add(new ValidationIssue(
+                code,
+                "A preset string value is invalid.",
+                $"git.{propertyName}"));
+            return null;
+        }
+
+        return element.GetString();
     }
 
     private static BlueprintReference? DecodeBlueprint(
@@ -353,6 +525,21 @@ public sealed class ProjectCreationPresetCodec
                 throw new InvalidOperationException("An unsupported dynamic input kind cannot be encoded.");
         }
 
+        writer.WriteEndObject();
+    }
+
+    private static void WriteGit(Utf8JsonWriter writer, GitOptions git)
+    {
+        writer.WritePropertyName("git");
+        writer.WriteStartObject();
+        writer.WriteBoolean("initializeRepository", git.InitializeRepository);
+        writer.WriteString(
+            "branchPolicy",
+            git.BranchPolicy == GitBranchPolicy.MainAndDevelop ? "main-and-develop" : "main");
+        writer.WriteBoolean("publishToGitHub", git.PublishToGitHub);
+        writer.WriteBoolean("isPrivate", git.IsPrivate);
+        writer.WriteString("githubAccount", git.GitHubAccount);
+        writer.WriteString("githubRepository", git.GitHubRepository);
         writer.WriteEndObject();
     }
 

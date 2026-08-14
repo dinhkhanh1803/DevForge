@@ -52,6 +52,10 @@ public sealed class CreationContractTests
         Assert.True(draft.IsValid);
         Assert.True(draft.Value.Inputs["include-tests"].BooleanValue);
         Assert.Equal(["docs"], draft.Value.Features.ToArray());
+        Assert.True(draft.Value.Git.InitializeRepository);
+        Assert.Equal(DevForge.Domain.Projects.GitBranchPolicy.Main, draft.Value.Git.BranchPolicy);
+        Assert.False(draft.Value.Git.PublishToGitHub);
+        Assert.True(draft.Value.Git.IsPrivate);
         Assert.False(ProjectCreationDraft.Create(
             "Client Portal",
             @"D:\Projects",
@@ -63,6 +67,57 @@ public sealed class CreationContractTests
             },
             [],
             "none").IsValid);
+    }
+
+    [Fact]
+    public void DraftCapturesExactReviewedGitHubIntent()
+    {
+        var result = ProjectCreationDraft.Create(
+            "Client Portal",
+            @"D:\Projects",
+            "client-portal",
+            BlueprintReference.Create("sample.local", "1.0.0").Value,
+            [],
+            [],
+            "none",
+            initializeRepository: true,
+            branchPolicy: DevForge.Domain.Projects.GitBranchPolicy.MainAndDevelop,
+            publishToGitHub: true,
+            isPrivate: false,
+            githubAccount: "octocat",
+            githubRepository: "client-portal");
+
+        Assert.True(result.IsValid);
+        Assert.True(result.Value.Git.InitializeRepository);
+        Assert.Equal(DevForge.Domain.Projects.GitBranchPolicy.MainAndDevelop, result.Value.Git.BranchPolicy);
+        Assert.True(result.Value.Git.PublishToGitHub);
+        Assert.False(result.Value.Git.IsPrivate);
+        Assert.Equal("octocat", result.Value.Git.GitHubAccount);
+        Assert.Equal("client-portal", result.Value.Git.GitHubRepository);
+    }
+
+    [Fact]
+    public void DraftAggregatesInvalidGitIntentAtTheBoundary()
+    {
+        var result = ProjectCreationDraft.Create(
+            "Client Portal",
+            @"D:\Projects",
+            "client-portal",
+            BlueprintReference.Create("sample.local", "1.0.0").Value,
+            [],
+            [],
+            "none",
+            initializeRepository: false,
+            branchPolicy: (DevForge.Domain.Projects.GitBranchPolicy)999,
+            publishToGitHub: true,
+            isPrivate: false,
+            githubAccount: "bad--account",
+            githubRepository: "../repo");
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Issues, issue => issue.Code == "git.publish.requires-initialization");
+        Assert.Contains(result.Issues, issue => issue.Code == "git.github-account.invalid");
+        Assert.Contains(result.Issues, issue => issue.Code == "git.github-repository.invalid");
     }
 
     [Fact]

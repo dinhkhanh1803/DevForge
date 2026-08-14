@@ -132,7 +132,8 @@ public sealed class ExecutionCenterViewModelTests
     {
         var reference = BlueprintReference.Create("sample.local", "1.0.0").Value;
         var draft = ProjectCreationDraft.Create(
-            "Sample", "C:\\Projects", "sample", reference, [], [], "none").Value;
+            "Sample", "C:\\Projects", "sample", reference, [], [], "none",
+            initializeRepository: false).Value;
         var recipe = ProjectRecipe.Create(new ProjectRecipeDraft(
             "Sample", "C:\\Projects\\sample", "sample.local", "1.0.0",
             new Dictionary<string, string?>(), [], null,

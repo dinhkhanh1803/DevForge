@@ -1,4 +1,6 @@
+using DevForge.Application.Contracts;
 using DevForge.Application.Contracts.Persistence;
+using DevForge.Application.Creation;
 using DevForge.Blueprints.Abstractions.Models;
 using DevForge.Infrastructure.Persistence;
 using DevForge.Infrastructure.Persistence.Repositories;
@@ -8,6 +10,52 @@ namespace DevForge.IntegrationTests.Persistence;
 
 public sealed class MetadataRepositoryTests
 {
+    [Fact]
+    public async Task PresetStorePreservesVersionTwoGitIntentAndLegacySafeDefaults()
+    {
+        await using var database = PersistenceTestDatabase.Create();
+        var factory = await CreateMigratedFactoryAsync(database);
+        var store = new PresetStore(factory);
+        var codec = new ProjectCreationPresetCodec();
+        var currentDraft = ProjectCreationPresetDraft.Create(
+            BlueprintReference.Create("sample.local", "1.0.0").Value,
+            [],
+            [],
+            "none",
+            branchPolicy: DevForge.Domain.Projects.GitBranchPolicy.MainAndDevelop,
+            publishToGitHub: true,
+            isPrivate: false,
+            githubAccount: "octocat",
+            githubRepository: "sample-project").Value;
+        var currentDocument = codec.Encode(currentDraft).Value;
+        var legacyDocument = PersistableJson.Create(
+            "{\"schemaVersion\":1,\"blueprint\":{\"id\":\"sample.local\",\"version\":\"1.0.0\"},\"inputs\":{},\"features\":[],\"ideId\":\"none\"}").Value;
+        var now = DateTimeOffset.UnixEpoch.AddDays(1);
+
+        await store.UpsertAsync(
+            PresetRecord.Create("preset.current", "Current", 2, currentDocument, now).Value,
+            CancellationToken.None);
+        await store.UpsertAsync(
+            PresetRecord.Create("preset.legacy", "Legacy", 1, legacyDocument, now).Value,
+            CancellationToken.None);
+
+        var current = codec.Decode(
+            (await store.GetAsync("preset.current", CancellationToken.None))!.Recipe);
+        var legacy = codec.Decode(
+            (await store.GetAsync("preset.legacy", CancellationToken.None))!.Recipe);
+
+        Assert.True(current.IsValid);
+        Assert.Equal(DevForge.Domain.Projects.GitBranchPolicy.MainAndDevelop, current.Value.Git.BranchPolicy);
+        Assert.True(current.Value.Git.PublishToGitHub);
+        Assert.False(current.Value.Git.IsPrivate);
+        Assert.Equal("octocat", current.Value.Git.GitHubAccount);
+        Assert.Equal("sample-project", current.Value.Git.GitHubRepository);
+        Assert.True(legacy.IsValid);
+        Assert.True(legacy.Value.Git.InitializeRepository);
+        Assert.False(legacy.Value.Git.PublishToGitHub);
+        Assert.True(legacy.Value.Git.IsPrivate);
+    }
+
     [Fact]
     public async Task SettingsRoundTripUpsertAndRemove()
     {

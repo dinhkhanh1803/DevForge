@@ -76,7 +76,8 @@ public sealed class ExecutionSessionCoordinatorTests
     {
         var reference = BlueprintReference.Create("sample.local", "1.0.0").Value;
         var draft = ProjectCreationDraft.Create(
-            "Sample", "C:\\Projects", "sample", reference, [], [], "none").Value;
+            "Sample", "C:\\Projects", "sample", reference, [], [], "none",
+            initializeRepository: false).Value;
         var git = GitOptions.Create(initializeRepository: false).Value;
         var completion = CompletionOptions.Create().Value;
         var recipe = ProjectRecipe.Create(new ProjectRecipeDraft(

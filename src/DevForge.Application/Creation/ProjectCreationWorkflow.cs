@@ -169,23 +169,17 @@ public sealed class ProjectCreationWorkflow : IProjectCreationWorkflow
 
     private static ValidationResult<ProjectRecipe> CreateRecipe(ProjectCreationDraft draft)
     {
-        var git = GitOptions.Create(
-            initializeRepository: false,
-            primaryBranch: "main",
-            useDevelopBranch: false,
-            publishToGitHub: false,
-            isPrivate: true);
         var openIde = !StringComparer.Ordinal.Equals(draft.IdeId, "none");
         var completion = CompletionOptions.Create(
             writeGenerationReport: true,
             writeHandoffDocument: true,
             openIde,
             openIde ? draft.IdeId : null);
-        if (!git.IsValid || !completion.IsValid)
+        if (!completion.IsValid)
         {
             return Failure<ProjectRecipe>(
                 "creation.recipe.options.invalid",
-                "The M7 Git or completion options are invalid.",
+                "The reviewed completion options are invalid.",
                 "draft");
         }
 
@@ -202,7 +196,7 @@ public sealed class ProjectCreationWorkflow : IProjectCreationWorkflow
             inputs,
             draft.Features.Select(feature => (string?)feature).ToArray(),
             TeamProfile: null,
-            Git: git.Value,
+            Git: draft.Git,
             Completion: completion.Value));
     }
 

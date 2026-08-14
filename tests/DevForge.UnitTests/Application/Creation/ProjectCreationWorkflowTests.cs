@@ -24,11 +24,39 @@ public sealed class ProjectCreationWorkflowTests
         Assert.True(result.IsValid);
         Assert.Equal(["catalog.find", "target.preflight", "planner"], events);
         Assert.Equal(1, fixture.Planner.CallCount);
-        Assert.False(result.Value.Recipe.Git.InitializeRepository);
+        Assert.True(result.Value.Recipe.Git.InitializeRepository);
+        Assert.Equal(result.Value.Draft.Git.BranchPolicy, result.Value.Recipe.Git.BranchPolicy);
+        Assert.Equal(result.Value.Recipe.Git.BranchPolicy, result.Value.PlannedProject.Preview.Git.BranchPolicy);
         Assert.Equal("net10.0", result.Value.Recipe.Inputs["framework"]);
         Assert.Equal(fixture.Blueprint.Fingerprint, result.Value.PlannedProject.BlueprintFingerprint);
         Assert.Equal("run-0123456789abcdef0123456789abcdef", result.Value.RunId);
         Assert.Equal("recipe-0123456789abcdef0123456789abcdef", result.Value.RecipeId);
+    }
+
+    [Fact]
+    public async Task PlanningPreservesExactReviewedGitHubOptions()
+    {
+        var fixture = CreateFixture();
+        var draft = ValidDraft(
+            branchPolicy: GitBranchPolicy.MainAndDevelop,
+            publishToGitHub: true,
+            isPrivate: false,
+            githubAccount: "octocat",
+            githubRepository: "sample-app");
+        fixture.Planner.Result = CreatePlannedProject(
+            fixture.Blueprint.Fingerprint,
+            git: draft.Git);
+
+        var result = await fixture.Workflow.CreatePlanAsync(draft, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Same(draft.Git, result.Value.Recipe.Git);
+        Assert.Same(draft.Git, result.Value.PlannedProject.Preview.Git);
+        Assert.Equal(GitBranchPolicy.MainAndDevelop, result.Value.Recipe.Git.BranchPolicy);
+        Assert.True(result.Value.Recipe.Git.PublishToGitHub);
+        Assert.False(result.Value.Recipe.Git.IsPrivate);
+        Assert.Equal("octocat", result.Value.Recipe.Git.GitHubAccount);
+        Assert.Equal("sample-app", result.Value.Recipe.Git.GitHubRepository);
     }
 
     [Fact]
@@ -76,6 +104,20 @@ public sealed class ProjectCreationWorkflowTests
 
         Assert.False(result.IsValid);
         Assert.Contains(result.Issues, issue => issue.Code == "creation.plan.blueprint.mismatch");
+    }
+
+    [Fact]
+    public async Task PlanningRejectsPlannerGitIntentSubstitution()
+    {
+        var fixture = CreateFixture();
+        fixture.Planner.Result = CreatePlannedProject(
+            fixture.Blueprint.Fingerprint,
+            git: GitOptions.Create(initializeRepository: false).Value);
+
+        var result = await fixture.Workflow.CreatePlanAsync(ValidDraft(), CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Issues, issue => issue.Code == "creation.plan.git.mismatch");
     }
 
     [Fact]
@@ -176,7 +218,12 @@ public sealed class ProjectCreationWorkflowTests
             blueprint);
     }
 
-    private static ProjectCreationDraft ValidDraft()
+    private static ProjectCreationDraft ValidDraft(
+        GitBranchPolicy branchPolicy = GitBranchPolicy.Main,
+        bool publishToGitHub = false,
+        bool isPrivate = true,
+        string? githubAccount = null,
+        string? githubRepository = null)
     {
         return ProjectCreationDraft.Create(
             "Sample",
@@ -188,7 +235,12 @@ public sealed class ProjectCreationWorkflowTests
                 ["framework"] = DynamicInputValue.Text("net10.0").Value,
             },
             [],
-            "none").Value;
+            "none",
+            branchPolicy: branchPolicy,
+            publishToGitHub: publishToGitHub,
+            isPrivate: isPrivate,
+            githubAccount: githubAccount,
+            githubRepository: githubRepository).Value;
     }
 
     private static ResolvedBlueprint CreateBlueprint()
@@ -225,7 +277,8 @@ public sealed class ProjectCreationWorkflowTests
 
     private static PlannedProject CreatePlannedProject(
         BlueprintFingerprint fingerprint,
-        BlueprintReference? blueprint = null)
+        BlueprintReference? blueprint = null,
+        GitOptions? git = null)
     {
         var hash = $"sha256:{new string('1', 64)}";
         var step = ExecutionStep.Create(
@@ -240,7 +293,7 @@ public sealed class ProjectCreationWorkflowTests
             blueprint ?? BlueprintReference.Create("sample.local", "1.0.0").Value,
             [new PlanPreviewStep("create", "create-directory", TimeSpan.FromSeconds(30))],
             [], [], [], [], [], [], [], [],
-            GitOptions.Create(initializeRepository: false).Value,
+            git ?? GitOptions.Create().Value,
             CompletionOptions.Create().Value,
             hash).Value;
         return PlannedProject.Create(plan, preview, fingerprint).Value;

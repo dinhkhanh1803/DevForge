@@ -151,6 +151,28 @@ public sealed class ProjectPlannerTests
             await PlanHashAsync(CreateBlueprint(), CreateRecipe("C:\\root", useDevelop: true)),
             await PlanHashAsync(CreateBlueprint(), CreateRecipe("C:\\root", openIde: true)),
             await PlanHashAsync(CreateBlueprint(), CreateRecipe("C:\\root", teamCompany: "Contoso")),
+            await PlanHashAsync(CreateBlueprint(), CreateRecipe(
+                "C:\\root",
+                gitOptions: GitOptions.Create(initializeRepository: false).Value)),
+            await PlanHashAsync(CreateBlueprint(), CreateRecipe(
+                "C:\\root",
+                gitOptions: GitOptions.Create(
+                    publishToGitHub: true,
+                    githubAccount: "octocat",
+                    githubRepository: "sample-app").Value)),
+            await PlanHashAsync(CreateBlueprint(), CreateRecipe(
+                "C:\\root",
+                gitOptions: GitOptions.Create(
+                    publishToGitHub: true,
+                    isPrivate: false,
+                    githubAccount: "octocat",
+                    githubRepository: "sample-app").Value)),
+            await PlanHashAsync(CreateBlueprint(), CreateRecipe(
+                "C:\\root",
+                gitOptions: GitOptions.Create(
+                    publishToGitHub: true,
+                    githubAccount: "octocat-two",
+                    githubRepository: "sample-app-two").Value)),
         };
 
         Assert.All(mutations, hash => Assert.NotEqual(baseline, hash));
@@ -302,7 +324,8 @@ public sealed class ProjectPlannerTests
         bool useDevelop = false,
         bool openIde = false,
         string? teamCompany = null,
-        string projectName = "Sample App")
+        string projectName = "Sample App",
+        GitOptions? gitOptions = null)
     {
         var draft = CreateRecipeDraft(
             targetPath,
@@ -311,7 +334,8 @@ public sealed class ProjectPlannerTests
             useDevelop,
             openIde,
             teamCompany,
-            projectName);
+            projectName,
+            gitOptions);
         return ProjectRecipe.Create(draft).Value;
     }
 
@@ -322,7 +346,8 @@ public sealed class ProjectPlannerTests
         bool useDevelop = false,
         bool openIde = false,
         string? teamCompany = null,
-        string projectName = "Sample App")
+        string projectName = "Sample App",
+        GitOptions? gitOptions = null)
     {
         var inputs = new Dictionary<string, string?>
         {
@@ -333,7 +358,7 @@ public sealed class ProjectPlannerTests
             inputs["extra"] = "value";
         }
 
-        var git = GitOptions.Create(useDevelopBranch: useDevelop).Value;
+        var git = gitOptions ?? GitOptions.Create(useDevelopBranch: useDevelop).Value;
         var completion = CompletionOptions.Create(openIde: openIde, ideId: openIde ? "visual-studio" : null).Value;
         var team = teamCompany is null
             ? null

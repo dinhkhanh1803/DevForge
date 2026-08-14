@@ -1,7 +1,7 @@
 # DevForge Studio Implementation Status
 
 **Current milestone:** M8 - Git and GitHub Completion
-**Status:** M0-M7 complete; M8 Tasks 1-5 complete and locally verified
+**Status:** M0-M7 complete; M8 Tasks 1-6 complete and locally verified
 **Last updated:** 2026-08-14
 
 ## Current M7 scope
@@ -388,4 +388,18 @@ Fresh Task 5 verification on 2026-08-14 used the workspace-local .NET SDK 10.0.3
 | EF model consistency | local `dotnet-ef migrations has-pending-model-changes ... --configuration Release --no-build` with pinned `DOTNET_ROOT`/`PATH` | Exit 0; `No changes have been made to the model since the last migration.` |
 | Review | independent read-only Task 5 review | Approved; no Critical or Important findings. |
 
-M8 Task 6, enabling the reviewed Git/GitHub intent in Create Project while preserving plan-hash authority and private-by-default behavior, is the recommended next slice. Desktop completion presentation remains Task 7 and the full M8 integration/closure matrix remains Task 8.
+M8 Task 6 is complete locally. `ProjectCreationDraft` and `ProjectCreationPresetDraft` now carry immutable guarded Git options with Git-on, `main`, publish-off, private-on defaults. GitHub publication requires repository initialization plus a canonical reviewed personal account/repository; public visibility is valid only as an explicit reviewed publish choice. `ProjectCreationPlanSnapshot` rejects recipe or preview Git substitution, and the planner's canonical serialization binds initialization, branch policy, publish choice, visibility, account, and repository into the plan hash before execution. Preset schema v2 deterministically persists the exact intent; legacy schema v1 remains readable and upgrades to safe defaults that must be reviewed in a new plan. SQLite round-trip coverage proves both forms retain the expected behavior without a migration.
+
+Fresh Task 6 verification on 2026-08-14 used the workspace-local .NET SDK 10.0.302:
+
+| Gate | Command | Exact result |
+| --- | --- | --- |
+| Locked restore | `dotnet restore DevForge.sln --locked-mode --disable-build-servers --verbosity minimal` | Exit 0; all projects up-to-date from pinned lock files. |
+| Format | `dotnet format DevForge.sln --verify-no-changes --no-restore --verbosity minimal` | Exit 0; no formatting diagnostics. |
+| Release build | `dotnet build DevForge.sln -c Release --no-restore --disable-build-servers -m:1 /nodeReuse:false` | Exit 0; all 12 projects built; 0 warnings, 0 errors. |
+| Focused tests | Creation/Planning/M8 Git Unit filter plus SQLite preset compatibility | Exit 0; 121 + 1 passed, 0 failed, 0 skipped. |
+| Full tests | Four Release project test commands | Exit 0; UnitTests 608, IntegrationTests 481, BlueprintTests 108, E2ETests 140; total 1,337 passed, 0 failed, 0 skipped. |
+| EF model consistency | local `dotnet-ef migrations has-pending-model-changes ... --configuration Release --no-build` with pinned `DOTNET_ROOT`/`PATH` | Exit 0; `No changes have been made to the model since the last migration.` |
+| Review | scoped static Task 6 security/design review | No Critical or Important findings. |
+
+M8 Task 7, rendering the reviewed Git controls and composing generation into recoverable publication with `PublishPending`/`Completed` evidence, is the recommended next slice. The full M8 integration and closure matrix remains Task 8.

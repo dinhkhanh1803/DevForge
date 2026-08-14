@@ -18,7 +18,13 @@ public sealed class ProjectCreationPresetCodecTests
                 ["enabled"] = DynamicInputValue.Boolean(true).Value,
             },
             ["zeta-feature", "alpha-feature"],
-            "vscode").Value;
+            "vscode",
+            initializeRepository: true,
+            branchPolicy: DevForge.Domain.Projects.GitBranchPolicy.MainAndDevelop,
+            publishToGitHub: true,
+            isPrivate: false,
+            githubAccount: "octocat",
+            githubRepository: "sample-project").Value;
         var sut = new ProjectCreationPresetCodec();
 
         var first = sut.Encode(preset);
@@ -33,11 +39,60 @@ public sealed class ProjectCreationPresetCodecTests
         Assert.Equal(42, decoded.Value.Inputs["zeta"].WholeNumberValue);
         Assert.Equal(["alpha-feature", "zeta-feature"], decoded.Value.Features.ToArray());
         Assert.Equal("vscode", decoded.Value.IdeId);
+        Assert.Equal(DevForge.Domain.Projects.GitBranchPolicy.MainAndDevelop, decoded.Value.Git.BranchPolicy);
+        Assert.True(decoded.Value.Git.PublishToGitHub);
+        Assert.False(decoded.Value.Git.IsPrivate);
+        Assert.Equal("octocat", decoded.Value.Git.GitHubAccount);
+        Assert.Equal("sample-project", decoded.Value.Git.GitHubRepository);
+        Assert.Contains("\"schemaVersion\":2", first.Value.Value, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LegacyVersionOnePresetUpgradesToSafeGitDefaults()
+    {
+        var legacy = PersistableJson.Create(
+            "{\"schemaVersion\":1,\"blueprint\":{\"id\":\"sample.local\",\"version\":\"1.0.0\"},\"inputs\":{},\"features\":[],\"ideId\":\"none\"}").Value;
+
+        var result = new ProjectCreationPresetCodec().Decode(legacy);
+
+        Assert.True(result.IsValid);
+        Assert.True(result.Value.Git.InitializeRepository);
+        Assert.Equal(DevForge.Domain.Projects.GitBranchPolicy.Main, result.Value.Git.BranchPolicy);
+        Assert.False(result.Value.Git.PublishToGitHub);
+        Assert.True(result.Value.Git.IsPrivate);
+        Assert.Null(result.Value.Git.GitHubAccount);
+        Assert.Null(result.Value.Git.GitHubRepository);
+    }
+
+    [Theory]
+    [InlineData("{\"initializeRepository\":false,\"branchPolicy\":\"main\",\"publishToGitHub\":true,\"isPrivate\":true,\"githubAccount\":\"octocat\",\"githubRepository\":\"sample\"}", "git.publish.requires-initialization")]
+    [InlineData("{\"initializeRepository\":true,\"branchPolicy\":\"unsupported\",\"publishToGitHub\":false,\"isPrivate\":true,\"githubAccount\":null,\"githubRepository\":null}", "creation.preset.git.branch-policy.invalid")]
+    public void VersionTwoPresetRejectsInvalidGitCombinations(string git, string expectedCode)
+    {
+        var json = $$"""
+            {"schemaVersion":2,"blueprint":{"id":"sample.local","version":"1.0.0"},"inputs":{},"features":[],"ideId":"none","git":{{git}}}
+            """;
+
+        var result = new ProjectCreationPresetCodec().Decode(PersistableJson.Create(json).Value);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Issues, issue => issue.Code == expectedCode);
+    }
+
+    [Fact]
+    public void PersistenceBoundaryRejectsDuplicateGitProperties()
+    {
+        const string json = "{\"schemaVersion\":2,\"blueprint\":{\"id\":\"sample.local\",\"version\":\"1.0.0\"},\"inputs\":{},\"features\":[],\"ideId\":\"none\",\"git\":{\"initializeRepository\":true,\"branchPolicy\":\"main\",\"publishToGitHub\":false,\"publishToGitHub\":true,\"isPrivate\":true,\"githubAccount\":\"octocat\",\"githubRepository\":\"sample\"}}";
+
+        var result = PersistableJson.Create(json);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Issues, issue => issue.Code == "persistence.json.property.duplicate");
     }
 
     [Theory]
     [InlineData("{}", "creation.preset.schema-version.invalid")]
-    [InlineData("{\"schemaVersion\":2}", "creation.preset.schema-version.invalid")]
+    [InlineData("{\"schemaVersion\":3}", "creation.preset.schema-version.invalid")]
     [InlineData("{\"schemaVersion\":1,\"unknown\":true}", "creation.preset.property.unknown")]
     public void DecodeRejectsUnsupportedSchemaOrFields(string json, string expectedCode)
     {

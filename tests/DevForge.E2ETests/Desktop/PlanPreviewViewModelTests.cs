@@ -81,7 +81,8 @@ public sealed class PlanPreviewViewModelTests
                 ["framework"] = DynamicInputValue.Text("net10.0").Value,
             },
             ["docs"],
-            "none").Value;
+            "none",
+            initializeRepository: false).Value;
         var git = GitOptions.Create(initializeRepository: false).Value;
         var completion = CompletionOptions.Create().Value;
         var recipe = ProjectRecipe.Create(new ProjectRecipeDraft(

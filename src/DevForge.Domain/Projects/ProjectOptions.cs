@@ -218,6 +218,14 @@ public sealed class GitOptions
                 "publishToGitHub"));
         }
 
+        if (!publishToGitHub && !isPrivate)
+        {
+            issues.Add(new ValidationIssue(
+                "git.visibility.not-requested",
+                "Public visibility is only allowed for reviewed GitHub publication.",
+                "isPrivate"));
+        }
+
         return issues.Count == 0
             ? ValidationResult.Success(
                 new GitOptions(

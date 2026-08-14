@@ -91,10 +91,10 @@ public sealed class DesktopBehaviorMatrixTests
     }
 
     [Fact]
-    public void PresetAndDeferredFeatureBoundariesRemainClosedInM7()
+    public void PresetAndDeferredFeatureBoundariesReflectM8ReviewedIntent()
     {
         Assert.Equal(
-            ["Blueprint", "Features", "IdeId", "Inputs"],
+            ["Blueprint", "Features", "Git", "IdeId", "Inputs"],
             typeof(ProjectCreationPresetDraft).GetProperties()
                 .Select(property => property.Name)
                 .Order(StringComparer.Ordinal));
