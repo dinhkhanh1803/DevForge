@@ -128,16 +128,17 @@ public sealed class ExecutionCenterViewModelTests
         Assert.False(sut.CanCleanup);
     }
 
-    internal static ProjectCreationPlanSnapshot CreatePlan()
+    internal static ProjectCreationPlanSnapshot CreatePlan(bool initializeRepository = false)
     {
         var reference = BlueprintReference.Create("sample.local", "1.0.0").Value;
+        var git = GitOptions.Create(initializeRepository).Value;
         var draft = ProjectCreationDraft.Create(
             "Sample", "C:\\Projects", "sample", reference, [], [], "none",
-            initializeRepository: false).Value;
+            initializeRepository).Value;
         var recipe = ProjectRecipe.Create(new ProjectRecipeDraft(
             "Sample", "C:\\Projects\\sample", "sample.local", "1.0.0",
             new Dictionary<string, string?>(), [], null,
-            GitOptions.Create(initializeRepository: false).Value,
+            git,
             CompletionOptions.Create().Value)).Value;
         var step = ExecutionStep.Create(
             "create", "Create", "create-directory", [], TimeSpan.FromSeconds(30), RetryPolicy.None).Value;
@@ -146,7 +147,7 @@ public sealed class ExecutionCenterViewModelTests
         var preview = PlanPreview.Create(
             reference, [new PlanPreviewStep("create", "create-directory", TimeSpan.FromSeconds(30))],
             [], [], [], [], [], [], [], [],
-            GitOptions.Create(initializeRepository: false).Value,
+            git,
             CompletionOptions.Create().Value,
             hash).Value;
         var fingerprint = BlueprintFingerprint.Create(
@@ -171,6 +172,8 @@ public sealed class ExecutionCenterViewModelTests
             .TransitionTo(RunStatus.Planning).Value
             .TransitionTo(RunStatus.Executing).Value
             .TransitionTo(RunStatus.LocalReady).Value;
+        var publication = PublicationSnapshot.CreateNotRequested(
+            $"sha256:{new string('4', 64)}").Value;
         var checkpoint = RunCheckpoint.Create(
             run, plan.PlannedProject.Plan, plan.PlannedProject.Preview,
             plan.PlannedProject.Preview.Blueprint, plan.PlannedProject.BlueprintFingerprint,
@@ -183,7 +186,77 @@ public sealed class ExecutionCenterViewModelTests
                 WorkspaceRoot.Create("C:\\Projects").Value,
                 WorkspaceRelativePath.Create("sample").Value, null).Value,
             RunArtifactDescriptor.Create(WorkspaceRoot.Create($"C:\\Artifacts\\{plan.RunId}").Value).Value,
-            [], FinalizationState.Succeeded, ReportPersistenceState.Succeeded).Value;
+            [], FinalizationState.Succeeded, ReportPersistenceState.Succeeded, publication).Value;
+        return ProjectCreationExecutionSnapshot.Create(plan, checkpoint).Value;
+    }
+
+    internal static ProjectCreationExecutionSnapshot CreateCompletedExecution(
+        ProjectCreationPlanSnapshot plan)
+    {
+        var localReady = CreateExecution(plan);
+        var run = localReady.Checkpoint.Run
+            .TransitionTo(RunStatus.PublishPending).Value
+            .TransitionTo(RunStatus.Completed).Value;
+        var publication = PublicationSnapshot.Create(
+            GitPublicationState.Succeeded,
+            GitHubPublicationState.NotRequested,
+            PublicationReceiptState.Succeeded,
+            localReady.Checkpoint.Publication.FinalTreeDigest,
+            new string('a', 40),
+            ["main"],
+            repositoryIdentity: null,
+            isPrivate: true,
+            ownershipNonce: null,
+            repositoryUrl: null,
+            WorkspaceRelativePath.Create($"reports\\{plan.RunId}.publication.json").Value,
+            $"sha256:{new string('b', 64)}").Value;
+        var checkpoint = RunCheckpoint.Create(
+            run,
+            localReady.Checkpoint.Plan,
+            localReady.Checkpoint.Preview,
+            localReady.Checkpoint.Blueprint,
+            localReady.Checkpoint.BlueprintFingerprint,
+            localReady.Checkpoint.Staging,
+            localReady.Checkpoint.Target,
+            localReady.Checkpoint.RunArtifacts,
+            localReady.Checkpoint.Evidence,
+            localReady.Checkpoint.FinalizationState,
+            localReady.Checkpoint.ReportState,
+            publication).Value;
+        return ProjectCreationExecutionSnapshot.Create(plan, checkpoint).Value;
+    }
+
+    internal static ProjectCreationExecutionSnapshot CreatePublishPendingExecution(
+        ProjectCreationPlanSnapshot plan)
+    {
+        var localReady = CreateExecution(plan);
+        var run = localReady.Checkpoint.Run.TransitionTo(RunStatus.PublishPending).Value;
+        var publication = PublicationSnapshot.Create(
+            GitPublicationState.Failed,
+            GitHubPublicationState.NotRequested,
+            PublicationReceiptState.NotRequested,
+            localReady.Checkpoint.Publication.FinalTreeDigest,
+            initialCommitId: null,
+            branches: [],
+            repositoryIdentity: null,
+            isPrivate: true,
+            ownershipNonce: null,
+            repositoryUrl: null,
+            receiptPath: null,
+            receiptBodyDigest: null).Value;
+        var checkpoint = RunCheckpoint.Create(
+            run,
+            localReady.Checkpoint.Plan,
+            localReady.Checkpoint.Preview,
+            localReady.Checkpoint.Blueprint,
+            localReady.Checkpoint.BlueprintFingerprint,
+            localReady.Checkpoint.Staging,
+            localReady.Checkpoint.Target,
+            localReady.Checkpoint.RunArtifacts,
+            localReady.Checkpoint.Evidence,
+            localReady.Checkpoint.FinalizationState,
+            localReady.Checkpoint.ReportState,
+            publication).Value;
         return ProjectCreationExecutionSnapshot.Create(plan, checkpoint).Value;
     }
 

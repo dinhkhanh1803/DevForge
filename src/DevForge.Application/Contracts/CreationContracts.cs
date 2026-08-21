@@ -13,6 +13,8 @@ public enum ProjectCreationStage
     ReviewPlan = 2,
     Execute = 3,
     LocalReady = 4,
+    PublishPending = 5,
+    Completed = 6,
 }
 
 public enum DynamicInputValueKind

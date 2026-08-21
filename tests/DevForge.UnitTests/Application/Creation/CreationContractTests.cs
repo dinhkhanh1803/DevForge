@@ -9,7 +9,7 @@ public sealed class CreationContractTests
     [Fact]
     public void ClosedCreationEnumsHaveExplicitNonzeroValues()
     {
-        Assert.Equal([1, 2, 3, 4], Enum.GetValues<ProjectCreationStage>().Select(value => (int)value));
+        Assert.Equal([1, 2, 3, 4, 5, 6], Enum.GetValues<ProjectCreationStage>().Select(value => (int)value));
         Assert.Equal([1, 2, 3], Enum.GetValues<DynamicInputValueKind>().Select(value => (int)value));
     }
 

@@ -58,7 +58,7 @@ public sealed class DesktopBehaviorMatrixTests
             [BlueprintInputKind.Text, BlueprintInputKind.Boolean, BlueprintInputKind.WholeNumber, BlueprintInputKind.Choice],
             Enum.GetValues<BlueprintInputKind>());
         Assert.Equal(
-            [ProjectCreationStage.Configure, ProjectCreationStage.ReviewPlan, ProjectCreationStage.Execute, ProjectCreationStage.LocalReady],
+            [ProjectCreationStage.Configure, ProjectCreationStage.ReviewPlan, ProjectCreationStage.Execute, ProjectCreationStage.LocalReady, ProjectCreationStage.PublishPending, ProjectCreationStage.Completed],
             Enum.GetValues<ProjectCreationStage>());
         Assert.Equal(
             [ExecutionMode.Fresh, ExecutionMode.Resume, ExecutionMode.ManualRetry],

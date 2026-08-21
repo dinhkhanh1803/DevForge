@@ -2,7 +2,7 @@
 
 **Goal:** Convert reviewed `LocalReady` projects into recoverable, evidence-backed Git/GitHub completion through trusted CLI boundaries.
 
-**Status:** M8 design independently approved; Tasks 1-6 complete and Task 7 Desktop completion UX is next.
+**Status:** M8 design independently approved; Tasks 1-7 complete and Task 8 integration/closure is next.
 
 **Architecture:** Application owns post-finalization publication and durable state; Infrastructure implements closed Git/`gh` operations over `IProcessRunner` and guarded workspaces; Desktop projects immutable publication status and actions. The persisted reviewed plan remains authoritative.
 
@@ -23,7 +23,7 @@
 - [x] Implement closed Git and GitHub CLI services through `IProcessRunner`.
 - [x] Implement recoverable post-finalization publication orchestration.
 - [x] Enable reviewed Git intent in Create Project contracts, presets, and plans.
-- [ ] Enable Desktop completion UX.
+- [x] Enable Desktop completion UX.
 - [ ] Close integration, security, privacy, migration, and full-solution gates.
 
 ## Exit gate
@@ -77,3 +77,15 @@ M8 exits only after the reviewed Git intent is hash-bound; Git is clean with the
 **Task 6 exit:** focused Creation/Planning/preset tests and persistence compatibility regressions, format, locked restore, Release build, full solution tests, EF consistency, diff checks, and a scoped static security/design review before a local commit. No WPF publication controls, Git/GitHub command execution, remote access, or push is part of this task.
 
 **Completion:** implemented and statically reviewed on 2026-08-14. New drafts default to Git on, `main`, publish off, and private visibility; public visibility requires an explicit reviewed GitHub publication. Exact Git intent is immutable across draft, recipe, preview, hash, and execution snapshot. Preset schema v2 stores the intent deterministically, while v1 presets decode to the new safe defaults and still require plan review. The next bounded slice is Task 7, Desktop completion UX and publication composition.
+
+## Task 7 execution boundary
+
+**Scope:** native WPF presentation and Application-owned publication handoff only. Render the Task 6 reviewed Git/GitHub choices, invalidate the preview on every edit, continue a successful `LocalReady` generation through the Task 5 publication workflow, and project durable `PublishPending` or `Completed` evidence. Desktop passes only the run identity and mutation mode; it does not open workspaces, load checkpoints, persist state, or construct process requests. Production blueprints and M8 closure remain Tasks 8-9.
+
+**Expected files:** `src/DevForge.Application/{Contracts,Publication}/*` for a typed Desktop-facing facade; `src/DevForge.Desktop/CreateProject/*`, `Execution/*`, `RunHistory/*`, `Bootstrap/DesktopHostBuilder.cs`; focused Desktop E2E and Application UnitTests.
+
+**TDD matrix:** Git-on/publish-off/private-on controls; exact branch/account/repository/visibility preview; every reviewed edit invalidates the plan; Git-disabled stays `LocalReady`; Git-enabled one-button flow reaches `Completed`; failure remains `PublishPending` with bounded safe remediation and Retry Publish; retry passes only run ID to Application; safe mode disables both initial publication and retry; completed evidence includes commit, ordered branches, receipt reference and optional repository URL; Run History opens `PublishPending`/`Completed` without reconstructing orchestration; XAML automation names, keyboard commands, and virtualized evidence remain present.
+
+**Task 7 exit:** focused Application/Desktop tests, exact status/action/safe-mode/accessibility/recovery matrices, format, locked restore, Release build, full solution tests, EF consistency, diff checks, and scoped review pass before a local commit. No real GitHub remote, push, or production blueprint is part of this task.
+
+**Completion:** implemented locally on 2026-08-21. Create Project exposes Git-on, closed branch policy, optional GitHub personal repository, and private-default controls; every edit invalidates the reviewed plan and the preview renders the immutable choices. A Desktop-facing Application facade owns authoritative checkpoint reload after publication failure. One-button creation continues `LocalReady` into Git/GitHub completion, while `PublishPending` exposes bounded remediation and Retry Publish without rerunning generation. Completed presentation includes commit, ordered branches, receipt reference, and optional repository URL. Safe mode disables initial and Run History publication mutation. Task 8 remains the M8 integration and closure slice.

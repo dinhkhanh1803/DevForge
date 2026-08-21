@@ -39,6 +39,12 @@
                         <DataTrigger Binding="{Binding Stage}" Value="{x:Static contracts:ProjectCreationStage.LocalReady}">
                             <Setter Property="Visibility" Value="Collapsed" />
                         </DataTrigger>
+                        <DataTrigger Binding="{Binding Stage}" Value="{x:Static contracts:ProjectCreationStage.PublishPending}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Stage}" Value="{x:Static contracts:ProjectCreationStage.Completed}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
                     </Style.Triggers>
                 </Style>
             </StackPanel.Style>
@@ -96,6 +102,37 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
+            <TextBlock Style="{StaticResource SectionHeading}" Text="Git and GitHub" />
+            <CheckBox Content="Initialize Git repository"
+                      IsChecked="{Binding InitializeRepository}"
+                      IsEnabled="{Binding CanEdit}"
+                      AutomationProperties.Name="Initialize Git repository" />
+            <TextBlock Margin="0,8,0,0" Text="Branch policy" />
+            <ComboBox Margin="0,4,0,12"
+                      ItemsSource="{Binding BranchPolicyChoices}"
+                      SelectedItem="{Binding BranchPolicy}"
+                      IsEnabled="{Binding CanConfigureGit}"
+                      AutomationProperties.Name="Git branch policy" />
+            <CheckBox Content="Publish to GitHub"
+                      IsChecked="{Binding PublishToGitHub}"
+                      IsEnabled="{Binding CanConfigureGit}"
+                      AutomationProperties.Name="Publish to GitHub" />
+            <CheckBox Margin="0,8,0,0"
+                      Content="Private repository"
+                      IsChecked="{Binding IsPrivate}"
+                      IsEnabled="{Binding CanConfigureGitHub}"
+                      AutomationProperties.Name="Private GitHub repository" />
+            <TextBlock Margin="0,8,0,0" Text="GitHub personal account" />
+            <TextBox Margin="0,4,0,12"
+                     Text="{Binding GitHubAccount, UpdateSourceTrigger=PropertyChanged}"
+                     IsEnabled="{Binding CanConfigureGitHub}"
+                     AutomationProperties.Name="GitHub personal account" />
+            <TextBlock Text="GitHub repository" />
+            <TextBox Margin="0,4,0,12"
+                     Text="{Binding GitHubRepository, UpdateSourceTrigger=PropertyChanged}"
+                     IsEnabled="{Binding CanConfigureGitHub}"
+                     AutomationProperties.Name="GitHub repository" />
+
             <TextBlock Text="Open after generation" />
             <ComboBox Margin="0,4,0,12"
                       ItemsSource="{Binding IdeChoices}"
@@ -144,7 +181,9 @@
                     <TextBlock Text="{Binding TrustLabel, StringFormat=Trust: {0}}" />
                     <TextBlock Text="{Binding PlanHash, StringFormat=Plan hash: {0}}"
                                TextWrapping="Wrap" />
-                    <TextBlock Text="Git initialization: disabled" Margin="0,8,0,0" />
+                    <TextBlock Text="{Binding GitSummary}" Margin="0,8,0,0" />
+                    <TextBlock Text="{Binding GitHubSummary, StringFormat=GitHub: {0}}" />
+                    <TextBlock Text="{Binding RepositoryVisibility, StringFormat=Visibility: {0}}" />
 
                     <TextBlock Style="{StaticResource SectionHeading}" Text="Artifacts" Margin="0,16,0,4" />
                     <ListBox ItemsSource="{Binding Artifacts}" DisplayMemberPath="Path"
@@ -219,6 +258,12 @@
                     <Setter Property="Visibility" Value="Collapsed" />
                     <Style.Triggers>
                         <DataTrigger Binding="{Binding Stage}" Value="{x:Static contracts:ProjectCreationStage.LocalReady}">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Stage}" Value="{x:Static contracts:ProjectCreationStage.PublishPending}">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Stage}" Value="{x:Static contracts:ProjectCreationStage.Completed}">
                             <Setter Property="Visibility" Value="Visible" />
                         </DataTrigger>
                     </Style.Triggers>

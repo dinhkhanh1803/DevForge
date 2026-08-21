@@ -29,6 +29,10 @@
                             <Button Content="Cleanup" IsEnabled="{Binding CanCleanup}" Margin="8,0,0,0"
                                     Command="{Binding DataContext.CleanupCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                     CommandParameter="{Binding}" />
+                            <Button Content="Retry Publish" IsEnabled="{Binding CanRetryPublish}" Margin="8,0,0,0"
+                                    Command="{Binding DataContext.RetryPublishCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                    CommandParameter="{Binding}"
+                                    AutomationProperties.Name="Retry Publish" />
                         </StackPanel>
                     </Grid>
                 </DataTemplate>

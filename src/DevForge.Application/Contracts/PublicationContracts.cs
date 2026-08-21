@@ -83,6 +83,8 @@ public sealed class PublicationSnapshot
 
     public WorkspaceRelativePath? ReceiptPath { get; }
 
+    public string? ReceiptReference => ReceiptPath?.Value;
+
     public string? ReceiptBodyDigest { get; }
 
     public static ValidationResult<PublicationSnapshot> CreateNotRequested(string? finalTreeDigest) =>

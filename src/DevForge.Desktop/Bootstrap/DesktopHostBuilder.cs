@@ -133,6 +133,7 @@ public static class DesktopHostBuilder
         services.AddSingleton<IPublicationReceiptStore, AtomicPublicationReceiptStore>();
         services.AddSingleton<IPublicationNonceGenerator, CryptographicPublicationNonceGenerator>();
         services.AddSingleton<IProjectPublicationCoordinator, ProjectPublicationCoordinator>();
+        services.AddSingleton<IProjectPublicationWorkflow, ProjectPublicationWorkflow>();
         services.AddSingleton<IProjectFinalizer, AtomicProjectFinalizer>();
         services.AddSingleton<IGenerationReportWriter, CanonicalGenerationReportWriter>();
         services.AddSingleton<IRunCompletionCoordinator, ValidatedRunCompletionCoordinator>();
@@ -167,7 +168,8 @@ public static class DesktopHostBuilder
             provider.GetRequiredService<IProjectCreationWorkflow>(),
             provider.GetRequiredService<ExecutionCenterViewModel>(),
             provider.GetRequiredService<ILocalReadyService>(),
-            provider.GetRequiredService<ProjectCreationSelection>()));
+            provider.GetRequiredService<ProjectCreationSelection>(),
+            provider.GetRequiredService<IProjectPublicationWorkflow>()));
         services.AddSingleton<BlueprintCatalogViewModel>();
         services.AddSingleton(provider => new RunHistoryViewModel(
             provider.GetRequiredService<IRunCheckpointStore>(),

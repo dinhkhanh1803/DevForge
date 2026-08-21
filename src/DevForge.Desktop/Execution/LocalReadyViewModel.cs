@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DevForge.Application.Contracts;
+using DevForge.Domain.Diagnostics;
 using DevForge.Domain.Runs;
 using DevForge.Domain.Validation;
 
@@ -18,17 +19,30 @@ public sealed record LocalReadyEvidenceItem(
 public sealed partial class LocalReadyViewModel : ObservableObject
 {
     private readonly ILocalReadyService _localReadyService;
-    private readonly RunCheckpoint _checkpoint;
+    private readonly IProjectPublicationWorkflow? _publicationWorkflow;
+    private readonly bool _isReadOnly;
+    private RunCheckpoint _checkpoint;
 
     [ObservableProperty]
     private string? _ideErrorMessage;
 
+    [ObservableProperty]
+    private string? _publicationErrorMessage;
+
+    [ObservableProperty]
+    private bool _isPublishing;
+
     public LocalReadyViewModel(
         ProjectCreationExecutionSnapshot snapshot,
-        ILocalReadyService localReadyService)
+        ILocalReadyService localReadyService,
+        IProjectPublicationWorkflow? publicationWorkflow = null,
+        bool isReadOnly = false,
+        DevForgeError? publicationError = null)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
-        if (snapshot.Checkpoint.Run.Status != RunStatus.LocalReady)
+        if (snapshot.Checkpoint.Run.Status is not (RunStatus.LocalReady
+                or RunStatus.PublishPending
+                or RunStatus.Completed))
         {
             throw new ArgumentException(
                 "A LocalReady checkpoint is required.",
@@ -38,6 +52,9 @@ public sealed partial class LocalReadyViewModel : ObservableObject
         Snapshot = snapshot;
         _checkpoint = snapshot.Checkpoint;
         _localReadyService = localReadyService ?? throw new ArgumentNullException(nameof(localReadyService));
+        _publicationWorkflow = publicationWorkflow;
+        _isReadOnly = isReadOnly;
+        PublicationErrorMessage = CreatePublicationMessage(publicationError, snapshot.Plan.PlannedProject.Preview.Git.PublishToGitHub);
         var presentation = _localReadyService.Describe(_checkpoint);
         TargetDisplayPath = presentation.TargetDisplayPath;
         ReportReferences = presentation.ReportReferences;
@@ -45,16 +62,20 @@ public sealed partial class LocalReadyViewModel : ObservableObject
         Evidence = [.. _checkpoint.Evidence.Select(item =>
             new LocalReadyEvidenceItem(item.Kind, item.Id, item.Status))];
         OpenIdeCommand = new AsyncRelayCommand(OpenSelectedIdeAsync, () => CanOpenIde);
+        RetryPublishCommand = new AsyncRelayCommand(RetryPublishAsync, () => CanRetryPublish);
     }
 
     public LocalReadyViewModel(
         RunCheckpoint checkpoint,
         PlanPreview preview,
-        ILocalReadyService localReadyService)
+        ILocalReadyService localReadyService,
+        IProjectPublicationWorkflow? publicationWorkflow = null,
+        bool isReadOnly = false,
+        DevForgeError? publicationError = null)
     {
         ArgumentNullException.ThrowIfNull(checkpoint);
         ArgumentNullException.ThrowIfNull(preview);
-        if (checkpoint.Run.Status != RunStatus.LocalReady
+        if (checkpoint.Run.Status is not (RunStatus.LocalReady or RunStatus.PublishPending or RunStatus.Completed)
             || !StringComparer.Ordinal.Equals(checkpoint.PlanHash, preview.PlanHash))
         {
             throw new ArgumentException("Matching LocalReady evidence is required.", nameof(checkpoint));
@@ -62,6 +83,9 @@ public sealed partial class LocalReadyViewModel : ObservableObject
 
         _checkpoint = checkpoint;
         _localReadyService = localReadyService ?? throw new ArgumentNullException(nameof(localReadyService));
+        _publicationWorkflow = publicationWorkflow;
+        _isReadOnly = isReadOnly;
+        PublicationErrorMessage = CreatePublicationMessage(publicationError, preview.Git.PublishToGitHub);
         var presentation = _localReadyService.Describe(_checkpoint);
         TargetDisplayPath = presentation.TargetDisplayPath;
         ReportReferences = presentation.ReportReferences;
@@ -69,13 +93,14 @@ public sealed partial class LocalReadyViewModel : ObservableObject
         Evidence = [.. _checkpoint.Evidence.Select(item =>
             new LocalReadyEvidenceItem(item.Kind, item.Id, item.Status))];
         OpenIdeCommand = new AsyncRelayCommand(OpenSelectedIdeAsync, () => CanOpenIde);
+        RetryPublishCommand = new AsyncRelayCommand(RetryPublishAsync, () => CanRetryPublish);
     }
 
     public ProjectCreationExecutionSnapshot Snapshot { get; } = null!;
 
-    public string StatusLabel => _checkpoint.Run.Status == RunStatus.LocalReady
-        ? "LOCAL PROJECT READY"
-        : "UNAVAILABLE";
+    public RunCheckpoint Checkpoint => _checkpoint;
+
+    public string StatusLabel => ExecutionCenterViewModel.ProjectStatus(_checkpoint.Run.Status).Label;
 
     public bool IsDomainCompleted => _checkpoint.Run.Status == RunStatus.Completed;
 
@@ -106,7 +131,68 @@ public sealed partial class LocalReadyViewModel : ObservableObject
     public bool CanOpenIde => !string.IsNullOrWhiteSpace(SelectedIdeId)
         && !StringComparer.Ordinal.Equals(SelectedIdeId, "none");
 
+    public bool CanRetryPublish => _checkpoint.Run.Status == RunStatus.PublishPending
+        && _publicationWorkflow is not null
+        && !_isReadOnly
+        && !IsPublishing;
+
+    public string PublicationRemediation => _checkpoint.Run.Status == RunStatus.PublishPending
+        ? _checkpoint.Preview?.Git.PublishToGitHub == true
+            ? "The local project is safe. Verify GitHub CLI authentication with gh auth status or gh auth login, then retry publication."
+            : "The local project is safe. Resolve the local Git issue, then retry publication."
+        : string.Empty;
+
+    public string? InitialCommitId => _checkpoint.Publication.InitialCommitId;
+
+    public ImmutableArray<string> Branches => _checkpoint.Publication.Branches;
+
+    public string? RepositoryUrl => _checkpoint.Publication.RepositoryUrl;
+
+    public ImmutableArray<string> PublicationReceiptReferences =>
+        _checkpoint.Publication.ReceiptReference is null
+            ? []
+            : [_checkpoint.Publication.ReceiptReference];
+
     public IAsyncRelayCommand OpenIdeCommand { get; }
+
+    public IAsyncRelayCommand RetryPublishCommand { get; }
+
+    public event EventHandler? CheckpointChanged;
+
+    private async Task RetryPublishAsync(CancellationToken cancellationToken)
+    {
+        if (!CanRetryPublish)
+        {
+            return;
+        }
+
+        IsPublishing = true;
+        RetryPublishCommand.NotifyCanExecuteChanged();
+        try
+        {
+            var result = await _publicationWorkflow!.CompleteAsync(
+                _checkpoint.Run.Id,
+                PublicationMutationMode.Normal,
+                cancellationToken).ConfigureAwait(true);
+            if (!result.IsSuccessful)
+            {
+                PublicationErrorMessage = "Publication could not be resumed.";
+                return;
+            }
+
+            _checkpoint = result.Value.Checkpoint;
+            PublicationErrorMessage = CreatePublicationMessage(
+                result.Value.Error,
+                _checkpoint.Preview?.Git.PublishToGitHub == true);
+            NotifyCheckpointProjectionChanged();
+            CheckpointChanged?.Invoke(this, EventArgs.Empty);
+        }
+        finally
+        {
+            IsPublishing = false;
+            RetryPublishCommand.NotifyCanExecuteChanged();
+        }
+    }
 
     private async Task OpenSelectedIdeAsync(CancellationToken cancellationToken)
     {
@@ -131,5 +217,30 @@ public sealed partial class LocalReadyViewModel : ObservableObject
         {
             IdeErrorMessage = "IDE could not be opened.";
         }
+    }
+
+    private void NotifyCheckpointProjectionChanged()
+    {
+        OnPropertyChanged(nameof(StatusLabel));
+        OnPropertyChanged(nameof(IsDomainCompleted));
+        OnPropertyChanged(nameof(CanRetryPublish));
+        OnPropertyChanged(nameof(PublicationRemediation));
+        OnPropertyChanged(nameof(InitialCommitId));
+        OnPropertyChanged(nameof(Branches));
+        OnPropertyChanged(nameof(RepositoryUrl));
+        OnPropertyChanged(nameof(PublicationReceiptReferences));
+        RetryPublishCommand.NotifyCanExecuteChanged();
+    }
+
+    private static string? CreatePublicationMessage(DevForgeError? error, bool githubRequested)
+    {
+        if (error is null)
+        {
+            return null;
+        }
+
+        return githubRequested
+            ? "GitHub publication is pending. The local project remains available."
+            : "Git completion is pending. The local project remains available.";
     }
 }

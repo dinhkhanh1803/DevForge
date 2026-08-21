@@ -4,6 +4,7 @@ using DevForge.Blueprints.Abstractions.Models;
 using DevForge.Desktop.CreateProject;
 using DevForge.Desktop.Execution;
 using DevForge.Desktop.Navigation;
+using DevForge.Domain.Projects;
 using DevForge.Domain.Validation;
 
 namespace DevForge.E2ETests.Desktop;
@@ -81,6 +82,10 @@ public sealed class CreateProjectViewModelTests
         Assert.NotNull(workflow.Draft);
         Assert.Equal("sample", workflow.Draft.OutputFolder);
         Assert.Equal(4, workflow.Draft.Inputs.Count);
+        Assert.True(workflow.Draft.Git.InitializeRepository);
+        Assert.Equal(GitBranchPolicy.Main, workflow.Draft.Git.BranchPolicy);
+        Assert.False(workflow.Draft.Git.PublishToGitHub);
+        Assert.True(workflow.Draft.Git.IsPrivate);
         Assert.Contains(sut.ValidationIssues, issue => issue.Code == "test.plan.unavailable");
         Assert.Equal(ProjectCreationStage.Configure, sut.Stage);
     }
@@ -99,12 +104,67 @@ public sealed class CreateProjectViewModelTests
         Assert.Equal(ProjectCreationStage.Configure, sut.Stage);
     }
 
+    [Fact]
+    public void DisablingGitOrPublishRestoresSafeClosedDefaults()
+    {
+        var sut = CreateViewModel(new StubWorkflow(CreateBlueprint()));
+        sut.GitHubAccount = "reviewed-owner";
+        sut.GitHubRepository = "reviewed-repository";
+        sut.PublishToGitHub = true;
+        sut.IsPrivate = false;
+
+        sut.PublishToGitHub = false;
+
+        Assert.True(sut.IsPrivate);
+        Assert.Null(sut.GitHubAccount);
+        Assert.Null(sut.GitHubRepository);
+
+        sut.PublishToGitHub = true;
+        sut.InitializeRepository = false;
+
+        Assert.False(sut.PublishToGitHub);
+        Assert.Equal(GitBranchPolicy.Main, sut.BranchPolicy);
+        Assert.False(sut.CanConfigureGit);
+        Assert.False(sut.CanConfigureGitHub);
+    }
+
+    [Fact]
+    public async Task OneButtonFlowContinuesLocalReadyIntoApplicationPublication()
+    {
+        var plan = ExecutionCenterViewModelTests.CreatePlan(initializeRepository: true);
+        var execution = ExecutionCenterViewModelTests.CreateExecution(plan);
+        var completed = ExecutionCenterViewModelTests.CreateCompletedExecution(plan);
+        var workflow = new SuccessfulWorkflow(CreateBlueprint(), plan, execution);
+        var publication = new RecordingPublicationWorkflow(completed.Checkpoint);
+        var sut = CreateViewModel(workflow, publication);
+        sut.Name = "Sample";
+        sut.RootPath = "C:\\Projects";
+        sut.OutputFolder = "sample";
+
+        await sut.LoadAsync(CancellationToken.None);
+        await sut.ReviewPlanAsync(CancellationToken.None);
+        await sut.PlanPreview!.CreateAndValidateAsync(CancellationToken.None);
+
+        Assert.Equal(plan.RunId, publication.RunId);
+        Assert.Equal(PublicationMutationMode.Normal, publication.Mode);
+        Assert.Equal(ProjectCreationStage.Completed, sut.Stage);
+        Assert.True(sut.LocalReady!.IsDomainCompleted);
+        Assert.Equal(new string('a', 40), sut.LocalReady.InitialCommitId);
+        Assert.Equal(["main"], sut.LocalReady.Branches.ToArray());
+    }
+
     [Theory]
     [InlineData("name")]
     [InlineData("root")]
     [InlineData("output")]
     [InlineData("ide")]
     [InlineData("input")]
+    [InlineData("git")]
+    [InlineData("branch")]
+    [InlineData("publish")]
+    [InlineData("visibility")]
+    [InlineData("account")]
+    [InlineData("repository")]
     public async Task AnyReviewedDraftChangeInvalidatesThePlan(string change)
     {
         var plan = ExecutionCenterViewModelTests.CreatePlan();
@@ -125,6 +185,12 @@ public sealed class CreateProjectViewModelTests
             case "output": sut.OutputFolder = "changed"; break;
             case "ide": sut.IdeId = "vscode"; break;
             case "input": sut.Inputs[0].TextValue = "changed"; break;
+            case "git": sut.InitializeRepository = false; break;
+            case "branch": sut.BranchPolicy = GitBranchPolicy.MainAndDevelop; break;
+            case "publish": sut.PublishToGitHub = true; break;
+            case "visibility": sut.IsPrivate = false; break;
+            case "account": sut.GitHubAccount = "reviewed-owner"; break;
+            case "repository": sut.GitHubRepository = "reviewed-repository"; break;
             default: throw new ArgumentOutOfRangeException(nameof(change));
         }
 
@@ -150,14 +216,17 @@ public sealed class CreateProjectViewModelTests
             id, kind, required, defaultValue, allowed, minLength, maxLength, min, max)).Value;
     }
 
-    private static CreateProjectViewModel CreateViewModel(IProjectCreationWorkflow workflow)
+    private static CreateProjectViewModel CreateViewModel(
+        IProjectCreationWorkflow workflow,
+        IProjectPublicationWorkflow? publicationWorkflow = null)
     {
         return new CreateProjectViewModel(
             workflow,
             new ExecutionCenterViewModel(
                 new ExecutionSessionCoordinator(workflow, new UnsupportedRecovery())),
             new UnusedLocalReadyService(),
-            new ProjectCreationSelection());
+            new ProjectCreationSelection(),
+            publicationWorkflow ?? new UnusedProjectPublicationWorkflow());
     }
 
     private static ResolvedBlueprint CreateBlueprint()
@@ -226,6 +295,43 @@ public sealed class CreateProjectViewModelTests
             [
                 new ValidationIssue("test.execution.unavailable", "Test execution unavailable.", "execution"),
             ]));
+    }
+
+    private sealed class SuccessfulWorkflow(
+        ResolvedBlueprint blueprint,
+        ProjectCreationPlanSnapshot plan,
+        ProjectCreationExecutionSnapshot execution) : IProjectCreationWorkflow
+    {
+        public Task<BlueprintCatalogSnapshot> LoadCatalogAsync(bool forceRefresh, CancellationToken cancellationToken) =>
+            Task.FromResult(BlueprintCatalogSnapshot.Create([blueprint], []).Value);
+
+        public Task<ValidationResult<ProjectCreationPlanSnapshot>> CreatePlanAsync(
+            ProjectCreationDraft draft,
+            CancellationToken cancellationToken) => Task.FromResult(ValidationResult.Success(plan));
+
+        public Task<ValidationResult<ProjectCreationExecutionSnapshot>> ExecuteAsync(
+            ProjectCreationPlanSnapshot reviewedPlan,
+            IProgress<ExecutionProgressLine>? progress,
+            CancellationToken cancellationToken) => Task.FromResult(ValidationResult.Success(execution));
+    }
+
+    private sealed class RecordingPublicationWorkflow(RunCheckpoint checkpoint)
+        : IProjectPublicationWorkflow
+    {
+        public string? RunId { get; private set; }
+
+        public PublicationMutationMode? Mode { get; private set; }
+
+        public Task<ExecutionOperationResult<ProjectPublicationOutcome>> CompleteAsync(
+            string runId,
+            PublicationMutationMode mutationMode,
+            CancellationToken cancellationToken)
+        {
+            RunId = runId;
+            Mode = mutationMode;
+            return Task.FromResult(ExecutionOperationResult.Success(
+                ProjectPublicationOutcome.Create(checkpoint, error: null).Value));
+        }
     }
 
     private sealed class UnsupportedRecovery : IRunRecoveryService

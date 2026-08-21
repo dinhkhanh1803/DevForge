@@ -6,6 +6,7 @@ using DevForge.Application.Contracts;
 using DevForge.Blueprints.Abstractions.Models;
 using DevForge.Desktop.Execution;
 using DevForge.Desktop.Navigation;
+using DevForge.Domain.Projects;
 using DevForge.Domain.Validation;
 
 namespace DevForge.Desktop.CreateProject;
@@ -14,6 +15,7 @@ public sealed partial class CreateProjectViewModel : ObservableObject
 {
     private readonly IProjectCreationWorkflow _workflow;
     private readonly ILocalReadyService _localReadyService;
+    private readonly IProjectPublicationWorkflow _publicationWorkflow;
     private readonly ProjectCreationSelection _selection;
 
     [ObservableProperty]
@@ -27,6 +29,27 @@ public sealed partial class CreateProjectViewModel : ObservableObject
 
     [ObservableProperty]
     private string _ideId = "none";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanConfigureGit))]
+    [NotifyPropertyChangedFor(nameof(CanConfigureGitHub))]
+    private bool _initializeRepository = true;
+
+    [ObservableProperty]
+    private GitBranchPolicy _branchPolicy = GitBranchPolicy.Main;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanConfigureGitHub))]
+    private bool _publishToGitHub;
+
+    [ObservableProperty]
+    private bool _isPrivate = true;
+
+    [ObservableProperty]
+    private string? _gitHubAccount;
+
+    [ObservableProperty]
+    private string? _gitHubRepository;
 
     [ObservableProperty]
     private ResolvedBlueprint? _selectedBlueprint;
@@ -59,12 +82,14 @@ public sealed partial class CreateProjectViewModel : ObservableObject
         IProjectCreationWorkflow workflow,
         ExecutionCenterViewModel executionCenter,
         ILocalReadyService localReadyService,
-        ProjectCreationSelection selection)
+        ProjectCreationSelection selection,
+        IProjectPublicationWorkflow publicationWorkflow)
     {
         _workflow = workflow ?? throw new ArgumentNullException(nameof(workflow));
         ExecutionCenter = executionCenter ?? throw new ArgumentNullException(nameof(executionCenter));
         _localReadyService = localReadyService ?? throw new ArgumentNullException(nameof(localReadyService));
         _selection = selection ?? throw new ArgumentNullException(nameof(selection));
+        _publicationWorkflow = publicationWorkflow ?? throw new ArgumentNullException(nameof(publicationWorkflow));
         LoadCommand = new AsyncRelayCommand(LoadAsync, () => !IsBusy);
         ReviewPlanCommand = new AsyncRelayCommand(ReviewPlanAsync, () => !IsBusy && !IsReadOnly);
     }
@@ -77,6 +102,15 @@ public sealed partial class CreateProjectViewModel : ObservableObject
 
     public ImmutableArray<string> IdeChoices { get; } =
         ["none", "vscode", "visual-studio", "rider", "unity"];
+
+    public ImmutableArray<GitBranchPolicy> BranchPolicyChoices { get; } =
+        [GitBranchPolicy.Main, GitBranchPolicy.MainAndDevelop];
+
+    public bool CanConfigureGitHub => InitializeRepository && PublishToGitHub && !IsReadOnly;
+
+    public bool CanConfigureGit => InitializeRepository && !IsReadOnly;
+
+    public bool CanEdit => !IsReadOnly;
 
     public IAsyncRelayCommand LoadCommand { get; }
 
@@ -151,7 +185,13 @@ public sealed partial class CreateProjectViewModel : ObservableObject
                 reference,
                 inputValues,
                 [],
-                IdeId);
+                IdeId,
+                InitializeRepository,
+                BranchPolicy,
+                PublishToGitHub,
+                IsPrivate,
+                GitHubAccount,
+                GitHubRepository);
             if (!draft.IsValid)
             {
                 issues.AddRange(draft.Issues);
@@ -189,6 +229,9 @@ public sealed partial class CreateProjectViewModel : ObservableObject
     public void EnterReadOnlyMode()
     {
         IsReadOnly = true;
+        OnPropertyChanged(nameof(CanConfigureGitHub));
+        OnPropertyChanged(nameof(CanConfigureGit));
+        OnPropertyChanged(nameof(CanEdit));
         ReviewPlanCommand.NotifyCanExecuteChanged();
     }
 
@@ -221,6 +264,37 @@ public sealed partial class CreateProjectViewModel : ObservableObject
 
     partial void OnIdeIdChanged(string value) => InvalidatePlan();
 
+    partial void OnInitializeRepositoryChanged(bool value)
+    {
+        if (!value)
+        {
+            PublishToGitHub = false;
+            BranchPolicy = GitBranchPolicy.Main;
+        }
+
+        InvalidatePlan();
+    }
+
+    partial void OnBranchPolicyChanged(GitBranchPolicy value) => InvalidatePlan();
+
+    partial void OnPublishToGitHubChanged(bool value)
+    {
+        if (!value)
+        {
+            IsPrivate = true;
+            GitHubAccount = null;
+            GitHubRepository = null;
+        }
+
+        InvalidatePlan();
+    }
+
+    partial void OnIsPrivateChanged(bool value) => InvalidatePlan();
+
+    partial void OnGitHubAccountChanged(string? value) => InvalidatePlan();
+
+    partial void OnGitHubRepositoryChanged(string? value) => InvalidatePlan();
+
     private void OnInputValueChanged(object? sender, EventArgs args) => InvalidatePlan();
 
     private void InvalidatePlan()
@@ -249,9 +323,88 @@ public sealed partial class CreateProjectViewModel : ObservableObject
         ValidationIssues = [];
         if (ExecutionSnapshot.Checkpoint.Run.Status == DevForge.Domain.Runs.RunStatus.LocalReady)
         {
-            LocalReady = new LocalReadyViewModel(ExecutionSnapshot, _localReadyService);
-            Stage = ProjectCreationStage.LocalReady;
+            if (!plan.PlannedProject.Preview.Git.InitializeRepository)
+            {
+                ShowCompletion(ExecutionSnapshot, publicationError: null);
+                return;
+            }
+
+            var published = await _publicationWorkflow.CompleteAsync(
+                plan.RunId,
+                IsReadOnly ? PublicationMutationMode.SafeReadOnly : PublicationMutationMode.Normal,
+                cancellationToken).ConfigureAwait(true);
+            if (!published.IsSuccessful)
+            {
+                ValidationIssues =
+                [
+                    new ValidationIssue(
+                        published.Error!.Code,
+                        published.Error.Summary,
+                        "publication"),
+                ];
+                ShowCompletion(ExecutionSnapshot, published.Error);
+                return;
+            }
+
+            var completed = ProjectCreationExecutionSnapshot.Create(
+                plan,
+                published.Value.Checkpoint);
+            if (!completed.IsValid)
+            {
+                ValidationIssues = completed.Issues;
+                return;
+            }
+
+            ExecutionSnapshot = completed.Value;
+            ShowCompletion(completed.Value, published.Value.Error);
         }
+    }
+
+    private void ShowCompletion(
+        ProjectCreationExecutionSnapshot snapshot,
+        DevForge.Domain.Diagnostics.DevForgeError? publicationError)
+    {
+        if (LocalReady is not null)
+        {
+            LocalReady.CheckpointChanged -= OnCompletionCheckpointChanged;
+        }
+
+        LocalReady = new LocalReadyViewModel(
+            snapshot,
+            _localReadyService,
+            _publicationWorkflow,
+            IsReadOnly,
+            publicationError);
+        LocalReady.CheckpointChanged += OnCompletionCheckpointChanged;
+        Stage = snapshot.Checkpoint.Run.Status switch
+        {
+            DevForge.Domain.Runs.RunStatus.PublishPending => ProjectCreationStage.PublishPending,
+            DevForge.Domain.Runs.RunStatus.Completed => ProjectCreationStage.Completed,
+            _ => ProjectCreationStage.LocalReady,
+        };
+    }
+
+    private void OnCompletionCheckpointChanged(object? sender, EventArgs args)
+    {
+        if (LocalReady is null)
+        {
+            return;
+        }
+
+        if (ReviewedPlan is not null)
+        {
+            var updated = ProjectCreationExecutionSnapshot.Create(
+                ReviewedPlan,
+                LocalReady.Checkpoint);
+            if (updated.IsValid)
+            {
+                ExecutionSnapshot = updated.Value;
+            }
+        }
+
+        Stage = LocalReady.IsDomainCompleted
+            ? ProjectCreationStage.Completed
+            : ProjectCreationStage.PublishPending;
     }
 
     private void BackToConfigure()

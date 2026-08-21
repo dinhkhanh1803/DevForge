@@ -1,11 +1,11 @@
 <UserControl x:Class="DevForge.Desktop.Execution.LocalReadyView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             AutomationProperties.Name="Local project ready">
+             AutomationProperties.Name="Project completion">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="{StaticResource Page.Padding}" MaxWidth="840" HorizontalAlignment="Left">
-            <TextBlock Style="{StaticResource PageHeading}" Text="LOCAL PROJECT READY" />
-            <TextBlock Text="The project passed required validation and is available locally." />
+            <TextBlock Style="{StaticResource PageHeading}" Text="{Binding StatusLabel}" />
+            <TextBlock Text="The validated local project remains available throughout completion." />
             <TextBlock Margin="0,16,0,0" Text="{Binding TargetDisplayPath, StringFormat=Target: {0}}" />
             <TextBlock Text="{Binding BlueprintLabel, StringFormat=Blueprint: {0}}" />
             <TextBlock Text="{Binding PlanHash, StringFormat=Plan: {0}}" TextWrapping="Wrap" />
@@ -23,6 +23,27 @@
             <ListBox ItemsSource="{Binding Warnings}" DisplayMemberPath="Message"
                      VirtualizingStackPanel.IsVirtualizing="True"
                      AutomationProperties.Name="Warnings" />
+            <TextBlock Style="{StaticResource SectionHeading}" Text="Publication" Margin="0,16,0,4" />
+            <TextBlock Text="{Binding InitialCommitId, StringFormat=Initial commit: {0}}"
+                       TextWrapping="Wrap" />
+            <ListBox ItemsSource="{Binding Branches}"
+                     VirtualizingStackPanel.IsVirtualizing="True"
+                     AutomationProperties.Name="Published branches" />
+            <TextBlock Text="{Binding RepositoryUrl, StringFormat=Repository: {0}}"
+                       TextWrapping="Wrap" />
+            <ListBox ItemsSource="{Binding PublicationReceiptReferences}"
+                     VirtualizingStackPanel.IsVirtualizing="True"
+                     AutomationProperties.Name="Publication receipt references" />
+            <TextBlock Foreground="#FFD13438"
+                       Text="{Binding PublicationErrorMessage}"
+                       TextWrapping="Wrap" />
+            <TextBlock Text="{Binding PublicationRemediation}"
+                       TextWrapping="Wrap" />
+            <Button Content="Retry Publish"
+                    Command="{Binding RetryPublishCommand}"
+                    AutomationProperties.Name="Retry Publish"
+                    HorizontalAlignment="Left"
+                    Margin="0,12,0,0" />
             <TextBlock Foreground="#FFD13438" Text="{Binding IdeErrorMessage}" Margin="0,12,0,0" />
             <Button Content="Open IDE" Command="{Binding OpenIdeCommand}"
                     HorizontalAlignment="Left" Margin="0,12,0,0" />

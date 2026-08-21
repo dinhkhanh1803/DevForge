@@ -196,6 +196,43 @@ public interface IProjectPublicationCoordinator
         CancellationToken cancellationToken);
 }
 
+public sealed class ProjectPublicationOutcome
+{
+    private ProjectPublicationOutcome(
+        RunCheckpoint checkpoint,
+        DevForge.Domain.Diagnostics.DevForgeError? error)
+    {
+        Checkpoint = checkpoint;
+        Error = error;
+    }
+
+    public RunCheckpoint Checkpoint { get; }
+
+    public DevForge.Domain.Diagnostics.DevForgeError? Error { get; }
+
+    public bool IsCompleted => Checkpoint.Run.Status == DevForge.Domain.Runs.RunStatus.Completed;
+
+    public static ValidationResult<ProjectPublicationOutcome> Create(
+        RunCheckpoint? checkpoint,
+        DevForge.Domain.Diagnostics.DevForgeError? error) => checkpoint is null
+        ? ValidationResult.Failure<ProjectPublicationOutcome>(
+        [
+            new ValidationIssue(
+                "publication.outcome.checkpoint.required",
+                "An authoritative publication checkpoint is required.",
+                "checkpoint"),
+        ])
+        : ValidationResult.Success(new ProjectPublicationOutcome(checkpoint, error));
+}
+
+public interface IProjectPublicationWorkflow
+{
+    Task<ExecutionOperationResult<ProjectPublicationOutcome>> CompleteAsync(
+        string runId,
+        PublicationMutationMode mutationMode,
+        CancellationToken cancellationToken);
+}
+
 public interface IGitPublicationProgress
 {
     Task RepositoryInitializedAsync(CancellationToken cancellationToken);

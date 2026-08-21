@@ -19,9 +19,9 @@ public sealed class LocalReadyService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(checkpoint);
-        if (checkpoint.Run.Status != RunStatus.LocalReady)
+        if (checkpoint.Run.Status is not (RunStatus.LocalReady or RunStatus.PublishPending or RunStatus.Completed))
         {
-            throw new InvalidOperationException("Only a LocalReady project can be opened.");
+            throw new InvalidOperationException("Only a finalized project can be opened.");
         }
 
         var workspace = await workspaces.OpenFinalProjectAsync(

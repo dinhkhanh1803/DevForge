@@ -15,6 +15,7 @@ public sealed record RunHistoryItemViewModel(
     bool CanResume,
     bool CanRetry,
     bool CanCleanup,
+    bool CanRetryPublish,
     string? ErrorCode)
 {
     public static RunHistoryItemViewModel From(ProjectRun run)
@@ -38,6 +39,7 @@ public sealed record RunHistoryItemViewModel(
             eligibility.CanResume,
             eligibility.CanRetry,
             eligibility.CanCleanup,
+            run.Status == RunStatus.PublishPending,
             run.Errors.LastOrDefault()?.Code ?? lastAttempt?.Error?.Code);
     }
 }
@@ -48,6 +50,7 @@ public sealed partial class RunHistoryViewModel : ObservableObject
     private readonly RunHistoryActionCoordinator _actions;
     private readonly ExecutionCenterViewModel _executionCenter;
     private readonly ILocalReadyService _localReadyService;
+    private bool _isReadOnly;
 
     [ObservableProperty]
     private ImmutableArray<RunHistoryItemViewModel> _items = [];
@@ -75,6 +78,9 @@ public sealed partial class RunHistoryViewModel : ObservableObject
         CleanupCommand = new AsyncRelayCommand<RunHistoryItemViewModel>(
             CleanupAsync,
             item => !IsBusy && item?.CanCleanup == true);
+        RetryPublishCommand = new AsyncRelayCommand<RunHistoryItemViewModel>(
+            RetryPublishAsync,
+            item => !IsBusy && !_isReadOnly && item?.CanRetryPublish == true);
     }
 
     public IAsyncRelayCommand RefreshCommand { get; }
@@ -84,6 +90,15 @@ public sealed partial class RunHistoryViewModel : ObservableObject
     public IAsyncRelayCommand<RunHistoryItemViewModel> RetryCommand { get; }
 
     public IAsyncRelayCommand<RunHistoryItemViewModel> CleanupCommand { get; }
+
+    public IAsyncRelayCommand<RunHistoryItemViewModel> RetryPublishCommand { get; }
+
+    public void EnterReadOnlyMode()
+    {
+        _isReadOnly = true;
+        _actions.EnterReadOnlyMode();
+        RetryPublishCommand.NotifyCanExecuteChanged();
+    }
 
     public event EventHandler? ExecutionOpened;
 
@@ -124,6 +139,7 @@ public sealed partial class RunHistoryViewModel : ObservableObject
         ResumeCommand.NotifyCanExecuteChanged();
         RetryCommand.NotifyCanExecuteChanged();
         CleanupCommand.NotifyCanExecuteChanged();
+        RetryPublishCommand.NotifyCanExecuteChanged();
     }
 
     private async Task ContinueAsync(
@@ -187,6 +203,47 @@ public sealed partial class RunHistoryViewModel : ObservableObject
             }
 
             Items = [.. items];
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
+    private async Task RetryPublishAsync(
+        RunHistoryItemViewModel? item,
+        CancellationToken cancellationToken)
+    {
+        if (item is null || IsBusy || _isReadOnly)
+        {
+            return;
+        }
+
+        SetBusy(true);
+        try
+        {
+            var outcome = await _actions.RetryPublicationAsync(
+                item.RunId,
+                cancellationToken).ConfigureAwait(true);
+            if (!outcome.IsSuccessful)
+            {
+                return;
+            }
+
+            var checkpoint = outcome.Value.Checkpoint;
+            if (checkpoint.Preview is null)
+            {
+                return;
+            }
+
+            OpenedPage = new LocalReadyViewModel(
+                checkpoint,
+                checkpoint.Preview,
+                _localReadyService,
+                _actions.PublicationWorkflow,
+                _isReadOnly,
+                outcome.Value.Error);
+            ExecutionOpened?.Invoke(this, EventArgs.Empty);
         }
         finally
         {

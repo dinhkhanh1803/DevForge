@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using DevForge.Application.Contracts;
 using DevForge.Blueprints.Abstractions.Models;
 using DevForge.Domain.Execution;
+using DevForge.Domain.Projects;
 using DevForge.Domain.Validation;
 
 namespace DevForge.Desktop.CreateProject;
@@ -80,6 +81,26 @@ public sealed partial class PlanPreviewViewModel : ObservableObject
     public string TrustLabel => Snapshot.PlannedProject.BlueprintFingerprint.Trust.ToString();
 
     public bool GitEnabled => Snapshot.PlannedProject.Preview.Git.InitializeRepository;
+
+    public string GitSummary => GitEnabled
+        ? Snapshot.PlannedProject.Preview.Git.BranchPolicy == GitBranchPolicy.MainAndDevelop
+            ? "Initialize Git with main + develop"
+            : "Initialize Git with main"
+        : "Git disabled";
+
+    public string GitHubSummary
+    {
+        get
+        {
+            var git = Snapshot.PlannedProject.Preview.Git;
+            return git.PublishToGitHub
+                ? $"Publish github.com/{git.GitHubAccount}/{git.GitHubRepository}"
+                : "Not requested";
+        }
+    }
+
+    public string RepositoryVisibility =>
+        Snapshot.PlannedProject.Preview.Git.IsPrivate ? "Private" : "Public";
 
     public ImmutableArray<BlueprintArtifact> Artifacts { get; }
 

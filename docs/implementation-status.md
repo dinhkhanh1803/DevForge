@@ -336,7 +336,7 @@ Verification used the workspace-local SDK at `.tools/dotnet/dotnet.exe` with `DO
 - The M7 E2E package is test-only; the three production MVP blueprints remain assigned to M9.
 - Environment probing and IDE launch support only the fixed trusted tool catalog; arbitrary executable discovery remains intentionally unsupported.
 - SQLite's online backup API is synchronous during the copy itself; cancellation is honored immediately before and after the bounded call, and recovery always completes before post-mutation cancellation is propagated.
-- Git/GitHub completion remains disabled in the desktop workflow until M8 Tasks 6-7 bind reviewed intent and WPF actions; the closed production services and recoverable publication coordinator are implemented, while successful Create Project runs still stop at `LocalReady`.
+- The Desktop completion flow is implemented, but M8's full generate-to-Git/GitHub integration fixture and closure/security matrix remain Task 8; no real GitHub remote is exercised by automated tests.
 - Support bundles, production log browsing, Open Staging/folder handoff, packaging, and release hardening remain assigned to M10.
 - Guarded Windows operations remain path-based. M5's owned staging, process-wide lease, detached verified packages, and closed sequential handlers exclude an in-scope blueprint actor from racing ancestor replacement; a future threat model that includes a separate hostile same-user process requires handle-relative no-follow native operations.
 
@@ -402,4 +402,17 @@ Fresh Task 6 verification on 2026-08-14 used the workspace-local .NET SDK 10.0.3
 | EF model consistency | local `dotnet-ef migrations has-pending-model-changes ... --configuration Release --no-build` with pinned `DOTNET_ROOT`/`PATH` | Exit 0; `No changes have been made to the model since the last migration.` |
 | Review | scoped static Task 6 security/design review | No Critical or Important findings. |
 
-M8 Task 7, rendering the reviewed Git controls and composing generation into recoverable publication with `PublishPending`/`Completed` evidence, is the recommended next slice. The full M8 integration and closure matrix remains Task 8.
+M8 Task 7 is complete locally. Create Project now renders Git initialization, exact `main`/`main + develop`, optional reviewed personal GitHub identity, and private-default visibility. Every choice invalidates the reviewed plan, whose preview displays the immutable Git/GitHub intent. Successful generation continues through an Application-owned publication facade; `PublishPending` keeps the local project visible with bounded authentication/remediation guidance and Retry Publish, while `Completed` displays the initial commit, ordered branches, publication receipt, and optional repository URL. Run History exposes publication retry through the same typed facade, and safe-read-only startup disables all Desktop publication mutation. Desktop retains no workspace, process, or persistence orchestration.
+
+Fresh Task 7 verification on 2026-08-21 used the workspace-local .NET SDK 10.0.302:
+
+| Gate | Command | Exact result |
+| --- | --- | --- |
+| Locked restore | `dotnet restore DevForge.sln --locked-mode --force-evaluate --no-cache -m:1` | Exit 0; all 12 projects restored from pinned lock files. |
+| Format | `dotnet format DevForge.sln --verify-no-changes --no-restore` | Exit 0; no formatting diagnostics. |
+| Release build | `dotnet build DevForge.sln -c Release --no-restore -m:1 -nodeReuse:false` | Exit 0; all 12 projects built; 0 warnings, 0 errors. |
+| Focused tests | Creation/Planning/Publication Unit and Desktop completion filters | Exit 0; 169 and 153 passed respectively, 0 failed, 0 skipped. |
+| Full tests | Four Release project test commands with `--no-build --no-restore` plus final authoritative-reload and safe-mode Desktop regressions | Exit 0; UnitTests 610, IntegrationTests 481, BlueprintTests 108, E2ETests 153; total 1,352 passed, 0 failed, 0 skipped. |
+| EF model consistency | pinned SDK + local `dotnet-ef.dll migrations has-pending-model-changes ... --configuration Release --no-build` | Exit 0; `No changes have been made to the model since the last migration.` |
+
+M8 Task 8, the full generation-to-local-Git/private-fake-GitHub integration, kill-window/security matrix, ADR/status/README closure, and final review, is the recommended next slice. Production blueprints remain M9.

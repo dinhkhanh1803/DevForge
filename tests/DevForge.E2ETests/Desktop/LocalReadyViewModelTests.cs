@@ -36,6 +36,55 @@ public sealed class LocalReadyViewModelTests
              "C:\\DevForgeData\\runs\\run-0123456789abcdef0123456789abcdef\\reports\\run-0123456789abcdef0123456789abcdef.md"],
             sut.ReportReferences.ToArray());
         Assert.Equal("Step | create | Passed", Assert.Single(sut.Evidence).DisplayText);
+        Assert.False(sut.CanRetryPublish);
+        Assert.False(sut.RetryPublishCommand.CanExecute(null));
+        Assert.Null(sut.InitialCommitId);
+        Assert.Empty(sut.Branches);
+        Assert.Null(sut.RepositoryUrl);
+        Assert.Empty(sut.PublicationReceiptReferences);
+    }
+
+    [Fact]
+    public async Task PublishPendingRetryUsesOnlyRunIdentityAndProjectsCompletedEvidence()
+    {
+        var plan = ExecutionCenterViewModelTests.CreatePlan(initializeRepository: true);
+        var pending = ExecutionCenterViewModelTests.CreatePublishPendingExecution(plan);
+        var completed = ExecutionCenterViewModelTests.CreateCompletedExecution(plan);
+        var publication = new RecordingPublication(completed.Checkpoint);
+        var sut = new LocalReadyViewModel(
+            pending,
+            new FailingLocalReadyService(),
+            publication);
+
+        Assert.Equal("PUBLISH PENDING", sut.StatusLabel);
+        Assert.True(sut.CanRetryPublish);
+        Assert.Contains("local project is safe", sut.PublicationRemediation, StringComparison.OrdinalIgnoreCase);
+
+        await sut.RetryPublishCommand.ExecuteAsync(null);
+
+        Assert.Equal(plan.RunId, publication.RunId);
+        Assert.Equal(PublicationMutationMode.Normal, publication.Mode);
+        Assert.Equal("COMPLETED", sut.StatusLabel);
+        Assert.True(sut.IsDomainCompleted);
+        Assert.False(sut.CanRetryPublish);
+        Assert.Equal(new string('a', 40), sut.InitialCommitId);
+        Assert.Equal(["main"], sut.Branches.ToArray());
+        Assert.Equal([$"reports\\{plan.RunId}.publication.json"], sut.PublicationReceiptReferences.ToArray());
+    }
+
+    [Fact]
+    public void SafeModeDisablesPublishPendingMutation()
+    {
+        var plan = ExecutionCenterViewModelTests.CreatePlan(initializeRepository: true);
+        var pending = ExecutionCenterViewModelTests.CreatePublishPendingExecution(plan);
+        var sut = new LocalReadyViewModel(
+            pending,
+            new FailingLocalReadyService(),
+            new RecordingPublication(ExecutionCenterViewModelTests.CreateCompletedExecution(plan).Checkpoint),
+            isReadOnly: true);
+
+        Assert.False(sut.CanRetryPublish);
+        Assert.False(sut.RetryPublishCommand.CanExecute(null));
     }
 
     private static ProjectCreationExecutionSnapshot CreateLocalReadySnapshot()
@@ -105,5 +154,24 @@ public sealed class LocalReadyViewModelTests
 
         public Task OpenIdeAsync(RunCheckpoint checkpoint, string ideId, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Failure must remain UI-only.");
+    }
+
+    private sealed class RecordingPublication(RunCheckpoint completed)
+        : IProjectPublicationWorkflow
+    {
+        public string? RunId { get; private set; }
+
+        public PublicationMutationMode? Mode { get; private set; }
+
+        public Task<ExecutionOperationResult<ProjectPublicationOutcome>> CompleteAsync(
+            string runId,
+            PublicationMutationMode mutationMode,
+            CancellationToken cancellationToken)
+        {
+            RunId = runId;
+            Mode = mutationMode;
+            return Task.FromResult(ExecutionOperationResult.Success(
+                ProjectPublicationOutcome.Create(completed, error: null).Value));
+        }
     }
 }

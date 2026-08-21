@@ -41,6 +41,9 @@ public sealed class PlanPreviewViewModelTests
         Assert.Equal(["preview.warning"], sut.Warnings.Select(item => item.Code));
         Assert.Equal("dotnet restore [ARGS REDACTED]", sut.Steps[0].ProcessPreview);
         Assert.False(sut.GitEnabled);
+        Assert.Equal("Git disabled", sut.GitSummary);
+        Assert.Equal("Not requested", sut.GitHubSummary);
+        Assert.Equal("Private", sut.RepositoryVisibility);
 
         await sut.CreateAndValidateAsync(CancellationToken.None);
         sut.BackToConfigureCommand.Execute(null);
@@ -58,7 +61,8 @@ public sealed class PlanPreviewViewModelTests
             new ExecutionCenterViewModel(
                 new ExecutionSessionCoordinator(workflow, new UnsupportedRecovery())),
             new UnusedLocalReadyService(),
-            new ProjectCreationSelection())
+            new ProjectCreationSelection(),
+            new UnusedProjectPublicationWorkflow())
         {
             ReviewedPlan = CreateSnapshot(),
             Stage = ProjectCreationStage.ReviewPlan,
