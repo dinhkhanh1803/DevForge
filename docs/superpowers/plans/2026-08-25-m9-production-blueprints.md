@@ -24,9 +24,9 @@ Every task starts with focused failing tests, implements the smallest production
 
 ## Task 2: Production WPF tool blueprint
 
-**Scope:** deliver `desktop.csharp-wpf-tool/1.0.0` first, using the established .NET process boundary and adding only the closed publish-smoke operation required by the matrix.
+**Scope:** deliver `desktop.csharp-wpf-tool` at manifest version `1.0.0` first, using the established .NET process boundary and adding only the closed publish-smoke operation required by the matrix.
 
-**Expected files:** `blueprints/desktop.csharp-wpf-tool/1.0.0/**`, WPF expected-tree snapshot/contracts, narrow `ProcessExecutionHandlers` and action-policy changes, process security/regression tests, and generated-project E2E fixture.
+**Expected files:** `blueprints/desktop.csharp-wpf-tool/**`, WPF expected-tree snapshot/contracts, narrow `ProcessExecutionHandlers` and action-policy changes, process security/regression tests, and generated-project E2E fixture.
 
 **RED tests:** package structure/checksum; exact ID/version/tool range; typed inputs and Windows compatibility; deterministic plan/hash/tree; required handoff headings; native WPF plus MVVM/Clean Architecture project graph; nullable/analyzers/DI/Host/logging/config; central pinned package versions and NuGet lockfiles; publish profile; no web/embedded-browser dependency; no secret-shaped file/content; closed `dotnet publish` arguments and refusal of arbitrary targets/options.
 
@@ -38,9 +38,9 @@ Every task starts with focused failing tests, implements the smallest production
 
 ## Task 3: Closed pnpm vocabulary and production React blueprint
 
-**Scope:** add the minimum safe pnpm validation operations and deliver `web.react-vite-ts/1.0.0` without invoking an online scaffolder.
+**Scope:** add the minimum safe pnpm validation operations and deliver `web.react-vite-ts` at manifest version `1.0.0` without invoking an online scaffolder.
 
-**Expected files:** `src/DevForge.Infrastructure/Execution/ProcessExecutionHandlers.cs`, action/process policy tests, `blueprints/web.react-vite-ts/1.0.0/**`, React expected-tree/contracts, and generated-project E2E fixture.
+**Expected files:** `src/DevForge.Infrastructure/Execution/ProcessExecutionHandlers.cs`, action/process policy tests, `blueprints/web.react-vite-ts/**`, React expected-tree/contracts, and generated-project E2E fixture.
 
 **RED tests:** Node `>=22 <25`, pnpm `>=10 <11`; exact package and lockfile dependency resolution; strict TypeScript, alias, lint/format, environment validation, API boundary, Vitest, production build; frozen install with lifecycle scripts disabled; only fixed `lint`, `typecheck`, `test`, and `build` scripts accepted; reject `exec`, `dlx`, inline evaluation, registry/config/credential flags, script substitution, user-supplied commands, and lifecycle-script enablement; deterministic plan/tree and complete handoff docs.
 
@@ -52,9 +52,9 @@ Every task starts with focused failing tests, implements the smallest production
 
 ## Task 4: Python/uv trusted tool boundary and production Python CLI blueprint
 
-**Scope:** add closed Python/uv identities, trusted resolution and doctor probes, then deliver `tool.python-cli/1.0.0`.
+**Scope:** add closed Python/uv identities, trusted resolution and doctor probes, then deliver `tool.python-cli` at manifest version `1.0.0`.
 
-**Expected files:** `src/DevForge.Application/Contracts/ProcessContracts.cs`, `src/DevForge.Infrastructure/{Processes/TrustedExecutableResolver.cs,Environment/EnvironmentProbeCatalog.cs,Execution/ProcessExecutionHandlers.cs}`, related architecture/security/doctor/process tests, `blueprints/tool.python-cli/1.0.0/**`, Python expected-tree/contracts, and generated-project E2E fixture.
+**Expected files:** `src/DevForge.Application/Contracts/ProcessContracts.cs`, `src/DevForge.Infrastructure/{Processes/TrustedExecutableResolver.cs,Environment/EnvironmentProbeCatalog.cs,Execution/ProcessExecutionHandlers.cs}`, related architecture/security/doctor/process tests, `blueprints/tool.python-cli/**`, Python expected-tree/contracts, and generated-project E2E fixture.
 
 **RED tests:** canonical Python/uv identities and bounded version parsing; absolute trusted resolver behavior; doctor availability/version compatibility; exact certified Python range; frozen `uv.lock`; `pyproject.toml`, src layout, config/logging, Ruff, typecheck, pytest, build and console entrypoint; only fixed `uv sync --frozen` and checked validation entrypoints accepted; reject arbitrary modules, scripts, indexes, credentials, dependency changes, inline code, external working directories, and shell syntax; deterministic plan/tree and complete handoff docs.
 

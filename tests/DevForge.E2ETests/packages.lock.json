@@ -459,11 +459,18 @@
       "devforge.blueprints.abstractions": {
         "type": "Project"
       },
+      "devforge.blueprints.builtin": {
+        "type": "Project",
+        "dependencies": {
+          "DevForge.Blueprints.Abstractions": "[1.0.0, )"
+        }
+      },
       "devforge.desktop": {
         "type": "Project",
         "dependencies": {
           "CommunityToolkit.Mvvm": "[8.4.2, )",
           "DevForge.Application": "[1.0.0, )",
+          "DevForge.Blueprints.BuiltIn": "[1.0.0, )",
           "DevForge.Infrastructure": "[1.0.0, )",
           "Microsoft.Extensions.Hosting": "[10.0.10, )"
         }

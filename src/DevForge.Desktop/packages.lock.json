@@ -398,6 +398,12 @@
       "devforge.blueprints.abstractions": {
         "type": "Project"
       },
+      "devforge.blueprints.builtin": {
+        "type": "Project",
+        "dependencies": {
+          "DevForge.Blueprints.Abstractions": "[1.0.0, )"
+        }
+      },
       "devforge.domain": {
         "type": "Project"
       },

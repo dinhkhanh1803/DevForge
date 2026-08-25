@@ -2,7 +2,7 @@
 
 **Goal:** Ship exactly three deterministic, checksummed production blueprints and validate generated projects with their certified Windows toolchains.
 
-**Status:** M9 design approved; Task 1 is the current implementation slice.
+**Status:** M9 Task 1 complete and locally verified; Task 2 is the current implementation slice.
 
 **Architecture:** Versioned static packages are shipped as immutable built-in content. Desktop composes a `BuiltIn` source and the existing `Local` source through guarded workspaces. Blueprint actions remain declarative and all external tools pass through a closed `IProcessRunner` vocabulary.
 
@@ -18,22 +18,22 @@
 
 - [x] Read the complete baseline and isolate M9 from M10-M11.
 - [x] Approve the production-blueprint design.
-- [ ] Task 1: built-in distribution, catalog composition, and production contract harness.
-- [ ] Task 2: WPF production blueprint.
+- [x] Task 1: built-in distribution, catalog composition, and production contract harness.
+- [ ] Task 2: WPF production blueprint (active).
 - [ ] Task 3: closed pnpm vocabulary and React production blueprint.
 - [ ] Task 4: Python/uv boundary and Python CLI production blueprint.
 - [ ] Task 5: shared handoff and engine-owned run evidence.
 - [ ] Task 6: cross-blueprint integration and closure.
 
-## Current Task 1 boundary
+## Current Task 2 boundary
 
-**Scope:** establish immutable build-output package distribution, register built-in and trusted-local sources with exact provenance, and add a reusable real-loader contract harness. No production blueprint content, new process tool, or large UI change is included yet.
+**Scope:** deliver only `desktop.csharp-wpf-tool` manifest version `1.0.0`, using the established .NET boundary and adding only a closed publish-smoke operation. React, Python, shared run-evidence expansion, and M10 remain out of scope.
 
-**Expected files:** BuiltIn/Desktop project composition, `DesktopBlueprintSourceRegistry`, Blueprint production tests, Desktop host/source tests, architecture tests, `blueprints/README.md`, ADR-0015, and milestone status.
+**Expected files:** `blueprints/desktop.csharp-wpf-tool/**`, WPF production package/expected-tree tests, narrowly scoped process action/handler tests and production changes for `dotnet publish`, plus a generated-project E2E fixture.
 
-**Tests:** exact output location; two-source provenance; missing/reparse/ambiguous root refusal; exact MVP ID/version directory contract; complete checksum declaration; local source cannot self-assign built-in trust; no direct Desktop filesystem enumeration.
+**Tests:** exact package shape/checksum/identity; deterministic plan/hash/tree; typed inputs and Windows/.NET compatibility; required handoff docs; native WPF MVVM/Clean Architecture graph; nullable/analyzers/Host/DI/logging/config; central pinned packages and locks; publish profile; forbidden web/browser/secret surfaces; exact closed publish arguments and arbitrary option refusal; real restore/format/build/test/publish smoke.
 
-**Task 1 exit:** focused Blueprint/Desktop/architecture tests, format, locked restore, Release build, affected full tests, diff checks, and review pass before a scoped local commit.
+**Task 2 exit:** WPF package/process/composed tests and the real generated toolchain matrix pass; expected tree/digests match across two runs; locked restore, format, Release build, affected/full regressions, EF consistency, diff/security checks, and review pass before a scoped local commit.
 
 ## M9 exit gate
 

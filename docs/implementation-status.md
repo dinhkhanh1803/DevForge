@@ -443,3 +443,19 @@ Fresh Task 7 verification on 2026-08-21 used the workspace-local .NET SDK 10.0.3
 M8 Task 8 is complete locally. Two composed E2E tests add full trusted generation-to-real-local-Git/receipt completion and deterministic private fake-GitHub interruption/retry coverage. The final focused and full gates passed with 1,354 tests, 0 failures, and 0 skips; EF reports no pending model changes. Static scans found no forbidden shell/token/force/delete/package/privacy surface, and no real GitHub remote was contacted. M9 production blueprints are the recommended next milestone.
 
 M9 Production Blueprints started on 2026-08-25. The complete baseline has been reread, the existing blueprint loader/execution/Desktop composition gaps have been audited, and the recommended versioned static-package design was approved and committed as `3dbda0b`. M9 is constrained to `desktop.csharp-wpf-tool`, `web.react-vite-ts`, and `tool.python-cli`; catalog expansion, installer/updater work, automatic deployment, arbitrary commands, and real GitHub mutation remain out of scope. Task 1 is now active: immutable built-in distribution, dual-source Desktop composition, and the production package contract harness. No M9 implementation or new passing test is claimed yet.
+
+M9 Task 1 is complete locally. Build and publish output now carries the canonical `blueprints\built-in` assets, Desktop opens that immutable root as `BuiltIn` before provisioning the separate trusted-local application-data source, and source trust remains composition-owned. Missing built-in assets fail before local blueprint mutation. A production BlueprintTests fixture opens the shipped bytes through the guarded Windows filesystem and real `BlueprintCatalog`; ADR-0015 records the static package and exact-ID directory decision. The source-of-truth package shape was corrected to `blueprints/<id>` with semantic version in the manifest/checksum, not an unsupported version subdirectory.
+
+Fresh Task 1 verification on 2026-08-25 used the workspace-local .NET SDK 10.0.302:
+
+| Gate | Command | Exact result |
+| --- | --- | --- |
+| Locked restore | `dotnet restore DevForge.sln --locked-mode --disable-build-servers -m:1 --verbosity minimal` | Exit 0; all 12 projects restored from pinned lock files. |
+| Format | `dotnet format DevForge.sln --verify-no-changes --no-restore --verbosity minimal` | Exit 0 after CRLF normalization; no formatting diagnostics. |
+| Release build | `dotnet build DevForge.sln -c Release --no-restore --disable-build-servers -m:1 -nodeReuse:false -p:UseSharedCompilation=false` | Exit 0; all 12 projects built; 0 warnings, 0 errors. |
+| Focused tests | production Blueprint distribution, Desktop host/source, and project dependency filters | Exit 0; 1 + 5 + 8 passed, 0 failed, 0 skipped. |
+| Full tests | Four Release project test commands with `--no-build --no-restore` | Exit 0; UnitTests 610, IntegrationTests 481, BlueprintTests 109, E2ETests 158; total 1,358 passed, 0 failed, 0 skipped. |
+| EF model consistency | local `dotnet-ef migrations has-pending-model-changes ... --configuration Release --no-build` | Exit 0; `No changes have been made to the model since the last migration.` |
+| Diff/security review | `git diff --check` plus scoped file/process/shell/latest scan and read-only diff review | Exit 0; no whitespace, unguarded runtime file operation, shell, arbitrary process, secret, or package-version issue found. Reviewer sub-agent was not dispatched because current orchestration policy forbids delegation without an explicit user request. |
+
+Task 2 is now recommended: the production `desktop.csharp-wpf-tool` package and its real Windows/.NET 10 validation matrix.

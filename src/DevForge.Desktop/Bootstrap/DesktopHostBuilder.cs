@@ -65,6 +65,7 @@ public static class DesktopHostBuilder
         IThemeResourceHost themeResourceHost)
     {
         services.AddSingleton(location);
+        services.AddSingleton(BuiltInBlueprintPackageLocation.Create(AppContext.BaseDirectory));
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<DevForgeDbContextFactory>();
         services.AddSingleton<ILocalDataRootProvisioner, LocalDataRootProvisioner>();

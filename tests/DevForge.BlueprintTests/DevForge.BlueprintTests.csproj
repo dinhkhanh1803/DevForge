@@ -23,8 +23,18 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\DevForge.Application\DevForge.Application.csproj" />
     <ProjectReference Include="..\..\src\DevForge.Blueprints.Abstractions\DevForge.Blueprints.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\DevForge.Blueprints.BuiltIn\DevForge.Blueprints.BuiltIn.csproj" />
+    <ProjectReference Include="..\..\src\DevForge.Domain\DevForge.Domain.csproj" />
+    <ProjectReference Include="..\..\src\DevForge.Infrastructure\DevForge.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\..\blueprints\**\*">
+      <Link>blueprints\built-in\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

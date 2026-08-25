@@ -50,6 +50,7 @@ public sealed class ProjectDependencyTests
             ["DevForge.Desktop"] =
             [
                 "DevForge.Application",
+                "DevForge.Blueprints.BuiltIn",
                 "DevForge.Infrastructure",
             ],
             ["DevForge.Domain"] = [],
@@ -78,12 +79,16 @@ public sealed class ProjectDependencyTests
             ["DevForge.ProcessTestHelper"] = [],
             ["DevForge.BlueprintTests"] =
             [
+                "DevForge.Application",
                 "DevForge.Blueprints.Abstractions",
                 "DevForge.Blueprints.BuiltIn",
+                "DevForge.Domain",
+                "DevForge.Infrastructure",
             ],
             ["DevForge.E2ETests"] =
             [
                 "DevForge.Application",
+                "DevForge.Blueprints.BuiltIn",
                 "DevForge.Desktop",
                 "DevForge.Infrastructure",
             ],

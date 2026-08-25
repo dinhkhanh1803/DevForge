@@ -23,7 +23,7 @@ This approach is preferred over runtime scaffolder commands because it avoids `l
 The canonical authoring tree is:
 
 ```text
-blueprints/<blueprint-id>/<semantic-version>/
+blueprints/<blueprint-id>/
 ├── manifest.yaml
 ├── inputs.schema.json
 ├── rules.yaml
@@ -41,7 +41,7 @@ The registry validates the application-relative root, refuses missing or ambiguo
 
 ## Package contract
 
-Every package uses semantic version `1.0.0`, declares a bounded engine range, declares only supported tools, and has a checksum declaration covering every package file except `checksums.json` itself. Empty structural directories are represented by bounded explanatory files so the release artifact retains the documented shape.
+Every package uses semantic version `1.0.0` in its manifest, declares a bounded engine range, declares only supported tools, and has a checksum declaration covering every package file except `checksums.json` itself. The canonical package directory is its exact blueprint ID; version identity is bound by the manifest and aggregate checksum rather than an extra directory level. Empty structural directories are represented by bounded explanatory files so the release artifact retains the documented shape.
 
 Inputs use the existing typed schema and restricted template language. Inputs cannot name secrets, cannot contain commands, and cannot select package versions. Compatibility rules are deterministic expressions over the Environment Doctor and team profile snapshots. Actions use only the closed handlers and guarded package/payload-relative paths.
 

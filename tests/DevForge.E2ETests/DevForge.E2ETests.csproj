@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\DevForge.Application\DevForge.Application.csproj" />
+    <ProjectReference Include="..\..\src\DevForge.Blueprints.BuiltIn\DevForge.Blueprints.BuiltIn.csproj" />
     <ProjectReference Include="..\..\src\DevForge.Infrastructure\DevForge.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\DevForge.Desktop\DevForge.Desktop.csproj" />
   </ItemGroup>
