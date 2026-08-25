@@ -305,6 +305,89 @@ public sealed class ProcessExecutionHandlerTests
     }
 
     [Fact]
+    public async Task PackageInstallAcceptsOnlyFrozenScriptDisabledPnpmInstall()
+    {
+        await using var fixture = await ProcessFixture.CreateAsync();
+        var runner = new RecordingRunner(Exited(0));
+        var valid = fixture.StepRequest(
+            "package-install",
+            ("packageManager", Text("pnpm")),
+            ("arguments", Sequence(Text("install"), Text("--frozen-lockfile"), Text("--ignore-scripts"))),
+            ("workingDirectory", Text(".")));
+        var invalid = fixture.StepRequest(
+            "package-install",
+            ("packageManager", Text("pnpm")),
+            ("arguments", Sequence(
+                Text("install"),
+                Text("--frozen-lockfile"),
+                Text("--ignore-scripts"),
+                Text("--registry=https://registry.example.invalid"))),
+            ("workingDirectory", Text(".")));
+
+        var success = await new PackageInstallExecutionHandler(runner).ExecuteAsync(valid, null, default);
+        var failure = await new PackageInstallExecutionHandler(runner).ExecuteAsync(invalid, null, default);
+
+        Assert.Equal(ExecutionHandlerOutcome.Succeeded, success.Outcome);
+        Assert.Equal(ExecutionHandlerOutcome.Failed, failure.Outcome);
+        Assert.Equal(
+            ["install", "--frozen-lockfile", "--ignore-scripts"],
+            Assert.Single(runner.Commands).ArgumentList.ToArray());
+    }
+
+    [Theory]
+    [InlineData("lint")]
+    [InlineData("typecheck")]
+    [InlineData("test")]
+    [InlineData("build")]
+    public async Task ValidateCommandAcceptsOnlyReviewedPnpmScripts(string script)
+    {
+        await using var fixture = await ProcessFixture.CreateAsync();
+        var runner = new RecordingRunner(Exited(0));
+        var request = fixture.ValidatorRequest(
+            required: true,
+            ("executable", Text("pnpm")),
+            ("arguments", Sequence(Text("run"), Text(script))),
+            ("workingDirectory", Text(".")),
+            ("allowedExitCodes", Sequence(PlanValue.FromInteger(0))),
+            ("required", PlanValue.FromBoolean(true)));
+
+        var result = await new ValidateCommandExecutionHandler(runner).ExecuteAsync(
+            request,
+            null,
+            CancellationToken.None);
+
+        Assert.Equal(ExecutionHandlerOutcome.Succeeded, result.Outcome);
+        Assert.Equal(["run", script], Assert.Single(runner.Commands).ArgumentList.ToArray());
+    }
+
+    [Theory]
+    [InlineData("exec", "vite")]
+    [InlineData("dlx", "create-vite")]
+    [InlineData("run", "deploy")]
+    [InlineData("run", "lint -- --fix")]
+    [InlineData("config", "set")]
+    public async Task ValidateCommandRejectsUnreviewedPnpmOperations(string verb, string value)
+    {
+        await using var fixture = await ProcessFixture.CreateAsync();
+        var runner = new RecordingRunner(Exited(0));
+        var request = fixture.ValidatorRequest(
+            required: true,
+            ("executable", Text("pnpm")),
+            ("arguments", Sequence(Text(verb), Text(value))),
+            ("workingDirectory", Text(".")),
+            ("allowedExitCodes", Sequence(PlanValue.FromInteger(0))),
+            ("required", PlanValue.FromBoolean(true)));
+
+        var result = await new ValidateCommandExecutionHandler(runner).ExecuteAsync(
+            request,
+            null,
+            CancellationToken.None);
+
+        Assert.Equal(ExecutionHandlerOutcome.Failed, result.Outcome);
+        Assert.Empty(runner.Commands);
+    }
+
+    [Fact]
     public async Task HandlerKindCannotCrossTheGenerationValidatorBoundary()
     {
         await using var fixture = await ProcessFixture.CreateAsync();

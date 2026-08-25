@@ -1,0 +1,254 @@
+id: web.react-vite-ts
+name: React + Vite + TypeScript
+version: 1.0.0
+engineVersion: ">=1.0.0 <2.0.0"
+tools:
+  - id: node
+    version: ">=22.0.0 <25.0.0"
+    required: true
+  - id: pnpm
+    version: ">=10.0.0 <11.0.0"
+    required: true
+features: []
+actions:
+  - id: copy-source
+    handler: copy-overlay
+    timeoutSeconds: 30
+    parameters:
+      source: 'overlays\base\src'
+      target: src
+  - id: render-package
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\package.json'
+      target: package.json
+  - id: render-lock
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\pnpm-lock.yaml'
+      target: pnpm-lock.yaml
+  - id: render-index
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\index.html'
+      target: index.html
+  - id: render-tsconfig
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\tsconfig.json'
+      target: tsconfig.json
+  - id: render-tsconfig-app
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\tsconfig.app.json'
+      target: tsconfig.app.json
+  - id: render-tsconfig-node
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\tsconfig.node.json'
+      target: tsconfig.node.json
+  - id: render-vite
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\vite.config.ts'
+      target: vite.config.ts
+  - id: render-eslint
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\eslint.config.js'
+      target: eslint.config.js
+  - id: render-prettier
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\.prettierrc.json'
+      target: .prettierrc.json
+  - id: render-prettier-ignore
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\.prettierignore'
+      target: .prettierignore
+  - id: render-editor
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\.editorconfig'
+      target: .editorconfig
+  - id: render-gitignore
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\.gitignore'
+      target: .gitignore
+  - id: render-env-example
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\.env.example'
+      target: .env.example
+  - id: render-readme
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\README.md'
+      target: README.md
+  - id: render-architecture
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\ARCHITECTURE.md'
+      target: ARCHITECTURE.md
+  - id: render-contributing
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\CONTRIBUTING.md'
+      target: CONTRIBUTING.md
+  - id: render-development
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\DEVELOPMENT.md'
+      target: DEVELOPMENT.md
+  - id: render-testing
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\TESTING.md'
+      target: TESTING.md
+  - id: render-deployment
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\DEPLOYMENT.md'
+      target: DEPLOYMENT.md
+  - id: render-team-start
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\TEAM_START_HERE.md'
+      target: TEAM_START_HERE.md
+  - id: install
+    handler: package-install
+    timeoutSeconds: 900
+    parameters:
+      packageManager: pnpm
+      arguments:
+        - install
+        - --frozen-lockfile
+        - --ignore-scripts
+      workingDirectory: .
+validators:
+  - id: lint
+    handler: validate-command
+    timeoutSeconds: 300
+    required: true
+    parameters:
+      executable: pnpm
+      arguments:
+        - run
+        - lint
+      workingDirectory: .
+      allowedExitCodes:
+        - 0
+      required: true
+  - id: typecheck
+    handler: validate-command
+    timeoutSeconds: 300
+    required: true
+    parameters:
+      executable: pnpm
+      arguments:
+        - run
+        - typecheck
+      workingDirectory: .
+      allowedExitCodes:
+        - 0
+      required: true
+  - id: test
+    handler: validate-command
+    timeoutSeconds: 300
+    required: true
+    parameters:
+      executable: pnpm
+      arguments:
+        - run
+        - test
+      workingDirectory: .
+      allowedExitCodes:
+        - 0
+      required: true
+  - id: build
+    handler: validate-command
+    timeoutSeconds: 300
+    required: true
+    parameters:
+      executable: pnpm
+      arguments:
+        - run
+        - build
+      workingDirectory: .
+      allowedExitCodes:
+        - 0
+      required: true
+artifacts:
+  - path: package.json
+  - path: pnpm-lock.yaml
+  - path: README.md
+  - path: ARCHITECTURE.md
+  - path: CONTRIBUTING.md
+  - path: DEVELOPMENT.md
+  - path: TESTING.md
+  - path: DEPLOYMENT.md
+  - path: TEAM_START_HERE.md
+  - path: src\app\App.tsx
+  - path: src\app\App.test.tsx
+  - path: dist\index.html
+dependencies:
+  - id: react
+    version: 19.2.8
+  - id: react-dom
+    version: 19.2.8
+  - id: zod
+    version: 4.4.3
+  - id: eslint.js
+    version: 10.0.1
+  - id: testing-library.jest-dom
+    version: 7.0.1
+  - id: testing-library.react
+    version: 16.3.2
+  - id: types.react
+    version: 19.2.18
+  - id: types.react-dom
+    version: 19.2.5
+  - id: types.node
+    version: 22.20.1
+  - id: vitejs.plugin-react
+    version: 6.1.0
+  - id: eslint
+    version: 10.9.1
+  - id: eslint-plugin-react-hooks
+    version: 7.1.1
+  - id: eslint-plugin-react-refresh
+    version: 0.5.4
+  - id: jsdom
+    version: 29.1.1
+  - id: prettier
+    version: 3.9.6
+  - id: typescript
+    version: 6.0.3
+  - id: typescript-eslint
+    version: 8.68.0
+  - id: vite
+    version: 8.2.2
+  - id: vitest
+    version: 4.1.11

@@ -95,6 +95,13 @@ internal sealed class PackageInstallExecutionHandler(IProcessRunner runner) :
                     && arguments.Skip(1).Contains("package", StringComparer.Ordinal);
         }
 
+        if (StringComparer.Ordinal.Equals(packageManager, "pnpm"))
+        {
+            return arguments.SequenceEqual(
+                ["install", "--frozen-lockfile", "--ignore-scripts"],
+                StringComparer.Ordinal);
+        }
+
         return arguments[0] is "install" or "ci"
             && arguments.Any(argument => argument is "--ignore-scripts" or "--ignore-scripts=true")
             && arguments.All(argument =>
@@ -135,10 +142,7 @@ internal sealed class ValidateCommandExecutionHandler(IProcessRunner runner) :
 
         var executable = Identifier(context, "executable");
         var arguments = Arguments(context);
-        if (!StringComparer.Ordinal.Equals(executable, "dotnet")
-            || arguments.IsEmpty
-            || arguments[0] is not ("build" or "test" or "format")
-                && !IsWpfPublishSmoke(arguments))
+        if (!IsSafeValidationCommand(executable, arguments))
         {
             throw new ProcessHandlerInputException();
         }
@@ -158,6 +162,23 @@ internal sealed class ValidateCommandExecutionHandler(IProcessRunner runner) :
                 "--property:PublishProfile=WindowsSmoke",
             ],
             StringComparer.Ordinal);
+    }
+
+    private static bool IsSafeValidationCommand(
+        string executable,
+        ImmutableArray<string> arguments)
+    {
+        if (StringComparer.Ordinal.Equals(executable, "dotnet"))
+        {
+            return !arguments.IsEmpty
+                && (arguments[0] is "build" or "test" or "format"
+                    || IsWpfPublishSmoke(arguments));
+        }
+
+        return StringComparer.Ordinal.Equals(executable, "pnpm")
+            && arguments.Length == 2
+            && arguments[0] == "run"
+            && arguments[1] is "lint" or "typecheck" or "test" or "build";
     }
 }
 

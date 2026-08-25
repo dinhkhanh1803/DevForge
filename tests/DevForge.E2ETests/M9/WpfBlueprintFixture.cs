@@ -28,17 +28,20 @@ internal sealed class WpfBlueprintFixture : IAsyncDisposable
         string root,
         string targetRoot,
         ProjectCreationWorkflow workflow,
-        RecordingProcessRunner runner)
+        RecordingProcessRunner runner,
+        string projectName,
+        string targetName,
+        string blueprintId)
     {
         _root = root;
-        TargetPath = Path.Combine(targetRoot, "team-tool");
+        TargetPath = Path.Combine(targetRoot, targetName);
         Workflow = workflow;
         Runner = runner;
         Draft = ProjectCreationDraft.Create(
-            "Team Tool",
+            projectName,
             targetRoot,
-            "team-tool",
-            BlueprintReference.Create("desktop.csharp-wpf-tool", "1.0.0").Value,
+            targetName,
+            BlueprintReference.Create(blueprintId, "1.0.0").Value,
             new Dictionary<string, DynamicInputValue?>(),
             [],
             "none").Value;
@@ -52,9 +55,28 @@ internal sealed class WpfBlueprintFixture : IAsyncDisposable
 
     public string TargetPath { get; }
 
-    public static async Task<WpfBlueprintFixture> CreateAsync()
+    public static Task<WpfBlueprintFixture> CreateAsync() => CreateAsync(
+        "Team Tool",
+        "team-tool",
+        "desktop.csharp-wpf-tool",
+        [new EnvironmentTool("dotnet", "10.0.302", true)]);
+
+    public static Task<WpfBlueprintFixture> CreateReactAsync() => CreateAsync(
+        "Team Portal",
+        "team-portal",
+        "web.react-vite-ts",
+        [
+            new EnvironmentTool("node", "22.21.1", true),
+            new EnvironmentTool("pnpm", "10.24.0", true),
+        ]);
+
+    private static async Task<WpfBlueprintFixture> CreateAsync(
+        string projectName,
+        string targetName,
+        string blueprintId,
+        IReadOnlyCollection<EnvironmentTool> tools)
     {
-        var root = Path.Combine(Path.GetTempPath(), "DevForge-M9-Wpf-E2E-" + Guid.NewGuid().ToString("N"));
+        var root = Path.Combine(Path.GetTempPath(), "DevForge-M9-Blueprint-E2E-" + Guid.NewGuid().ToString("N"));
         var targetRoot = Path.Combine(root, "projects");
         var localDataRoot = Path.Combine(root, "local-data");
         Directory.CreateDirectory(targetRoot);
@@ -81,7 +103,7 @@ internal sealed class WpfBlueprintFixture : IAsyncDisposable
             await catalog.RefreshAsync(CancellationToken.None);
             var environment = EnvironmentSnapshot.Create(
                 DateTimeOffset.UtcNow,
-                [new EnvironmentTool("dotnet", "10.0.302", true)],
+                tools,
                 []).Value;
             var planner = new ProjectPlanner(
                 catalog,
@@ -117,7 +139,14 @@ internal sealed class WpfBlueprintFixture : IAsyncDisposable
                 new GuidRunIdentityGenerator(),
                 orchestrator,
                 TimeProvider.System);
-            return new WpfBlueprintFixture(root, targetRoot, workflow, runner);
+            return new WpfBlueprintFixture(
+                root,
+                targetRoot,
+                workflow,
+                runner,
+                projectName,
+                targetName,
+                blueprintId);
         }
         catch
         {
@@ -136,7 +165,7 @@ internal sealed class WpfBlueprintFixture : IAsyncDisposable
     {
         var fullPath = Path.GetFullPath(root);
         if (!fullPath.StartsWith(Path.GetTempPath(), StringComparison.OrdinalIgnoreCase)
-            || !Path.GetFileName(fullPath).StartsWith("DevForge-M9-Wpf-E2E-", StringComparison.Ordinal))
+            || !Path.GetFileName(fullPath).StartsWith("DevForge-M9-Blueprint-E2E-", StringComparison.Ordinal))
         {
             throw new InvalidOperationException("Refusing to clean an unexpected M9 fixture path.");
         }

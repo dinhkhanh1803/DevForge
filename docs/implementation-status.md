@@ -1,7 +1,7 @@
 # DevForge Studio Implementation Status
 
-**Current milestone:** M9 - Production Blueprints (Task 3 active)
-**Status:** M0-M8 and M9 Tasks 1-2 complete and locally verified
+**Current milestone:** M9 - Production Blueprints (Task 4 active)
+**Status:** M0-M8 and M9 Tasks 1-3 complete and locally verified
 **Last updated:** 2026-08-25
 
 ## M8 final scope and closure
@@ -479,4 +479,24 @@ Fresh Task 2 verification on 2026-08-25 used the workspace-local .NET SDK 10.0.3
 | Full tests | four Release project test commands with `--no-build --no-restore` | Exit 0; UnitTests 610, IntegrationTests 485, BlueprintTests 115, E2ETests 159; total 1,369 passed, 0 failed, 0 skipped. |
 | EF model consistency | local `dotnet-ef migrations has-pending-model-changes ... --configuration Release --no-build` | Exit 0; `No changes have been made to the model since the last migration.` |
 
-Task 3 is now recommended: the closed pnpm validation vocabulary and production `web.react-vite-ts` blueprint.
+M9 Task 3 is complete locally. `web.react-vite-ts@1.0.0` is now a checksum-complete built-in package with React 19, Vite 8, strict TypeScript, synchronized `@` aliases, ESLint, Prettier, Zod-validated public environment input, an explicit API client boundary, Vitest/jsdom coverage, exact pinned dependencies, a pnpm lockfile, and seven production handoff documents. `.env*` is excluded while the empty-value `.env.example` remains tracked. ADR-0017 records the static-package and closed-pnpm decision.
+
+The production command boundary accepts only `pnpm install --frozen-lockfile --ignore-scripts` for installation and exact `pnpm run lint|typecheck|test|build` validators. Extra arguments, deploy, exec, dlx, config, registry, credential, and lifecycle-script escape surfaces fail before `IProcessRunner` invocation. Two production-composition executions prove stable plan hashes and final-tree digests. A standalone temp tree proves the real package matrix without inheriting DevForge configuration. The full E2E run exposed that the new React and existing WPF composition tests could contend on the intentional process-wide execution gate; both now share a non-parallel M9 collection, and the full regression passes.
+
+Fresh Task 3 verification on 2026-08-25 used Node 22.21.1, pnpm 10.24.0, and the workspace-local .NET SDK 10.0.302:
+
+| Gate | Command | Exact result |
+|---|---|---|
+| Generated frozen install | standalone temp tree: `pnpm install --frozen-lockfile --ignore-scripts` with CI mode | Exit 0; lockfile current; 236 packages installed from the exact graph; lifecycle scripts disabled. |
+| Generated format | standalone temp tree: `pnpm run format:check` | Exit 0; all matched files use Prettier style. |
+| Generated lint | standalone temp tree: `pnpm run lint` | Exit 0; no ESLint diagnostics. |
+| Generated typecheck | standalone temp tree: `pnpm run typecheck` | Exit 0; strict project-reference TypeScript compilation completed without diagnostics. |
+| Generated tests | standalone temp tree: `pnpm run test` | Exit 0; 2 files and 2 tests passed. |
+| Generated production build | standalone temp tree: `pnpm run build` | Exit 0; Vite 8.2.2 transformed 16 modules and emitted `dist`. |
+| DevForge locked restore | `dotnet restore DevForge.sln --locked-mode --disable-build-servers -m:1` | Exit 0; all 12 projects restored or up to date from pinned lock files. |
+| DevForge format | write pass followed by `dotnet format DevForge.sln --verify-no-changes --no-restore` | Exit 0; no formatting diagnostics. |
+| DevForge Release build | serialized `dotnet build DevForge.sln --configuration Release --no-restore ...` | Exit 0; all 12 projects built; 0 warnings, 0 errors. |
+| Full tests | four Release project test commands with `--no-build --no-restore` | Exit 0 after the M9 non-parallel regression; UnitTests 610, IntegrationTests 495, BlueprintTests 120, E2ETests 160; total 1,385 passed, 0 failed, 0 skipped. |
+| EF model consistency | local `dotnet-ef migrations has-pending-model-changes ... --configuration Release --no-build` | Exit 0; `No changes have been made to the model since the last migration.` |
+
+Task 4 is now recommended: the closed uv boundary and production `tool.python-cli` blueprint.
