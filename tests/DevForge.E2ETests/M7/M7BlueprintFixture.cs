@@ -229,6 +229,15 @@ internal sealed class M7BlueprintFixture : IAsyncDisposable
 
         if (Directory.Exists(fullPath))
         {
+            foreach (var file in Directory.EnumerateFiles(fullPath, "*", SearchOption.AllDirectories))
+            {
+                var attributes = File.GetAttributes(file);
+                if ((attributes & FileAttributes.ReadOnly) != 0)
+                {
+                    File.SetAttributes(file, attributes & ~FileAttributes.ReadOnly);
+                }
+            }
+
             Directory.Delete(fullPath, recursive: true);
         }
     }

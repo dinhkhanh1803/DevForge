@@ -4,9 +4,9 @@ DevForge Studio is a planned native Windows project factory for team leaders and
 
 ## Current status
 
-Milestones M0-M7 are implemented. The native WPF application now composes validated domain contracts, local blueprint planning, SQLite persistence, guarded Windows infrastructure, recoverable execution, and startup recovery into a persistent desktop shell. Dashboard, Settings, Environment Doctor, Create Project, Blueprint Catalog, Run History, reviewed Plan Preview, Execution Center, and LocalReady evidence are functional. Read-only startup safe mode keeps all mutating creation and recovery actions disabled.
+Milestones M0-M8 are implemented. The native WPF application composes validated domain contracts, deterministic local blueprint planning, SQLite persistence, guarded Windows infrastructure, recoverable generation, and evidence-backed Git/GitHub completion into a persistent desktop shell. Dashboard, Settings, Environment Doctor, Create Project, Blueprint Catalog, Run History, reviewed Plan Preview, Execution Center, `LocalReady`, `PublishPending`, and `Completed` evidence are functional. Read-only startup safe mode keeps all mutating creation, recovery, and publication actions disabled.
 
-Git/GitHub automation, production blueprints, packaging, and catalog expansion remain assigned to M8-M11. M7 intentionally stops successful generation at `LocalReady`; it does not claim Domain `Completed`. The product still has no AI API, cloud backend, embedded browser, arbitrary shell execution, or Administrator happy-path requirement.
+Reviewed projects can be initialized as an exact clean local Git repository with the fixed bootstrap commit and `main` or `main + develop`. Optional personal GitHub publication is private by default, verifies the exact `github.com` account, binds recovery to an ownership nonce, and retries from durable checkpoints without rerunning generation or duplicating the commit. Production blueprints, packaging/release hardening, and catalog expansion remain assigned to M9-M11. The product has no AI API, cloud backend, embedded browser, arbitrary shell execution, or Administrator happy-path requirement.
 
 ## Prerequisites
 
@@ -66,7 +66,9 @@ Executable architecture tests enforce the project graph, target frameworks, WPF 
 - No web shell, Electron, Tauri, Blazor Hybrid, or embedded browser.
 - No OpenAI, Gemini, other AI API, cloud backend, or outbound telemetry.
 - No arbitrary shell strings, Administrator requirement, or secret persistence.
-- No GitHub push, force-push, overwrite of non-empty targets, or destructive unowned-directory behavior is enabled in the current M7 product.
+- Git/GitHub operations use a closed typed vocabulary through the guarded process runner; no shell string, token command, force push, remote deletion, or unrelated repository adoption is allowed.
+- GitHub publication is opt-in and private by default. Automated tests use deterministic fakes and never create or contact a real repository.
+- Project finalization, Git bootstrap, and publication receipts are no-overwrite operations; unowned or mismatched local/remote state fails closed.
 
 See `docs/implementation-plan.md` for the milestone plan and `docs/implementation-status.md` for verified gate evidence.
 

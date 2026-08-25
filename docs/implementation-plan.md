@@ -2,7 +2,7 @@
 
 **Goal:** Convert reviewed `LocalReady` projects into recoverable, evidence-backed Git/GitHub completion through trusted CLI boundaries.
 
-**Status:** M8 design independently approved; Tasks 1-7 complete and Task 8 integration/closure is next.
+**Status:** M8 complete and locally verified; M9 production blueprints are next.
 
 **Architecture:** Application owns post-finalization publication and durable state; Infrastructure implements closed Git/`gh` operations over `IProcessRunner` and guarded workspaces; Desktop projects immutable publication status and actions. The persisted reviewed plan remains authoritative.
 
@@ -12,7 +12,7 @@
 
 - Design: `docs/superpowers/specs/2026-08-14-m8-git-github-publishing-design.md`
 - Task plan: `docs/superpowers/plans/2026-08-14-m8-git-github-publishing.md`
-- Decision to create at closure: `docs/decisions/0013-recoverable-git-github-completion.md`
+- Closure decision: `docs/decisions/0014-recoverable-git-github-completion.md` (`0013` is already the accepted fixed credential-handoff decision).
 
 ## Current scope and progress
 
@@ -24,7 +24,7 @@
 - [x] Implement recoverable post-finalization publication orchestration.
 - [x] Enable reviewed Git intent in Create Project contracts, presets, and plans.
 - [x] Enable Desktop completion UX.
-- [ ] Close integration, security, privacy, migration, and full-solution gates.
+- [x] Close integration, security, privacy, migration, and full-solution gates.
 
 ## Exit gate
 
@@ -89,3 +89,15 @@ M8 exits only after the reviewed Git intent is hash-bound; Git is clean with the
 **Task 7 exit:** focused Application/Desktop tests, exact status/action/safe-mode/accessibility/recovery matrices, format, locked restore, Release build, full solution tests, EF consistency, diff checks, and scoped review pass before a local commit. No real GitHub remote, push, or production blueprint is part of this task.
 
 **Completion:** implemented locally on 2026-08-21. Create Project exposes Git-on, closed branch policy, optional GitHub personal repository, and private-default controls; every edit invalidates the reviewed plan and the preview renders the immutable choices. A Desktop-facing Application facade owns authoritative checkpoint reload after publication failure. One-button creation continues `LocalReady` into Git/GitHub completion, while `PublishPending` exposes bounded remediation and Retry Publish without rerunning generation. Completed presentation includes commit, ordered branches, receipt reference, and optional repository URL. Safe mode disables initial and Run History publication mutation. Task 8 remains the M8 integration and closure slice.
+
+## Task 8 execution boundary
+
+**Scope:** close M8 with one production-composed generation-to-local-Git E2E path and one deterministic fake-GitHub private-publication path, then aggregate the already focused kill-window, lease, recovery, nonce, receipt, non-overwrite, architecture, and privacy matrices. No real GitHub repository, production blueprint, packaging, or M9 behavior is in scope.
+
+**Expected files:** `tests/DevForge.E2ETests/M8/*`, `docs/decisions/0014-recoverable-git-github-completion.md`, `docs/implementation-plan.md`, `docs/implementation-status.md`, `README.md`, and `CHANGELOG.md`. Production files change only if a new E2E regression exposes a concrete defect.
+
+**TDD matrix:** trusted blueprint generation and validation reaches `LocalReady`; the exact finalized tree is committed once by the production Git CLI service and remains clean at evidence-backed `Completed`; deterministic fake GitHub publication is private, nonce-owned, and durable without network access; recoverable failure remains `PublishPending`; focused existing matrices cover every durable/local-Git kill phase, nonce-owned empty/partial/complete remotes, orphan receipt adoption/refusal, cross-process contention, retry without duplicate generation/commit, and no-overwrite.
+
+**Task 8 exit:** locked restore, format verification, Release build, focused M8/publication/Git/GitHub/architecture/privacy tests, all four test projects, EF migration consistency, diff check, and forbidden-command/secret-surface scans pass from observed commands. The worktree is committed locally only, M8 is marked complete, and M9 is recommended without being started.
+
+**Completion:** implemented and locally verified on 2026-08-25. The composed fixture proves trusted generation/validation through production local Git and an atomic receipt to `Completed`, then re-verifies the exact clean repository without a terminal. A deterministic private fake-GitHub interruption persists `PublishPending`; retry retains the same generation evidence, commit, nonce, and reviewed branches before completing. Existing focused matrices close local/durable kill windows, nonce-owned remote recovery, lease contention, orphan receipt/non-overwrite, architecture, and privacy. ADR-0014 records the closure boundary. M9 is next; no production blueprint or real GitHub remote was added.

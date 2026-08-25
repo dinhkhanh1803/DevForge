@@ -1,8 +1,33 @@
 # DevForge Studio Implementation Status
 
-**Current milestone:** M8 - Git and GitHub Completion
-**Status:** M0-M7 complete; M8 Tasks 1-6 complete and locally verified
-**Last updated:** 2026-08-14
+**Current milestone:** M9 - Production Blueprints (recommended next)
+**Status:** M0-M8 complete and locally verified
+**Last updated:** 2026-08-25
+
+## M8 final scope and closure
+
+M8 is complete locally. Reviewed Git intent is immutable across Create Project, preset, recipe, preview, canonical plan hash, and checkpoint. Production local Git and optional fixed-account personal GitHub publication run only through closed typed `IProcessRunner` operations with isolated configuration/credentials, private-by-default visibility, ownership nonce, durable phase checkpoints, exact recovery, atomic receipts, and safe-mode refusal. Failure remains `PublishPending`; retry never invokes generation or duplicates the initial commit.
+
+The Task 8 fixture composes the trusted M7 blueprint pipeline, SQLite checkpoint store, guarded Windows workspaces, production local Git service, publication coordinator, cross-process lease, and atomic receipt store. It proves generation and validation through `LocalReady`, an exact clean local Git repository and `Completed`, then a second full verification from durable evidence. Its deterministic GitHub boundary proves private publication interruption to `PublishPending` and successful retry with identical generation evidence, commit, branch policy, and persisted nonce. Focused existing matrices cover every durable coordinator phase, real local Git `init`/`add`/`commit`/`develop` kill window, nonce-owned empty/partial/complete remotes, exact orphan receipt adoption/refusal, cross-process contention, non-overwrite, architecture, and privacy. Automated tests did not create, mutate, or contact a real GitHub repository.
+
+ADR-0014 records the final recoverable completion decision; ADR-0013 remains the narrower fixed GitHub CLI credential-handoff decision.
+
+## M8 final exit gate
+
+Fresh local verification on 2026-08-25 used workspace-local .NET SDK 10.0.302:
+
+| Gate | Command | Exact result |
+| --- | --- | --- |
+| Locked restore | `dotnet restore DevForge.sln --locked-mode --force-evaluate --no-cache -m:1 --verbosity minimal` | Exit 0; all 12 projects restored from pinned lock files. |
+| Format | `dotnet format DevForge.sln --no-restore` then `dotnet format DevForge.sln --verify-no-changes --no-restore --verbosity minimal` | Exit 0; new C# lines normalized to repository CRLF policy; final verification produced no diagnostics. |
+| Release build | `dotnet build DevForge.sln -c Release --no-restore --disable-build-servers -m:1 -nodeReuse:false --verbosity minimal` | Exit 0; all 12 projects built; 0 warnings, 0 errors. |
+| Focused M8 E2E | `dotnet test tests/DevForge.E2ETests/DevForge.E2ETests.csproj -c Release --no-restore -m:1 -nodeReuse:false --filter "FullyQualifiedName~DevForge.E2ETests.M8.ProjectPublicationE2ETests"` | Exit 0; 2 passed, 0 failed, 0 skipped. |
+| Focused publication/architecture/privacy | `dotnet test tests/DevForge.UnitTests/DevForge.UnitTests.csproj -c Release --no-restore -m:1 -nodeReuse:false --filter "FullyQualifiedName~Application.Publication\|FullyQualifiedName~Architecture\|FullyQualifiedName~Privacy"` | Exit 0; 139 passed, 0 failed, 0 skipped. |
+| Focused Git/GitHub/publication/persistence/privacy | `dotnet test tests/DevForge.IntegrationTests/DevForge.IntegrationTests.csproj -c Release --no-restore -m:1 -nodeReuse:false --filter "FullyQualifiedName~Infrastructure.Git\|FullyQualifiedName~Infrastructure.GitHub\|FullyQualifiedName~Infrastructure.Publication\|FullyQualifiedName~CheckpointPublicationCodec\|FullyQualifiedName~RunCheckpointStore\|FullyQualifiedName~PersistencePrivacy"` | Exit 0; 108 passed, 0 failed, 0 skipped. |
+| Full tests | Four Release project test commands with `--no-build --no-restore -m:1 -nodeReuse:false` | Exit 0; UnitTests 610, IntegrationTests 481, BlueprintTests 108, E2ETests 155; total 1,354 passed, 0 failed, 0 skipped. |
+| EF model consistency | pinned SDK + local `dotnet-ef.dll migrations has-pending-model-changes --project src/DevForge.Infrastructure --startup-project src/DevForge.Infrastructure --context DevForgeDbContext --configuration Release --no-build` | Exit 0; `No changes have been made to the model since the last migration.` |
+| Static boundaries | `rg` scans over production and package files | No `cmd /c`, PowerShell execution, force/delete/token command, Desktop direct process/filesystem access, inline package version, wildcard/latest dependency, web shell, embedded browser, or AI/cloud integration found. |
+| Diff check | `git diff --check` | Exit 0; no whitespace errors. |
 
 ## Current M7 scope
 
@@ -336,13 +361,13 @@ Verification used the workspace-local SDK at `.tools/dotnet/dotnet.exe` with `DO
 - The M7 E2E package is test-only; the three production MVP blueprints remain assigned to M9.
 - Environment probing and IDE launch support only the fixed trusted tool catalog; arbitrary executable discovery remains intentionally unsupported.
 - SQLite's online backup API is synchronous during the copy itself; cancellation is honored immediately before and after the bounded call, and recovery always completes before post-mutation cancellation is propagated.
-- The Desktop completion flow is implemented, but M8's full generate-to-Git/GitHub integration fixture and closure/security matrix remain Task 8; no real GitHub remote is exercised by automated tests.
+- GitHub publication is covered with deterministic typed fakes; automated tests intentionally do not exercise or mutate a real GitHub account/repository.
 - Support bundles, production log browsing, Open Staging/folder handoff, packaging, and release hardening remain assigned to M10.
 - Guarded Windows operations remain path-based. M5's owned staging, process-wide lease, detached verified packages, and closed sequential handlers exclude an in-scope blueprint actor from racing ancestor replacement; a future threat model that includes a separate hostile same-user process requires handle-relative no-follow native operations.
 
 ## Milestone progression
 
-M8 is now active. Its independently reviewed implementation boundary is `docs/superpowers/specs/2026-08-14-m8-git-github-publishing-design.md` and its task-level TDD plan is `docs/superpowers/plans/2026-08-14-m8-git-github-publishing.md`. The scope is limited to reviewed Git intent, guarded post-finalization Git/`gh` operations, integrity-bound publication persistence, `PublishPending` recovery, and evidence-backed `Completed`. Production blueprints remain M9; CI/release hardening remains M10; catalog expansion remains M11.
+M8 is complete. Its independently reviewed implementation boundary is `docs/superpowers/specs/2026-08-14-m8-git-github-publishing-design.md`, its task-level TDD plan is `docs/superpowers/plans/2026-08-14-m8-git-github-publishing.md`, and ADR-0014 records closure. Production blueprints are the recommended M9 scope; CI/release hardening remains M10; catalog expansion remains M11.
 
 M8 Task 1 is complete locally. The public ports now expose only closed Git bootstrap/verification and exact-account GitHub authentication/publication operations; reviewed identity is part of the canonical plan hash; publication snapshots are bounded and immutable; and `RunCheckpoint` rejects out-of-order, wrong-branch, wrong-identity, or evidence-free `Completed` states. Fresh verification passed format, Release build with 0 warnings/errors, UnitTests 563, IntegrationTests 387, BlueprintTests 108, and E2ETests 140. Task 2 adds the versioned durable publication snapshot and final-tree digest migration.
 
@@ -415,4 +440,4 @@ Fresh Task 7 verification on 2026-08-21 used the workspace-local .NET SDK 10.0.3
 | Full tests | Four Release project test commands with `--no-build --no-restore` plus final authoritative-reload and safe-mode Desktop regressions | Exit 0; UnitTests 610, IntegrationTests 481, BlueprintTests 108, E2ETests 153; total 1,352 passed, 0 failed, 0 skipped. |
 | EF model consistency | pinned SDK + local `dotnet-ef.dll migrations has-pending-model-changes ... --configuration Release --no-build` | Exit 0; `No changes have been made to the model since the last migration.` |
 
-M8 Task 8, the full generation-to-local-Git/private-fake-GitHub integration, kill-window/security matrix, ADR/status/README closure, and final review, is the recommended next slice. Production blueprints remain M9.
+M8 Task 8 is complete locally. Two composed E2E tests add full trusted generation-to-real-local-Git/receipt completion and deterministic private fake-GitHub interruption/retry coverage. The final focused and full gates passed with 1,354 tests, 0 failures, and 0 skips; EF reports no pending model changes. Static scans found no forbidden shell/token/force/delete/package/privacy surface, and no real GitHub remote was contacted. M9 production blueprints are the recommended next milestone.
