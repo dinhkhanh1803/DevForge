@@ -45,7 +45,7 @@ Every package uses semantic version `1.0.0`, declares a bounded engine range, de
 
 Inputs use the existing typed schema and restricted template language. Inputs cannot name secrets, cannot contain commands, and cannot select package versions. Compatibility rules are deterministic expressions over the Environment Doctor and team profile snapshots. Actions use only the closed handlers and guarded package/payload-relative paths.
 
-Each generated project contains:
+Each generated project contains the required handoff documents:
 
 - `README.md`
 - `ARCHITECTURE.md`
@@ -54,12 +54,7 @@ Each generated project contains:
 - `TESTING.md`
 - `DEPLOYMENT.md`
 - `TEAM_START_HERE.md`
-- `.devforge/project.recipe.yaml`
-- `devforge.lock.json`
-- `generation-report.json`
-- `policy.snapshot.json`
-
-The engine-owned report remains authoritative where the existing finalization pipeline already owns it; a blueprint must not forge or overwrite engine evidence. `.env.example` is included only where a runtime configuration example is useful, and generated `.gitignore` excludes `.env` and other local secret files.
+The execution run also persists `.devforge/project.recipe.yaml`, `devforge.lock.json`, `generation-report.json`, and `policy.snapshot.json` as engine-owned run evidence. A blueprint must not forge or overwrite that evidence. `.env.example` is included only where a runtime configuration example is useful, and generated `.gitignore` excludes `.env` and other local secret files.
 
 ## Closed process vocabulary
 
