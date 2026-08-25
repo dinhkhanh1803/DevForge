@@ -1,7 +1,7 @@
 # DevForge Studio Implementation Status
 
-**Current milestone:** M9 - Production Blueprints (recommended next)
-**Status:** M0-M8 complete and locally verified
+**Current milestone:** M9 - Production Blueprints (Task 3 active)
+**Status:** M0-M8 and M9 Tasks 1-2 complete and locally verified
 **Last updated:** 2026-08-25
 
 ## M8 final scope and closure
@@ -358,7 +358,7 @@ Verification used the workspace-local SDK at `.tools/dotnet/dotnet.exe` with `DO
 ## Known limitations
 
 - The Windows GitHub Actions workflow mirrors the mandatory quality gates, but CI was not run remotely in this task.
-- The M7 E2E package is test-only; the three production MVP blueprints remain assigned to M9.
+- The M7 E2E package remains test-only. M9 has delivered the production WPF blueprint; React and Python remain pending.
 - Environment probing and IDE launch support only the fixed trusted tool catalog; arbitrary executable discovery remains intentionally unsupported.
 - SQLite's online backup API is synchronous during the copy itself; cancellation is honored immediately before and after the bounded call, and recovery always completes before post-mutation cancellation is propagated.
 - GitHub publication is covered with deterministic typed fakes; automated tests intentionally do not exercise or mutate a real GitHub account/repository.
@@ -459,3 +459,24 @@ Fresh Task 1 verification on 2026-08-25 used the workspace-local .NET SDK 10.0.3
 | Diff/security review | `git diff --check` plus scoped file/process/shell/latest scan and read-only diff review | Exit 0; no whitespace, unguarded runtime file operation, shell, arbitrary process, secret, or package-version issue found. Reviewer sub-agent was not dispatched because current orchestration policy forbids delegation without an explicit user request. |
 
 Task 2 is now recommended: the production `desktop.csharp-wpf-tool` package and its real Windows/.NET 10 validation matrix.
+
+M9 Task 2 is complete locally. `desktop.csharp-wpf-tool@1.0.0` is now a checksum-complete built-in package with a native .NET 10 WPF/MVVM/Clean Architecture solution, Generic Host/DI/config/logging, central pinned NuGet versions, five exact lockfiles, analyzers/nullable enforcement, unit coverage, publish profile, and seven production handoff documents. Its manifest has a Windows-only rule, exact .NET 10 range, deterministic declarative actions, locked restore, and required format/build/test/publish validators. The process boundary adds only one immutable `dotnet publish` argument sequence; mutated project/profile values and `run-process` reuse fail before `IProcessRunner` is invoked.
+
+The production-composition E2E opens the shipped package through the guarded catalog, plans it twice, executes through owned staging and the closed handler registry, finalizes without Git, and proves identical plan hashes and final-tree digests. A separate standalone temp-tree matrix avoids inheriting DevForge build configuration and exposed a publish profile that originally escaped four parent directories; the regression now requires output under the generated project's `artifacts\publish`. Architecture discovery now excludes `bin`/`obj` payload copies so shipped blueprint `.csproj` files cannot be mistaken for DevForge projects. Root Git attributes force blueprint authoring bytes to LF, preventing `core.autocrlf` from invalidating package checksums on checkout.
+
+Fresh Task 2 verification on 2026-08-25 used the workspace-local .NET SDK 10.0.302:
+
+| Gate | Command | Exact result |
+|---|---|---|
+| Generated locked restore | standalone temp tree: `dotnet restore TeamTool.slnx --locked-mode --disable-build-servers -m:1` | Exit 0; all 5 generated projects restored. |
+| Generated format | standalone temp tree: `dotnet format TeamTool.slnx --verify-no-changes --no-restore` | Exit 0; no formatting changes required. |
+| Generated Release build | standalone temp tree: `dotnet build TeamTool.slnx --configuration Release --no-restore ...` | Exit 0; 0 warnings, 0 errors. |
+| Generated tests | standalone temp tree: `dotnet test TeamTool.slnx --configuration Release --no-build --no-restore ...` | Exit 0; 1 passed, 0 failed, 0 skipped. |
+| Generated publish smoke | standalone temp tree: `dotnet publish src\TeamTool.Desktop\TeamTool.Desktop.csproj --configuration Release --no-restore --property:PublishProfile=WindowsSmoke ...` | Exit 0; output produced under `artifacts\publish`. |
+| DevForge locked restore | `dotnet restore DevForge.sln --locked-mode --disable-build-servers -m:1` | Exit 0; all projects up to date. |
+| DevForge format | `dotnet format DevForge.sln --verify-no-changes --no-restore` | Exit 0. |
+| DevForge Release build | serialized `dotnet build DevForge.sln --configuration Release --no-restore ...` | Exit 0; 0 warnings, 0 errors. |
+| Full tests | four Release project test commands with `--no-build --no-restore` | Exit 0; UnitTests 610, IntegrationTests 485, BlueprintTests 115, E2ETests 159; total 1,369 passed, 0 failed, 0 skipped. |
+| EF model consistency | local `dotnet-ef migrations has-pending-model-changes ... --configuration Release --no-build` | Exit 0; `No changes have been made to the model since the last migration.` |
+
+Task 3 is now recommended: the closed pnpm validation vocabulary and production `web.react-vite-ts` blueprint.

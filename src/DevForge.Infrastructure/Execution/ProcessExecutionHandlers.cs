@@ -137,12 +137,27 @@ internal sealed class ValidateCommandExecutionHandler(IProcessRunner runner) :
         var arguments = Arguments(context);
         if (!StringComparer.Ordinal.Equals(executable, "dotnet")
             || arguments.IsEmpty
-            || arguments[0] is not ("build" or "test" or "format"))
+            || arguments[0] is not ("build" or "test" or "format")
+                && !IsWpfPublishSmoke(arguments))
         {
             throw new ProcessHandlerInputException();
         }
 
         return BuildCommand(context, executable, arguments, ExitCodes(context));
+    }
+
+    private static bool IsWpfPublishSmoke(ImmutableArray<string> arguments)
+    {
+        return arguments.SequenceEqual(
+            [
+                "publish",
+                @"src\TeamTool.Desktop\TeamTool.Desktop.csproj",
+                "--configuration",
+                "Release",
+                "--no-restore",
+                "--property:PublishProfile=WindowsSmoke",
+            ],
+            StringComparer.Ordinal);
     }
 }
 

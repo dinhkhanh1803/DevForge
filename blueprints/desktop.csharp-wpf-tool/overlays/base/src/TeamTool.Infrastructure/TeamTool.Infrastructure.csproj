@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\TeamTool.Application\TeamTool.Application.csproj" />
+    <ProjectReference Include="..\TeamTool.Domain\TeamTool.Domain.csproj" />
+  </ItemGroup>
+</Project>

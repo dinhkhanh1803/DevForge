@@ -103,7 +103,10 @@ internal sealed class RepositoryModel
     private static string[] FindProjectFiles(string directory)
     {
         return SortProjectPaths(
-            Directory.GetFiles(directory, "*.csproj", SearchOption.AllDirectories));
+            Directory.GetFiles(directory, "*.csproj", SearchOption.AllDirectories)
+                .Where(path => !Path.GetRelativePath(directory, path)
+                    .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    .Any(segment => segment is "bin" or "obj")));
     }
 
     internal static string[] SortProjectPaths(IEnumerable<string> paths)

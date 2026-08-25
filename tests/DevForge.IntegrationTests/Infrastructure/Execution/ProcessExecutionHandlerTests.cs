@@ -209,6 +209,102 @@ public sealed class ProcessExecutionHandlerTests
     }
 
     [Fact]
+    public async Task ValidateCommandAcceptsOnlyTheFixedWpfPublishSmokeShape()
+    {
+        await using var fixture = await ProcessFixture.CreateAsync();
+        var runner = new RecordingRunner(Exited(0));
+        var request = fixture.ValidatorRequest(
+            required: true,
+            ("executable", Text("dotnet")),
+            ("arguments", Sequence(
+                Text("publish"),
+                Text("src\\TeamTool.Desktop\\TeamTool.Desktop.csproj"),
+                Text("--configuration"),
+                Text("Release"),
+                Text("--no-restore"),
+                Text("--property:PublishProfile=WindowsSmoke"))),
+            ("workingDirectory", Text(".")),
+            ("allowedExitCodes", Sequence(PlanValue.FromInteger(0))),
+            ("required", PlanValue.FromBoolean(true)));
+
+        var result = await new ValidateCommandExecutionHandler(runner).ExecuteAsync(
+            request,
+            null,
+            CancellationToken.None);
+
+        Assert.Equal(ExecutionHandlerOutcome.Succeeded, result.Outcome);
+        Assert.Equal(
+            [
+                "publish",
+                "src\\TeamTool.Desktop\\TeamTool.Desktop.csproj",
+                "--configuration",
+                "Release",
+                "--no-restore",
+                "--property:PublishProfile=WindowsSmoke",
+            ],
+            Assert.Single(runner.Commands).ArgumentList.ToArray());
+    }
+
+    [Theory]
+    [InlineData("src\\Other.Desktop\\Other.Desktop.csproj", "--property:PublishProfile=WindowsSmoke")]
+    [InlineData("src\\TeamTool.Desktop\\TeamTool.Desktop.csproj", "--property:PublishProfile=Unexpected")]
+    public async Task ValidateCommandRejectsMutatedWpfPublishSmokeShapes(
+        string projectPath,
+        string publishProfile)
+    {
+        await using var fixture = await ProcessFixture.CreateAsync();
+        var runner = new RecordingRunner(Exited(0));
+        var request = fixture.ValidatorRequest(
+            required: true,
+            ("executable", Text("dotnet")),
+            ("arguments", Sequence(
+                Text("publish"),
+                Text(projectPath),
+                Text("--configuration"),
+                Text("Release"),
+                Text("--no-restore"),
+                Text(publishProfile))),
+            ("workingDirectory", Text(".")),
+            ("allowedExitCodes", Sequence(PlanValue.FromInteger(0))),
+            ("required", PlanValue.FromBoolean(true)));
+
+        var result = await new ValidateCommandExecutionHandler(runner).ExecuteAsync(
+            request,
+            null,
+            CancellationToken.None);
+
+        Assert.Equal(ExecutionHandlerOutcome.Failed, result.Outcome);
+        Assert.Empty(runner.Commands);
+    }
+
+    [Fact]
+    public async Task RunProcessCannotUseTheWpfPublishValidatorVocabulary()
+    {
+        await using var fixture = await ProcessFixture.CreateAsync();
+        var runner = new RecordingRunner(Exited(0));
+        var request = fixture.StepRequest(
+            "run-process",
+            ("executable", Text("dotnet")),
+            ("arguments", Sequence(
+                Text("publish"),
+                Text("src\\TeamTool.Desktop\\TeamTool.Desktop.csproj"),
+                Text("--configuration"),
+                Text("Release"),
+                Text("--no-restore"),
+                Text("--property:PublishProfile=WindowsSmoke"))),
+            ("workingDirectory", Text(".")),
+            ("allowedExitCodes", Sequence(PlanValue.FromInteger(0))));
+
+        var result = await new RunProcessExecutionHandler(runner).ExecuteAsync(
+            request,
+            null,
+            CancellationToken.None);
+
+        Assert.Equal(ExecutionHandlerOutcome.Failed, result.Outcome);
+        Assert.Empty(runner.Commands);
+    }
+
+    [Fact]
     public async Task HandlerKindCannotCrossTheGenerationValidatorBoundary()
     {
         await using var fixture = await ProcessFixture.CreateAsync();

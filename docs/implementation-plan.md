@@ -2,7 +2,7 @@
 
 **Goal:** Ship exactly three deterministic, checksummed production blueprints and validate generated projects with their certified Windows toolchains.
 
-**Status:** M9 Task 1 complete and locally verified; Task 2 is the current implementation slice.
+**Status:** M9 Tasks 1-2 complete and locally verified; Task 3 is the current implementation slice.
 
 **Architecture:** Versioned static packages are shipped as immutable built-in content. Desktop composes a `BuiltIn` source and the existing `Local` source through guarded workspaces. Blueprint actions remain declarative and all external tools pass through a closed `IProcessRunner` vocabulary.
 
@@ -13,19 +13,20 @@
 - Design: `docs/superpowers/specs/2026-08-25-m9-production-blueprints-design.md`
 - Task plan: `docs/superpowers/plans/2026-08-25-m9-production-blueprints.md`
 - Decision: `docs/decisions/0015-versioned-static-built-in-blueprints.md` (Task 1)
+- Decision: `docs/decisions/0016-closed-production-blueprint-validation.md` (Task 2)
 
 ## Current scope and progress
 
 - [x] Read the complete baseline and isolate M9 from M10-M11.
 - [x] Approve the production-blueprint design.
 - [x] Task 1: built-in distribution, catalog composition, and production contract harness.
-- [ ] Task 2: WPF production blueprint (active).
-- [ ] Task 3: closed pnpm vocabulary and React production blueprint.
+- [x] Task 2: WPF production blueprint.
+- [ ] Task 3: closed pnpm vocabulary and React production blueprint (active).
 - [ ] Task 4: Python/uv boundary and Python CLI production blueprint.
 - [ ] Task 5: shared handoff and engine-owned run evidence.
 - [ ] Task 6: cross-blueprint integration and closure.
 
-## Current Task 2 boundary
+## Completed Task 2 boundary
 
 **Scope:** deliver only `desktop.csharp-wpf-tool` manifest version `1.0.0`, using the established .NET boundary and adding only a closed publish-smoke operation. React, Python, shared run-evidence expansion, and M10 remain out of scope.
 
@@ -33,7 +34,17 @@
 
 **Tests:** exact package shape/checksum/identity; deterministic plan/hash/tree; typed inputs and Windows/.NET compatibility; required handoff docs; native WPF MVVM/Clean Architecture graph; nullable/analyzers/Host/DI/logging/config; central pinned packages and locks; publish profile; forbidden web/browser/secret surfaces; exact closed publish arguments and arbitrary option refusal; real restore/format/build/test/publish smoke.
 
-**Task 2 exit:** WPF package/process/composed tests and the real generated toolchain matrix pass; expected tree/digests match across two runs; locked restore, format, Release build, affected/full regressions, EF consistency, diff/security checks, and review pass before a scoped local commit.
+**Task 2 exit:** satisfied locally. The checksummed package loads through the production catalog; planning is deterministic; two composed executions produce the same tree digest; the closed publish validator rejects target/profile mutations and handler-boundary bypasses; an independently located generated solution passes locked restore, format, Release build, unit test, and publish smoke.
+
+## Current Task 3 boundary
+
+**Scope:** add only the closed pnpm operations needed by `web.react-vite-ts` manifest version `1.0.0`, then deliver its checksummed static skeleton and real Windows Node/pnpm matrix. Python/uv, shared run-evidence expansion, M10, online scaffolders, arbitrary scripts, registries, credentials, and lifecycle-script enablement remain out of scope.
+
+**Expected files:** narrow process/tool policy changes and regression tests, `blueprints/web.react-vite-ts/**`, React production contracts, and a composed generated-project E2E fixture.
+
+**Tests:** certified Node/pnpm compatibility; exact pinned `package.json` and `pnpm-lock.yaml`; strict TypeScript, alias, lint/format, environment boundary, Vitest and production build; deterministic plan/tree; complete handoff documents; frozen install with scripts disabled; exact immutable lint/typecheck/test/build vocabulary; rejection of exec/dlx/evaluation/config/registry/credential/lifecycle escape surfaces.
+
+**Task 3 exit:** composed generation and deterministic tree gates pass, then a fresh standalone generated project passes frozen pnpm install, lint, typecheck, test, and build with the certified toolchain before affected/full DevForge gates and a scoped local commit.
 
 ## M9 exit gate
 

@@ -17,6 +17,7 @@ The existing loader defines one canonical source-root directory per blueprint ID
 - Desktop opens that root through `IFileSystem` with `BlueprintSourceProvenance.BuiltIn`, before creating or opening the separate user-writable `blueprints\local` source. A missing or unopenable built-in root fails before local blueprint storage mutation.
 - Trust derives only from composed source provenance. Manifest content cannot assign built-in or trusted-local trust.
 - Packages use reviewed skeletons, exact lockfiles, restricted templates, closed actions, complete checksums, and deterministic plan/expected-tree contracts. Runtime scaffolders and unversioned dependency resolution are not used.
+- Git attributes force authored blueprint package bytes to LF so checkout settings cannot invalidate declared checksums.
 - Real package contracts load production assets through the production `BlueprintCatalog` and guarded Windows filesystem boundary.
 
 ## Consequences

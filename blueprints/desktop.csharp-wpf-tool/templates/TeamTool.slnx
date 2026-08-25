@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TeamTool.Application/TeamTool.Application.csproj" />
+    <Project Path="src/TeamTool.Desktop/TeamTool.Desktop.csproj" />
+    <Project Path="src/TeamTool.Domain/TeamTool.Domain.csproj" />
+    <Project Path="src/TeamTool.Infrastructure/TeamTool.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TeamTool.UnitTests/TeamTool.UnitTests.csproj" />
+  </Folder>
+</Solution>
