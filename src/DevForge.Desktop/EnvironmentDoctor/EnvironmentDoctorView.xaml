@@ -13,7 +13,9 @@
         <DockPanel Grid.Row="0" Margin="0,0,0,20" LastChildFill="True">
             <StackPanel DockPanel.Dock="Right"
                         Margin="20,0,0,0"
-                        Orientation="Horizontal">
+                        Orientation="Horizontal"
+                        VerticalAlignment="Top"
+                        AutomationProperties.Name="Environment actions">
                 <Button Style="{StaticResource Button.Secondary}"
                         Margin="0,0,8,0"
                         Command="{Binding CopyDiagnosticsCommand}"

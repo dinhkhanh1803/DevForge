@@ -72,6 +72,28 @@ public sealed partial class DesktopPresentationContractTests
     }
 
     [Fact]
+    public void NamedTypographyStylesOwnAThemeAwareForeground()
+    {
+        var xaml = Read("src/DevForge.Desktop/Resources/Typography.xaml");
+        Assert.Contains("Segoe MDL2 Assets", xaml, StringComparison.Ordinal);
+        foreach (var key in new[]
+                 {
+                     "Text.Display",
+                     "Text.PageTitle",
+                     "Text.SectionTitle",
+                     "Text.CardTitle",
+                     "Text.Label",
+                     "Text.Mono",
+                 })
+        {
+            var start = xaml.IndexOf($"x:Key=\"{key}\"", StringComparison.Ordinal);
+            var end = xaml.IndexOf("</Style>", start, StringComparison.Ordinal);
+            Assert.True(start >= 0 && end > start, $"{key} style is missing.");
+            Assert.Contains("Brush.TextPrimary", xaml[start..end], StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public void TokensExposeTheAcceptedSpacingGeometryAndControlScale()
     {
         var keys = ResourceKeys("src/DevForge.Desktop/Resources/Tokens.xaml");
@@ -114,6 +136,8 @@ public sealed partial class DesktopPresentationContractTests
                 "Button.Danger",
                 "Button.Icon",
                 "NavigationButton",
+                "ComboBox.Template",
+                "ComboBoxItem.Template",
             ],
             key => Assert.Contains(key, controls));
 
@@ -191,6 +215,7 @@ public sealed partial class DesktopPresentationContractTests
         Assert.Contains("Scan failed; cached results shown", doctor, StringComparison.Ordinal);
         Assert.Contains("StatusBadge", doctor, StringComparison.Ordinal);
         Assert.Contains("CopyDiagnosticsCommand", doctor, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"Environment actions\"", doctor, StringComparison.Ordinal);
 
         var settings = Read("src/DevForge.Desktop/Settings/SettingsView.xaml");
         Assert.Contains("Getting started", settings, StringComparison.Ordinal);
@@ -233,6 +258,10 @@ public sealed partial class DesktopPresentationContractTests
         Assert.Contains("validated local project remains safe", completion, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Callout.Success", completion, StringComparison.Ordinal);
         Assert.Contains("Callout.Warning", completion, StringComparison.Ordinal);
+        Assert.Contains(
+            "Style=\"{StaticResource StatusBadge.Success}\" VerticalAlignment=\"Top\"",
+            completion,
+            StringComparison.Ordinal);
         Assert.Contains("RetryPublishCommand", completion, StringComparison.Ordinal);
         Assert.Contains("OpenIdeCommand", completion, StringComparison.Ordinal);
         Assert.DoesNotContain("#FFD13438", completion, StringComparison.OrdinalIgnoreCase);

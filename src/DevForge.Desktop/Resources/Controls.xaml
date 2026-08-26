@@ -262,6 +262,125 @@
         <Setter Property="Template" Value="{StaticResource TextBox.Template}" />
     </Style>
 
+    <ControlTemplate x:Key="ComboBox.ToggleTemplate" TargetType="ToggleButton">
+        <Border Background="Transparent" />
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="ComboBoxItem.Template" TargetType="ComboBoxItem">
+        <Border x:Name="ItemChrome"
+                Margin="4,2"
+                Padding="10,7"
+                Background="{TemplateBinding Background}"
+                CornerRadius="6"
+                SnapsToDevicePixels="True">
+            <ContentPresenter VerticalAlignment="Center"
+                              HorizontalAlignment="Left"
+                              RecognizesAccessKey="True" />
+        </Border>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsHighlighted" Value="True">
+                <Setter TargetName="ItemChrome"
+                        Property="Background"
+                        Value="{DynamicResource Brush.SurfaceHover}" />
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter TargetName="ItemChrome"
+                        Property="Background"
+                        Value="{DynamicResource Brush.AccentSubtle}" />
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Accent}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Foreground" Value="{DynamicResource Brush.DisabledText}" />
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <Style TargetType="ComboBoxItem">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual.Primary}" />
+        <Setter Property="Template" Value="{StaticResource ComboBoxItem.Template}" />
+    </Style>
+
+    <ControlTemplate x:Key="ComboBox.Template" TargetType="ComboBox">
+        <Grid>
+            <Border x:Name="Chrome"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="8"
+                    SnapsToDevicePixels="True">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="34" />
+                    </Grid.ColumnDefinitions>
+                    <ContentPresenter Margin="{TemplateBinding Padding}"
+                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      Content="{TemplateBinding SelectionBoxItem}"
+                                      ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                      ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
+                                      IsHitTestVisible="False"
+                                      SnapsToDevicePixels="True" />
+                    <Path Grid.Column="1"
+                          Width="9"
+                          Height="5"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"
+                          Data="M 0 0 L 4.5 4.5 L 9 0"
+                          Stroke="{TemplateBinding Foreground}"
+                          StrokeThickness="1.4"
+                          StrokeStartLineCap="Round"
+                          StrokeEndLineCap="Round" />
+                </Grid>
+            </Border>
+            <ToggleButton Focusable="False"
+                          ClickMode="Press"
+                          IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                          Template="{StaticResource ComboBox.ToggleTemplate}" />
+            <Popup x:Name="PART_Popup"
+                   AllowsTransparency="True"
+                   Focusable="False"
+                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                   Placement="Bottom"
+                   PopupAnimation="Fade">
+                <Border MinWidth="{TemplateBinding ActualWidth}"
+                        MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                        Margin="0,4,0,0"
+                        Padding="2"
+                        Background="{DynamicResource Brush.SurfaceRaised}"
+                        BorderBrush="{DynamicResource Brush.BorderStrong}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                    <ScrollViewer CanContentScroll="True"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto">
+                        <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
+                    </ScrollViewer>
+                </Border>
+            </Popup>
+        </Grid>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Chrome"
+                        Property="BorderBrush"
+                        Value="{DynamicResource Brush.BorderStrong}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Focus}" />
+                <Setter TargetName="Chrome" Property="BorderThickness" Value="2" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="Chrome"
+                        Property="Background"
+                        Value="{DynamicResource Brush.DisabledSurface}" />
+                <Setter Property="Foreground" Value="{DynamicResource Brush.DisabledText}" />
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
     <Style TargetType="ComboBox">
         <Setter Property="MinHeight" Value="{StaticResource Control.Height.Standard}" />
         <Setter Property="Padding" Value="10,7" />
@@ -269,7 +388,10 @@
         <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual.Primary}" />
+        <Setter Property="Template" Value="{StaticResource ComboBox.Template}" />
     </Style>
 
     <Style TargetType="CheckBox">

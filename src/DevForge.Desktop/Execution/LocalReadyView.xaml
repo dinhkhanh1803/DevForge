@@ -59,7 +59,7 @@
                                        Margin="0,4,0,0"
                                        Text="Reviewed intent and durable finalization state." />
                         </StackPanel>
-                        <Border Grid.Column="1" Style="{StaticResource StatusBadge.Success}">
+                        <Border Grid.Column="1" Style="{StaticResource StatusBadge.Success}" VerticalAlignment="Top">
                             <TextBlock Style="{StaticResource Text.Label}"
                                        Foreground="{DynamicResource Brush.Success}"
                                        Text="{Binding StatusLabel}" />
@@ -207,7 +207,7 @@
                                        Margin="0,4,0,0"
                                        Text="Git and remote publication evidence is separate from local success." />
                         </StackPanel>
-                        <Border Grid.Column="1" Style="{StaticResource StatusBadge}">
+                        <Border Grid.Column="1" Style="{StaticResource StatusBadge}" VerticalAlignment="Top">
                             <TextBlock Style="{StaticResource Text.Caption}" Text="CHECKPOINTED" />
                         </Border>
                     </Grid>
