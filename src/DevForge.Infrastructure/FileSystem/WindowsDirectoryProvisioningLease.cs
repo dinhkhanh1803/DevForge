@@ -13,8 +13,8 @@ namespace DevForge.Infrastructure.FileSystem;
 internal sealed class WindowsDirectoryProvisioningLease : IDisposable
 {
     private const int ErrorAlreadyExists = 183;
+    private const uint GenericRead = 0x80000000;
     private const uint FileShareRead = 0x00000001;
-    private const uint FileShareWrite = 0x00000002;
     private const uint OpenExisting = 3;
     private const uint FileFlagOpenReparsePoint = 0x00200000;
     private const uint FileFlagBackupSemantics = 0x02000000;
@@ -87,8 +87,8 @@ internal sealed class WindowsDirectoryProvisioningLease : IDisposable
     {
         var handle = CreateFile(
             path,
-            desiredAccess: 0,
-            FileShareRead | FileShareWrite,
+            GenericRead,
+            FileShareRead,
             IntPtr.Zero,
             OpenExisting,
             FileFlagOpenReparsePoint | FileFlagBackupSemantics,
