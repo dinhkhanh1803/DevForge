@@ -23,12 +23,15 @@ public sealed class DesktopStartupCoordinatorTests
             new FakeSettings(calls, settings),
             new FakeTheme(calls),
             new FakeEnvironment(calls, environment),
-            new FakeDashboard(calls, dashboard));
+            new FakeDashboard(calls, dashboard),
+            new FakeRetention(calls),
+            new FakeDiagnosticSink(calls),
+            new FixedTimeProvider());
 
         var result = await sut.InitializeAsync(CancellationToken.None);
 
         Assert.Equal(
-            ["migrate", "recover", "settings", "theme", "environment", "dashboard"],
+            ["migrate", "recover", "settings", "retention", "theme", "environment", "dashboard", "diagnostic"],
             calls);
         Assert.Equal(DesktopStartupMode.Normal, result.Mode);
         Assert.Same(dashboard, result.Dashboard);
@@ -49,7 +52,10 @@ public sealed class DesktopStartupCoordinatorTests
             new FakeSettings(calls, Defaults()),
             new FakeTheme(calls),
             new FakeEnvironment(calls, environment),
-            new FakeDashboard(calls, new DashboardSnapshot([], [], [], environment)));
+            new FakeDashboard(calls, new DashboardSnapshot([], [], [], environment)),
+            new FakeRetention(calls),
+            new FakeDiagnosticSink(calls),
+            new FixedTimeProvider());
 
         var result = await sut.InitializeAsync(CancellationToken.None);
 
@@ -71,7 +77,10 @@ public sealed class DesktopStartupCoordinatorTests
             new FakeSettings(calls, Defaults()),
             new FakeTheme(calls),
             new FakeEnvironment(calls, environment),
-            new FakeDashboard(calls, new DashboardSnapshot([], [], [], environment)));
+            new FakeDashboard(calls, new DashboardSnapshot([], [], [], environment)),
+            new FakeRetention(calls),
+            new FakeDiagnosticSink(calls),
+            new FixedTimeProvider());
 
         var result = await sut.InitializeAsync(CancellationToken.None);
 
@@ -96,7 +105,10 @@ public sealed class DesktopStartupCoordinatorTests
             new FakeSettings(calls, settings),
             new FakeTheme(calls),
             new FakeEnvironment(calls, environment),
-            new FakeDashboard(calls, new DashboardSnapshot([], [], [], environment)));
+            new FakeDashboard(calls, new DashboardSnapshot([], [], [], environment)),
+            new FakeRetention(calls),
+            new FakeDiagnosticSink(calls),
+            new FixedTimeProvider());
 
         var result = await sut.InitializeAsync(CancellationToken.None);
 
@@ -171,5 +183,39 @@ public sealed class DesktopStartupCoordinatorTests
             calls.Add("dashboard");
             return Task.FromResult(snapshot);
         }
+    }
+
+    private sealed class FakeRetention(List<string> calls) : IDiagnosticRetentionService
+    {
+        public Task<DiagnosticRetentionResult> ApplyAsync(
+            DiagnosticRetentionPolicy policy,
+            DateTimeOffset nowUtc,
+            CancellationToken cancellationToken)
+        {
+            calls.Add("retention");
+            Assert.Equal(30, policy.MaxAgeDays);
+            Assert.Equal(256L * 1024 * 1024, policy.MaxTotalBytes);
+            Assert.Equal(FixedTimeProvider.UtcNow, nowUtc);
+            return Task.FromResult(DiagnosticRetentionResult.Empty);
+        }
+    }
+
+    private sealed class FakeDiagnosticSink(List<string> calls) : IDiagnosticSink
+    {
+        public Task WriteAsync(DiagnosticEvent diagnosticEvent, CancellationToken cancellationToken)
+        {
+            calls.Add("diagnostic");
+            Assert.Equal("desktop.startup.ready", diagnosticEvent.EventId);
+            Assert.Equal(FixedTimeProvider.UtcNow, diagnosticEvent.TimestampUtc);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FixedTimeProvider : TimeProvider
+    {
+        internal static readonly DateTimeOffset UtcNow =
+            new(2026, 8, 26, 8, 0, 0, TimeSpan.Zero);
+
+        public override DateTimeOffset GetUtcNow() => UtcNow;
     }
 }

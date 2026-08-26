@@ -37,6 +37,49 @@ public sealed class JsonLinesDiagnosticSinkTests : IDisposable
     }
 
     [Fact]
+    public async Task SeparateSinkInstancesWaitForTheSharedLeaseWithoutDroppingEvents()
+    {
+        Directory.CreateDirectory(_root);
+        var fileSystem = new WindowsFileSystem();
+        var root = WorkspaceRoot.Create(_root).Value;
+        using var first = new JsonLinesDiagnosticSink(fileSystem, root);
+        using var second = new JsonLinesDiagnosticSink(fileSystem, root);
+
+        await Task.WhenAll(Enumerable.Range(1, 40).Select(attempt =>
+            (attempt % 2 == 0 ? first : second).WriteAsync(
+                CreateEvent(attempt),
+                CancellationToken.None)));
+
+        Assert.Equal(
+            40,
+            (await ReadLinesAsync(Path.Combine(_root, "logs", "daily", "2026-08-26.jsonl"))).Length);
+    }
+
+    [Fact]
+    public async Task SinkAndRetentionShareTheCrossProcessLeaseWithoutDroppingActiveEvents()
+    {
+        Directory.CreateDirectory(_root);
+        var fileSystem = new WindowsFileSystem();
+        var root = WorkspaceRoot.Create(_root).Value;
+        using var sink = new JsonLinesDiagnosticSink(fileSystem, root);
+        var retention = new DiagnosticRetentionService(fileSystem, root);
+        await sink.WriteAsync(CreateEvent(1), CancellationToken.None);
+
+        await Task.WhenAll(
+            Task.WhenAll(Enumerable.Range(2, 39).Select(attempt => sink.WriteAsync(
+                CreateEvent(attempt),
+                CancellationToken.None))),
+            retention.ApplyAsync(
+                DiagnosticRetentionPolicy.Default,
+                new DateTimeOffset(2026, 8, 26, 8, 0, 0, TimeSpan.Zero),
+                CancellationToken.None));
+
+        Assert.Equal(
+            40,
+            (await ReadLinesAsync(Path.Combine(_root, "logs", "daily", "2026-08-26.jsonl"))).Length);
+    }
+
+    [Fact]
     public async Task PreCancelledWriteCreatesNoDiagnosticArtifacts()
     {
         Directory.CreateDirectory(_root);

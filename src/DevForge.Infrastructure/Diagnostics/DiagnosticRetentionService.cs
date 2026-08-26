@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Globalization;
 using DevForge.Application.Contracts;
 
@@ -15,18 +16,23 @@ public sealed class DiagnosticRetentionService : IDiagnosticRetentionService
         _localDataRoot = localDataRoot ?? throw new ArgumentNullException(nameof(localDataRoot));
     }
 
-    public async Task ApplyAsync(
+    public async Task<DiagnosticRetentionResult> ApplyAsync(
         DiagnosticRetentionPolicy policy,
         DateTimeOffset nowUtc,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(policy);
-        cancellationToken.ThrowIfCancellationRequested();
         if (nowUtc.Offset != TimeSpan.Zero)
         {
             throw new ArgumentException("A UTC retention timestamp is required.", nameof(nowUtc));
         }
 
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return Result(0, 0, 0, cancelled: true, DiagnosticRetentionReason.Cancelled);
+        }
+
+        var unownedCount = 0;
         try
         {
             var workspace = await _fileSystem.OpenWorkspaceAsync(
@@ -35,12 +41,26 @@ public sealed class DiagnosticRetentionService : IDiagnosticRetentionService
             if (!await workspace.DirectoryExistsAsync(_logsDirectory, cancellationToken)
                     .ConfigureAwait(false))
             {
-                return;
+                return DiagnosticRetentionResult.Empty;
             }
 
-            if (workspace is not IWorkspaceFileMetadataFileSystem metadataWorkspace)
+            if (workspace is not IWorkspaceFileMetadataFileSystem metadataWorkspace
+                || workspace is not IExclusiveLeaseWorkspaceFileSystem leases)
             {
                 throw Failure();
+            }
+
+            await using var lease = await DiagnosticLogLease.AcquireAsync(
+                leases,
+                cancellationToken).ConfigureAwait(false);
+            if (lease is null)
+            {
+                return Result(
+                    0,
+                    0,
+                    0,
+                    cancelled: false,
+                    DiagnosticRetentionReason.LeaseUnavailable);
             }
 
             var files = await workspace.EnumerateFilesAsync(
@@ -51,6 +71,15 @@ public sealed class DiagnosticRetentionService : IDiagnosticRetentionService
             foreach (var path in files.Where(IsOwnedLog))
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                if (!await DiagnosticLogOwnership.IsVerifiedAsync(
+                        workspace,
+                        path,
+                        cancellationToken).ConfigureAwait(false))
+                {
+                    unownedCount++;
+                    continue;
+                }
+
                 var metadata = await metadataWorkspace.GetFileMetadataAsync(path, cancellationToken)
                     .ConfigureAwait(false);
                 if (metadata is not null)
@@ -59,42 +88,93 @@ public sealed class DiagnosticRetentionService : IDiagnosticRetentionService
                 }
             }
 
-            var activeDailyPath = $"logs\\daily\\{nowUtc:yyyy-MM-dd}.jsonl";
+            var activeDate = nowUtc.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            var activeDailyPath = $"logs\\daily\\{activeDate}.jsonl";
             var deletionOrder = owned
                 .Where(item => !item.Path.Value.Equals(activeDailyPath, StringComparison.OrdinalIgnoreCase))
                 .OrderBy(item => item.LastWriteUtc)
                 .ThenBy(item => item.Path.Value, StringComparer.Ordinal)
                 .ToArray();
             var cutoff = nowUtc.AddDays(-policy.MaxAgeDays);
-            var deleted = new HashSet<WorkspaceRelativePath>();
             var totalBytes = owned.Sum(item => item.Length);
-
+            var planned = new List<WorkspaceFileMetadata>();
+            var plannedPaths = new HashSet<WorkspaceRelativePath>();
+            var projectedBytes = totalBytes;
             foreach (var item in deletionOrder.Where(item => item.LastWriteUtc < cutoff))
             {
-                await workspace.DeleteFileAsync(item.Path, cancellationToken).ConfigureAwait(false);
-                deleted.Add(item.Path);
-                totalBytes -= item.Length;
+                planned.Add(item);
+                plannedPaths.Add(item.Path);
+                projectedBytes -= item.Length;
             }
 
             foreach (var item in deletionOrder)
             {
-                if (totalBytes <= policy.MaxTotalBytes)
+                if (projectedBytes <= policy.MaxTotalBytes)
                 {
                     break;
                 }
 
-                if (deleted.Contains(item.Path))
+                if (plannedPaths.Contains(item.Path))
                 {
                     continue;
                 }
 
-                await workspace.DeleteFileAsync(item.Path, cancellationToken).ConfigureAwait(false);
-                totalBytes -= item.Length;
+                planned.Add(item);
+                plannedPaths.Add(item.Path);
+                projectedBytes -= item.Length;
             }
+
+            var deletedCount = 0;
+            for (var index = 0; index < planned.Count; index++)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return Result(
+                        deletedCount,
+                        planned.Count - deletedCount,
+                        unownedCount,
+                        cancelled: true,
+                        Reasons(unownedCount, DiagnosticRetentionReason.Cancelled));
+                }
+
+                var item = planned[index];
+                try
+                {
+                    await workspace.DeleteFileAsync(item.Path, CancellationToken.None)
+                        .ConfigureAwait(false);
+                    deletedCount++;
+                    await workspace.DeleteFileAsync(
+                        DiagnosticLogOwnership.MarkerPath(item.Path),
+                        CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception exception) when (exception is InfrastructureOperationException
+                    or IOException
+                    or UnauthorizedAccessException)
+                {
+                    return Result(
+                        deletedCount,
+                        planned.Count - deletedCount,
+                        unownedCount,
+                        cancelled: false,
+                        Reasons(unownedCount, DiagnosticRetentionReason.DeleteFailed));
+                }
+            }
+
+            return Result(
+                deletedCount,
+                0,
+                unownedCount,
+                cancelled: false,
+                Reasons(unownedCount));
         }
         catch (OperationCanceledException)
         {
-            throw;
+            return Result(
+                0,
+                0,
+                unownedCount,
+                cancelled: true,
+                Reasons(unownedCount, DiagnosticRetentionReason.Cancelled));
         }
         catch (InfrastructureOperationException exception) when (exception.Code == "DF-DIAG-002")
         {
@@ -108,6 +188,36 @@ public sealed class DiagnosticRetentionService : IDiagnosticRetentionService
             throw Failure();
         }
     }
+
+    private static ImmutableArray<DiagnosticRetentionReason> Reasons(
+        int unownedCount,
+        params DiagnosticRetentionReason[] additional)
+    {
+        var builder = ImmutableArray.CreateBuilder<DiagnosticRetentionReason>();
+        if (unownedCount > 0)
+        {
+            builder.Add(DiagnosticRetentionReason.OwnershipUnverified);
+        }
+
+        builder.AddRange(additional);
+        return builder.ToImmutable();
+    }
+
+    private static DiagnosticRetentionResult Result(
+        int deletedCount,
+        int deferredCount,
+        int unownedCount,
+        bool cancelled,
+        params DiagnosticRetentionReason[] reasons) =>
+        new(deletedCount, deferredCount, unownedCount, cancelled, [.. reasons]);
+
+    private static DiagnosticRetentionResult Result(
+        int deletedCount,
+        int deferredCount,
+        int unownedCount,
+        bool cancelled,
+        ImmutableArray<DiagnosticRetentionReason> reasons) =>
+        new(deletedCount, deferredCount, unownedCount, cancelled, reasons);
 
     private static bool IsOwnedLog(WorkspaceRelativePath path)
     {

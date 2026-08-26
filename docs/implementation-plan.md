@@ -2,7 +2,7 @@
 
 **Goal:** close the MVP security/recovery/diagnostics/documentation/package release gates without expanding the blueprint catalog.
 
-**Status:** M10 Tasks 1-2 are implemented and their affected gates are green; Task 2 awaits independent review before Task 3 begins. Concurrent Desktop presentation work owns one remaining RED E2E assertion and remains outside M10 diagnostics. M9's Windows 11 certification remains accepted environmental debt and neither M9 nor M10 may be marked complete until it is executed.
+**Status:** M10 Tasks 1-2 are implemented and their affected gates are green. Task 2 review findings are closed and Task 3 is active. M9's Windows 11 certification remains accepted environmental debt and neither M9 nor M10 may be marked complete until it is executed.
 
 **Design:** `docs/superpowers/specs/2026-08-26-m10-security-diagnostics-packaging-release-hardening-design.md`
 
@@ -35,7 +35,9 @@ Task 1 satisfied this boundary. `IFileSystem` now owns validated root provisioni
 
 **Files:** Application diagnostics and guarded metadata contracts; Infrastructure normalizer, atomic JSONL sink, retention service, and Windows metadata implementation; Desktop settings/host composition; focused Unit/Integration/E2E tests.
 
-**Tests and exit gate:** validation defaults/bounds, stable property order, control normalization, 32 KiB truncation, concurrent parseable daily/run writes, cancellation without partial JSONL, expired-before-oldest cleanup, active-day/unowned/support-bundle preservation, settings validation, and DI resolution. Release build passes 12 projects with 0 warnings/errors; Unit 643, Integration 574, and Blueprint 127 pass with 0 failed/skipped. The focused Desktop settings/host selection passes 14/14. Full E2E currently reports 193 passed and one unrelated presentation failure for a removed read-only settings indicator binding.
+**Tests and exit gate:** satisfied. Validation and serialization reject secret-shaped values in every structured field at both factory and serialization boundaries; messages are bounded before proportional allocation. Daily/run writers share one bounded cancellable cross-process lease with retention, exact sidecar markers prove ownership, and cancellation/delete failure returns a scrubbed partial result without continuing through later candidates. Normal Desktop startup applies persisted retention and emits a bounded startup-ready event. Fresh Release build passes 12 projects with 0 warnings/errors; Unit 648, Integration 593, Blueprint 127, and E2E 196 pass with 0 failed/skipped.
+
+ADR-0020 records the owned local diagnostics, shared lease, marker verification, and best-effort startup decision.
 
 ---
 

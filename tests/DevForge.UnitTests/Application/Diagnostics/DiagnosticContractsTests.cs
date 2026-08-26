@@ -64,4 +64,28 @@ public sealed class DiagnosticContractsTests
         Assert.False(result.IsValid);
         Assert.True(result.Issues.Length >= 6);
     }
+
+    [Theory]
+    [InlineData("eventId")]
+    [InlineData("runId")]
+    [InlineData("stepId")]
+    [InlineData("source")]
+    [InlineData("errorCode")]
+    public void EventRejectsCredentialShapedValuesInEveryStructuredField(string field)
+    {
+        const string credential = "ghp_abcdefghijklmnop";
+        var result = DiagnosticEvent.Create(
+            DateTimeOffset.UnixEpoch,
+            DiagnosticLevel.Error,
+            field == "eventId" ? credential : "safe.event",
+            field == "runId" ? credential : "run-001",
+            field == "stepId" ? credential : "step-001",
+            1,
+            field == "source" ? credential : "safe-source",
+            RedactedText.FromTrustedRedaction("Safe message.").Value,
+            1,
+            field == "errorCode" ? credential : "DF-SAFE-001");
+
+        Assert.False(result.IsValid);
+    }
 }

@@ -1,6 +1,6 @@
 # DevForge Studio Implementation Status
 
-**Current milestone:** M10 - Security, diagnostics, packaging, and release hardening (Tasks 1-2 implemented; Task 2 review pending)
+**Current milestone:** M10 - Security, diagnostics, packaging, and release hardening (Tasks 1-2 complete; Task 3 active)
 **Status:** M0-M8 complete; M9 implementation and Windows 10 matrix complete; M9 Windows 11 certification is accepted carry-forward environmental debt; M10 Tasks 1-2 affected gates are green
 **Last updated:** 2026-08-26
 
@@ -16,9 +16,9 @@ Task 1 TDD evidence observed the missing injected provisioner/port as compile RE
 
 At Task 1 close, the full E2E gate was blocked by three concurrent Desktop presentation assertions outside its scope. Those presentation cases were subsequently completed by their owner; the later Task 2 gate below supersedes that historical count.
 
-M10 Task 2 is implemented locally. `DiagnosticEvent` and `DiagnosticRetentionPolicy` enforce UTC, closed levels, bounded non-secret identifiers, positive attempt, non-negative duration, and release defaults of 30 days/256 MiB within the allowed 1-365 day and 16 MiB-2 GiB range. `DiagnosticEventNormalizer` emits one fixed-order UTF-8 JSON object per line, normalizes control characters, rechecks secret/source shapes, and replaces oversized messages so a physical event never exceeds 32 KiB. `JsonLinesDiagnosticSink` writes deterministic daily and optional run streams through a guarded workspace, process-local serialization, an OS-exclusive lease, and whole-file atomic publication capped at 16 MiB. Cancellation/fault injection leaves no partial JSONL.
+M10 Task 2 is complete locally. `DiagnosticEvent` and `DiagnosticRetentionPolicy` enforce UTC, closed levels, bounded non-secret identifiers, positive attempt, non-negative duration, and release defaults of 30 days/256 MiB within the allowed 1-365 day and 16 MiB-2 GiB range. The serializer independently revalidates every structured value against the credential corpus, so a bypassed factory still cannot persist the secret-shaped value. `DiagnosticEventNormalizer` emits one fixed-order UTF-8 JSON object per line, normalizes control characters, bounds messages before proportional allocation, and replaces oversized content so a physical event never exceeds 32 KiB.
 
-Retention enumerates only guarded `logs`, recognizes canonical daily/run `.jsonl` ownership, obtains length/timestamp through a new read-only metadata capability, deletes expired files before oldest-by-time/path budget candidates, and never deletes the active day, unowned files, or support bundles. Desktop settings persist validated limits and DI resolves both services. The fresh Release build passes all 12 projects with 0 warnings/errors; Unit 643, Integration 574, and Blueprint 127 pass with zero failed/skipped; the focused settings/host E2E selection passes 14/14. Full E2E is now 193 passed and one failed assertion owned by concurrent UI work (`ReadOnlySettingsIndicatorsUseOneWayBindings` expects a binding removed by that UI change). Task 2 awaits independent code review before Task 3.
+`JsonLinesDiagnosticSink` creates exact canonical sidecar markers and uses the same bounded cancellable OS-exclusive lease as retention, preventing dropped writes and cleanup races across processes. Retention treats canonical names without matching markers as unowned, deletes expired files before oldest-by-time/path budget candidates, preserves the active day and unrelated data, and returns typed scrubbed cancellation/delete-failure results while leaving later candidates untouched. Normal Desktop startup applies the persisted policy and writes a bounded startup-ready event; diagnostic failure remains non-fatal. ADR-0020 records the boundary. Fresh verification passes scoped format, all 12 Release projects with 0 warnings/errors, Unit 648, Integration 593, Blueprint 127, and E2E 196 with zero failed/skipped. Task 3 is active.
 
 ## M8 final scope and closure
 

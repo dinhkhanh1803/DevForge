@@ -9,6 +9,7 @@ namespace DevForge.Infrastructure.Diagnostics;
 internal static class DiagnosticEventNormalizer
 {
     internal const int MaximumEventBytes = 32 * 1024;
+    internal const int MaximumMessageCharacters = 4 * 1024;
     private const string TruncatedMessage = "[DIAGNOSTIC TRUNCATED]";
     private const string RedactedMessage = "[DIAGNOSTIC REDACTED]";
 
@@ -24,6 +25,11 @@ internal static class DiagnosticEventNormalizer
 
     private static string NormalizeMessage(string value)
     {
+        if (value.Length > MaximumMessageCharacters)
+        {
+            return TruncatedMessage;
+        }
+
         var normalized = string.Create(
             value.Length,
             value,
@@ -52,19 +58,27 @@ internal static class DiagnosticEventNormalizer
                 "timestampUtc",
                 diagnosticEvent.TimestampUtc.UtcDateTime.ToString("O", CultureInfo.InvariantCulture));
             writer.WriteString("level", diagnosticEvent.Level.ToString());
-            writer.WriteString("eventId", diagnosticEvent.EventId);
-            WriteNullableString(writer, "runId", diagnosticEvent.RunId);
-            WriteNullableString(writer, "stepId", diagnosticEvent.StepId);
+            writer.WriteString("eventId", NormalizeStructured(diagnosticEvent.EventId));
+            WriteNullableString(writer, "runId", NormalizeStructured(diagnosticEvent.RunId));
+            WriteNullableString(writer, "stepId", NormalizeStructured(diagnosticEvent.StepId));
             WriteNullableNumber(writer, "attempt", diagnosticEvent.Attempt);
-            writer.WriteString("source", diagnosticEvent.Source);
+            writer.WriteString("source", NormalizeStructured(diagnosticEvent.Source));
             writer.WriteString("message", message);
             WriteNullableNumber(writer, "durationMs", diagnosticEvent.DurationMs);
-            WriteNullableString(writer, "errorCode", diagnosticEvent.ErrorCode);
+            WriteNullableString(writer, "errorCode", NormalizeStructured(diagnosticEvent.ErrorCode));
             writer.WriteEndObject();
         }
 
         stream.WriteByte((byte)'\n');
         return stream.ToArray();
+    }
+
+    private static string? NormalizeStructured(string? value)
+    {
+        return value is not null
+            && (RedactedText.IsSecretShapedValue(value) || RedactedText.IsSecretShapedKey(value))
+                ? "redacted"
+                : value;
     }
 
     private static void WriteNullableString(

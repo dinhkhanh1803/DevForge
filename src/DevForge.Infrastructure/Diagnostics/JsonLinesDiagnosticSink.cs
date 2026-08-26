@@ -1,3 +1,4 @@
+using System.Globalization;
 using DevForge.Application.Contracts;
 
 namespace DevForge.Infrastructure.Diagnostics;
@@ -9,7 +10,6 @@ public sealed class JsonLinesDiagnosticSink : IDiagnosticSink, IDisposable
     private static readonly WorkspaceRelativePath _logsDirectory = Relative("logs");
     private static readonly WorkspaceRelativePath _dailyDirectory = Relative("logs\\daily");
     private static readonly WorkspaceRelativePath _runsDirectory = Relative("logs\\runs");
-    private static readonly WorkspaceRelativePath _writeLeasePath = Relative("logs\\.write.lease");
 
     private readonly IFileSystem _fileSystem;
     private readonly WorkspaceRoot _localDataRoot;
@@ -48,16 +48,23 @@ public sealed class JsonLinesDiagnosticSink : IDiagnosticSink, IDisposable
                 await workspace.CreateDirectoryAsync(_runsDirectory, cancellationToken).ConfigureAwait(false);
             }
 
-            await using var lease = await leases.TryAcquireExclusiveLeaseAsync(
-                _writeLeasePath,
+            await using var lease = await DiagnosticLogLease.AcquireAsync(
+                leases,
                 cancellationToken).ConfigureAwait(false);
             if (lease is null)
             {
                 throw Failure();
             }
 
-            var dailyPath = Relative(
-                $"logs\\daily\\{diagnosticEvent.TimestampUtc:yyyy-MM-dd}.jsonl");
+            var dailyDate = diagnosticEvent.TimestampUtc.ToString(
+                "yyyy-MM-dd",
+                CultureInfo.InvariantCulture);
+            var dailyPath = Relative($"logs\\daily\\{dailyDate}.jsonl");
+            await DiagnosticLogOwnership.EnsureAsync(
+                workspace,
+                atomic,
+                dailyPath,
+                cancellationToken).ConfigureAwait(false);
             await AppendSnapshotAsync(
                 workspace,
                 atomic,
@@ -68,6 +75,11 @@ public sealed class JsonLinesDiagnosticSink : IDiagnosticSink, IDisposable
             if (diagnosticEvent.RunId is not null)
             {
                 var runPath = Relative($"logs\\runs\\{diagnosticEvent.RunId}.jsonl");
+                await DiagnosticLogOwnership.EnsureAsync(
+                    workspace,
+                    atomic,
+                    runPath,
+                    cancellationToken).ConfigureAwait(false);
                 await AppendSnapshotAsync(
                     workspace,
                     atomic,

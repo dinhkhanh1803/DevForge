@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using DevForge.Application.Contracts;
@@ -47,6 +48,50 @@ public sealed class DiagnosticEventNormalizerTests
         Assert.Equal(
             "[DIAGNOSTIC TRUNCATED]",
             document.RootElement.GetProperty("message").GetString());
+    }
+
+    [Theory]
+    [MemberData(nameof(SecretStructuredValues))]
+    public void SerializerRedactsSecretShapedStructuredValuesEvenWhenFactoryIsBypassed(
+        int constructorArgumentIndex,
+        string credential)
+    {
+        var constructor = typeof(DiagnosticEvent).GetConstructors(
+                BindingFlags.Instance | BindingFlags.NonPublic)
+            .Single(candidate => candidate.GetParameters().Length == 10);
+        object?[] arguments =
+        [
+            new DateTimeOffset(2026, 8, 26, 7, 30, 0, TimeSpan.Zero),
+            DiagnosticLevel.Information,
+            "execution.step.completed",
+            "run-001",
+            "restore",
+            1,
+            "execution-orchestrator",
+            RedactedText.FromTrustedRedaction("Restore completed.").Value,
+            125L,
+            "DF-EXEC-001",
+        ];
+        arguments[constructorArgumentIndex] = credential;
+        var diagnosticEvent = Assert.IsType<DiagnosticEvent>(constructor.Invoke(arguments));
+
+        var text = Encoding.UTF8.GetString(DiagnosticEventNormalizer.Serialize(diagnosticEvent));
+
+        Assert.DoesNotContain(credential, text, StringComparison.Ordinal);
+        Assert.Contains("redacted", text, StringComparison.Ordinal);
+    }
+
+    public static TheoryData<int, string> SecretStructuredValues()
+    {
+        var data = new TheoryData<int, string>();
+        foreach (var argumentIndex in new[] { 2, 3, 4, 6, 9 })
+        {
+            data.Add(argumentIndex, "ghp_abcdefghijklmnop");
+            data.Add(argumentIndex, "Bearer abcdefghijklmnop");
+            data.Add(argumentIndex, "password=hunter2");
+        }
+
+        return data;
     }
 
     private static DiagnosticEvent CreateEvent(string message) =>

@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using DevForge.Domain.Privacy;
 using DevForge.Domain.Validation;
 
@@ -137,7 +138,8 @@ public sealed record DiagnosticEvent
             || value.Length > maximumLength
             || value.Any(character =>
                 !(char.IsAsciiLetterOrDigit(character) || character is '.' or '-' or '_'))
-            || RedactedText.IsSecretShapedKey(value))
+            || RedactedText.IsSecretShapedKey(value)
+            || RedactedText.IsSecretShapedValue(value))
         {
             issues.Add(Issue(
                 "diagnostics.identifier.invalid",
@@ -207,8 +209,27 @@ public interface IDiagnosticSink
 
 public interface IDiagnosticRetentionService
 {
-    Task ApplyAsync(
+    Task<DiagnosticRetentionResult> ApplyAsync(
         DiagnosticRetentionPolicy policy,
         DateTimeOffset nowUtc,
         CancellationToken cancellationToken);
+}
+
+public enum DiagnosticRetentionReason
+{
+    OwnershipUnverified = 1,
+    LeaseUnavailable = 2,
+    DeleteFailed = 3,
+    Cancelled = 4,
+}
+
+public sealed record DiagnosticRetentionResult(
+    int DeletedCount,
+    int DeferredCount,
+    int UnownedCount,
+    bool WasCancelled,
+    ImmutableArray<DiagnosticRetentionReason> Reasons)
+{
+    public static DiagnosticRetentionResult Empty { get; } =
+        new(0, 0, 0, false, []);
 }
