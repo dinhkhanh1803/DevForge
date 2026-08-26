@@ -1,9 +1,9 @@
 <UserControl x:Class="DevForge.Desktop.CreateProject.CreateProjectView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:blueprints="clr-namespace:DevForge.Blueprints.Abstractions.Models;assembly=DevForge.Blueprints.Abstractions"
              xmlns:contracts="clr-namespace:DevForge.Application.Contracts;assembly=DevForge.Application"
              xmlns:execution="clr-namespace:DevForge.Desktop.Execution"
-             xmlns:blueprints="clr-namespace:DevForge.Blueprints.Abstractions.Models;assembly=DevForge.Blueprints.Abstractions"
              AutomationProperties.Name="Create Project">
     <UserControl.Resources>
         <DataTemplate x:Key="TextInputTemplate">
@@ -16,227 +16,550 @@
                       AutomationProperties.Name="{Binding Id}" />
         </DataTemplate>
         <DataTemplate x:Key="BooleanInputTemplate">
-            <CheckBox IsChecked="{Binding BooleanValue}"
-                      Content="Enabled"
+            <CheckBox Content="Enabled"
+                      IsChecked="{Binding BooleanValue}"
                       AutomationProperties.Name="{Binding Id}" />
         </DataTemplate>
         <DataTemplate x:Key="WholeNumberInputTemplate">
             <TextBox Text="{Binding WholeNumberValue, UpdateSourceTrigger=PropertyChanged}"
                      AutomationProperties.Name="{Binding Id}" />
         </DataTemplate>
+
+        <Style x:Key="ReviewExpander" TargetType="Expander">
+            <Setter Property="Margin" Value="0,0,0,12" />
+            <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+            <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
+        </Style>
     </UserControl.Resources>
-    <ScrollViewer VerticalScrollBarVisibility="Auto"
-                  HorizontalScrollBarVisibility="Disabled">
-        <Grid>
-        <StackPanel Margin="{StaticResource Page.Padding}" MaxWidth="840" HorizontalAlignment="Left">
-            <StackPanel.Style>
-                <Style TargetType="StackPanel">
-                    <Setter Property="Visibility" Value="Visible" />
+
+    <Grid>
+        <Grid x:Name="ConfigureReviewSurface">
+            <Grid.Style>
+                <Style TargetType="Grid">
                     <Style.Triggers>
-                        <DataTrigger Binding="{Binding Stage}" Value="{x:Static contracts:ProjectCreationStage.Execute}">
+                        <DataTrigger Binding="{Binding Stage}"
+                                     Value="{x:Static contracts:ProjectCreationStage.Execute}">
                             <Setter Property="Visibility" Value="Collapsed" />
                         </DataTrigger>
-                        <DataTrigger Binding="{Binding Stage}" Value="{x:Static contracts:ProjectCreationStage.LocalReady}">
+                        <DataTrigger Binding="{Binding Stage}"
+                                     Value="{x:Static contracts:ProjectCreationStage.LocalReady}">
                             <Setter Property="Visibility" Value="Collapsed" />
                         </DataTrigger>
-                        <DataTrigger Binding="{Binding Stage}" Value="{x:Static contracts:ProjectCreationStage.PublishPending}">
+                        <DataTrigger Binding="{Binding Stage}"
+                                     Value="{x:Static contracts:ProjectCreationStage.PublishPending}">
                             <Setter Property="Visibility" Value="Collapsed" />
                         </DataTrigger>
-                        <DataTrigger Binding="{Binding Stage}" Value="{x:Static contracts:ProjectCreationStage.Completed}">
+                        <DataTrigger Binding="{Binding Stage}"
+                                     Value="{x:Static contracts:ProjectCreationStage.Completed}">
                             <Setter Property="Visibility" Value="Collapsed" />
                         </DataTrigger>
                     </Style.Triggers>
                 </Style>
-            </StackPanel.Style>
-            <TextBlock Style="{StaticResource PageHeading}" Text="Create Project" />
-            <TextBlock Margin="0,0,0,20"
-                       Foreground="{DynamicResource Brush.MutedForeground}"
-                       Text="Configure a trusted blueprint, then review the exact plan before execution." />
+            </Grid.Style>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
 
-            <TextBlock Style="{StaticResource SectionHeading}" Text="Project" />
-            <TextBlock Text="Project name" />
-            <TextBox Margin="0,4,0,12" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
-                     AutomationProperties.Name="Project name" />
-            <TextBlock Text="Parent folder" />
-            <TextBox Margin="0,4,0,12" Text="{Binding RootPath, UpdateSourceTrigger=PropertyChanged}"
-                     AutomationProperties.Name="Parent folder" />
-            <TextBlock Text="Output folder" />
-            <TextBox Margin="0,4,0,12" Text="{Binding OutputFolder, UpdateSourceTrigger=PropertyChanged}"
-                     AutomationProperties.Name="Output folder" />
-            <TextBlock Text="Blueprint" />
-            <ComboBox Margin="0,4,0,12"
-                      ItemsSource="{Binding Blueprints}"
-                      SelectedItem="{Binding SelectedBlueprint}"
-                      DisplayMemberPath="Manifest.Id"
-                      AutomationProperties.Name="Blueprint" />
+            <ScrollViewer Grid.Row="0"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="{StaticResource Page.Padding}"
+                            MaxWidth="940"
+                            HorizontalAlignment="Left">
+                    <StackPanel Margin="0,0,0,22">
+                        <TextBlock Style="{StaticResource Text.Caption}"
+                                   Margin="0,0,0,5"
+                                   Foreground="{DynamicResource Brush.Accent}"
+                                   FontWeight="SemiBold"
+                                   Text="PROJECT WORKFLOW" />
+                        <TextBlock Style="{StaticResource PageHeading}" Text="Create Project" />
+                        <TextBlock Style="{StaticResource PageDescription}"
+                                   Text="Configure a trusted blueprint, review immutable intent, then create and validate locally." />
+                    </StackPanel>
 
-            <TextBlock Style="{StaticResource SectionHeading}" Text="Blueprint options" />
-            <ItemsControl ItemsSource="{Binding Inputs}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <StackPanel Margin="0,0,0,12">
-                            <TextBlock Text="{Binding Id}" FontWeight="SemiBold" />
-                            <ContentControl Content="{Binding}">
-                                <ContentControl.Style>
-                                    <Style TargetType="ContentControl">
-                                        <Setter Property="ContentTemplate" Value="{StaticResource TextInputTemplate}" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Kind}" Value="{x:Static blueprints:BlueprintInputKind.Choice}">
-                                                <Setter Property="ContentTemplate" Value="{StaticResource ChoiceInputTemplate}" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding Kind}" Value="{x:Static blueprints:BlueprintInputKind.Boolean}">
-                                                <Setter Property="ContentTemplate" Value="{StaticResource BooleanInputTemplate}" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding Kind}" Value="{x:Static blueprints:BlueprintInputKind.WholeNumber}">
-                                                <Setter Property="ContentTemplate" Value="{StaticResource WholeNumberInputTemplate}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </ContentControl.Style>
-                            </ContentControl>
-                            <TextBlock Foreground="#FFD13438"
-                                       Text="{Binding ValidationMessage}"
-                                       TextWrapping="Wrap" />
-                        </StackPanel>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+                    <ItemsControl Style="{StaticResource WorkflowStepper}"
+                                  AutomationProperties.Name="Project creation progress">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
 
-            <TextBlock Style="{StaticResource SectionHeading}" Text="Git and GitHub" />
-            <CheckBox Content="Initialize Git repository"
-                      IsChecked="{Binding InitializeRepository}"
-                      IsEnabled="{Binding CanEdit}"
-                      AutomationProperties.Name="Initialize Git repository" />
-            <TextBlock Margin="0,8,0,0" Text="Branch policy" />
-            <ComboBox Margin="0,4,0,12"
-                      ItemsSource="{Binding BranchPolicyChoices}"
-                      SelectedItem="{Binding BranchPolicy}"
-                      IsEnabled="{Binding CanConfigureGit}"
-                      AutomationProperties.Name="Git branch policy" />
-            <CheckBox Content="Publish to GitHub"
-                      IsChecked="{Binding PublishToGitHub}"
-                      IsEnabled="{Binding CanConfigureGit}"
-                      AutomationProperties.Name="Publish to GitHub" />
-            <CheckBox Margin="0,8,0,0"
-                      Content="Private repository"
-                      IsChecked="{Binding IsPrivate}"
-                      IsEnabled="{Binding CanConfigureGitHub}"
-                      AutomationProperties.Name="Private GitHub repository" />
-            <TextBlock Margin="0,8,0,0" Text="GitHub personal account" />
-            <TextBox Margin="0,4,0,12"
-                     Text="{Binding GitHubAccount, UpdateSourceTrigger=PropertyChanged}"
-                     IsEnabled="{Binding CanConfigureGitHub}"
-                     AutomationProperties.Name="GitHub personal account" />
-            <TextBlock Text="GitHub repository" />
-            <TextBox Margin="0,4,0,12"
-                     Text="{Binding GitHubRepository, UpdateSourceTrigger=PropertyChanged}"
-                     IsEnabled="{Binding CanConfigureGitHub}"
-                     AutomationProperties.Name="GitHub repository" />
+                            <StackPanel Grid.Column="0" Width="94">
+                                <Border Width="34" Height="34" HorizontalAlignment="Center" CornerRadius="17"
+                                        Background="{DynamicResource Brush.Accent}">
+                                    <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Foreground="White" FontWeight="Bold" Text="1" />
+                                </Border>
+                                <TextBlock Margin="0,7,0,0" HorizontalAlignment="Center"
+                                           FontSize="12" FontWeight="SemiBold" Text="Configure" />
+                            </StackPanel>
+                            <Border Grid.Column="1" Height="1" Margin="-18,17" VerticalAlignment="Top"
+                                    Background="{DynamicResource Brush.BorderStrong}" />
 
-            <TextBlock Text="Open after generation" />
-            <ComboBox Margin="0,4,0,12"
-                      ItemsSource="{Binding IdeChoices}"
-                      SelectedItem="{Binding IdeId}"
-                      AutomationProperties.Name="Open after generation" />
-            <ItemsControl ItemsSource="{Binding ValidationIssues}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <TextBlock Foreground="#FFD13438"
-                                   Text="{Binding Message}"
-                                   TextWrapping="Wrap" />
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-            <Button HorizontalAlignment="Right"
-                    Margin="0,16,0,0"
-                    Content="Review Plan"
-                    Command="{Binding ReviewPlanCommand}"
-                    AutomationProperties.Name="Review Plan">
-                <Button.Style>
-                    <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-                        <Setter Property="Visibility" Value="Collapsed" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding PlanPreview}" Value="{x:Null}">
-                                <Setter Property="Visibility" Value="Visible" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Button.Style>
-            </Button>
+                            <StackPanel Grid.Column="2" Width="94">
+                                <Border Width="34" Height="34" HorizontalAlignment="Center" CornerRadius="17">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="{DynamicResource Brush.SurfaceRaised}" />
+                                            <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderStrong}" />
+                                            <Setter Property="BorderThickness" Value="1" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Stage}" Value="{x:Static contracts:ProjectCreationStage.ReviewPlan}">
+                                                    <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Stage}" Value="{x:Static contracts:ProjectCreationStage.Execute}">
+                                                    <Setter Property="Background" Value="{DynamicResource Brush.SuccessSurface}" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Success}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Stage}" Value="{x:Static contracts:ProjectCreationStage.LocalReady}">
+                                                    <Setter Property="Background" Value="{DynamicResource Brush.SuccessSurface}" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Success}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" Text="2" />
+                                </Border>
+                                <TextBlock Margin="0,7,0,0" HorizontalAlignment="Center"
+                                           FontSize="12" FontWeight="SemiBold" Text="Review" />
+                            </StackPanel>
+                            <Border Grid.Column="3" Height="1" Margin="-18,17" VerticalAlignment="Top"
+                                    Background="{DynamicResource Brush.BorderStrong}" />
 
-            <Border Margin="0,24,0,0">
-                <Border.Style>
-                    <Style TargetType="Border" BasedOn="{StaticResource Card}">
-                        <Setter Property="Visibility" Value="Visible" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding PlanPreview}" Value="{x:Null}">
+                            <StackPanel Grid.Column="4" Width="94">
+                                <Border Width="34" Height="34" HorizontalAlignment="Center" CornerRadius="17">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="{DynamicResource Brush.SurfaceRaised}" />
+                                            <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderStrong}" />
+                                            <Setter Property="BorderThickness" Value="1" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Stage}" Value="{x:Static contracts:ProjectCreationStage.Execute}">
+                                                    <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Stage}" Value="{x:Static contracts:ProjectCreationStage.LocalReady}">
+                                                    <Setter Property="Background" Value="{DynamicResource Brush.SuccessSurface}" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Success}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" Text="3" />
+                                </Border>
+                                <TextBlock Margin="0,7,0,0" HorizontalAlignment="Center"
+                                           FontSize="12" FontWeight="SemiBold" Text="Execute" />
+                            </StackPanel>
+                            <Border Grid.Column="5" Height="1" Margin="-18,17" VerticalAlignment="Top"
+                                    Background="{DynamicResource Brush.BorderStrong}" />
+
+                            <StackPanel Grid.Column="6" Width="94">
+                                <Border Width="34" Height="34" HorizontalAlignment="Center" CornerRadius="17">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="{DynamicResource Brush.SurfaceRaised}" />
+                                            <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderStrong}" />
+                                            <Setter Property="BorderThickness" Value="1" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Stage}" Value="{x:Static contracts:ProjectCreationStage.LocalReady}">
+                                                    <Setter Property="Background" Value="{DynamicResource Brush.SuccessSurface}" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Success}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Stage}" Value="{x:Static contracts:ProjectCreationStage.PublishPending}">
+                                                    <Setter Property="Background" Value="{DynamicResource Brush.WarningSurface}" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Warning}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Stage}" Value="{x:Static contracts:ProjectCreationStage.Completed}">
+                                                    <Setter Property="Background" Value="{DynamicResource Brush.Success}" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Success}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" Text="4" />
+                                </Border>
+                                <TextBlock Margin="0,7,0,0" HorizontalAlignment="Center"
+                                           FontSize="12" FontWeight="SemiBold" Text="Complete" />
+                            </StackPanel>
+                        </Grid>
+                    </ItemsControl>
+
+                    <ProgressBar Height="2" Margin="0,0,0,14" IsIndeterminate="True"
+                                 Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                 AutomationProperties.Name="Preparing project plan" />
+
+                    <StackPanel>
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
                                 <Setter Property="Visibility" Value="Collapsed" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Border.Style>
-                <StackPanel DataContext="{Binding PlanPreview}">
-                    <TextBlock Style="{StaticResource PageHeading}" Text="Review Plan" />
-                    <TextBlock Text="{Binding BlueprintLabel}" FontWeight="SemiBold" />
-                    <TextBlock Text="{Binding TrustLabel, StringFormat=Trust: {0}}" />
-                    <TextBlock Text="{Binding PlanHash, StringFormat=Plan hash: {0}}"
-                               TextWrapping="Wrap" />
-                    <TextBlock Text="{Binding GitSummary}" Margin="0,8,0,0" />
-                    <TextBlock Text="{Binding GitHubSummary, StringFormat=GitHub: {0}}" />
-                    <TextBlock Text="{Binding RepositoryVisibility, StringFormat=Visibility: {0}}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding PlanPreview}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
 
-                    <TextBlock Style="{StaticResource SectionHeading}" Text="Artifacts" Margin="0,16,0,4" />
-                    <ListBox ItemsSource="{Binding Artifacts}" DisplayMemberPath="Path"
-                             VirtualizingStackPanel.IsVirtualizing="True" />
-                    <TextBlock Style="{StaticResource SectionHeading}" Text="Dependencies" Margin="0,16,0,4" />
-                    <ListBox ItemsSource="{Binding Dependencies}" DisplayMemberPath="Id"
-                             VirtualizingStackPanel.IsVirtualizing="True" />
-                    <TextBlock Style="{StaticResource SectionHeading}" Text="Tools" Margin="0,16,0,4" />
-                    <ListBox ItemsSource="{Binding Tools}" DisplayMemberPath="Id"
-                             VirtualizingStackPanel.IsVirtualizing="True" />
-                    <TextBlock Style="{StaticResource SectionHeading}" Text="Steps" Margin="0,16,0,4" />
-                    <ListBox ItemsSource="{Binding Steps}"
-                             VirtualizingStackPanel.IsVirtualizing="True">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
+                        <Border Style="{StaticResource FormCard}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource Text.CardTitle}" Text="Project details" />
+                                <TextBlock Style="{StaticResource Text.Caption}" Margin="0,4,0,18"
+                                           Text="Choose a clear identity and a safe, empty target location." />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,16">
+                                        <TextBlock Style="{StaticResource Text.Label}" Text="Project name" />
+                                        <TextBox Margin="0,6,0,0"
+                                                 Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
+                                                 AutomationProperties.Name="Project name" />
+                                        <TextBlock Style="{StaticResource Text.Caption}" Margin="0,5,0,0"
+                                                   Text="Used for project identity and the default folder." />
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,16">
+                                        <TextBlock Style="{StaticResource Text.Label}" Text="Blueprint" />
+                                        <ComboBox Margin="0,6,0,0"
+                                                  ItemsSource="{Binding Blueprints}"
+                                                  SelectedItem="{Binding SelectedBlueprint}"
+                                                  DisplayMemberPath="Manifest.Id"
+                                                  AutomationProperties.Name="Blueprint" />
+                                        <TextBlock Style="{StaticResource Text.Caption}" Margin="0,5,0,0"
+                                                   Text="Only trusted executable blueprints can proceed." />
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="1" Grid.Column="0">
+                                        <TextBlock Style="{StaticResource Text.Label}" Text="Parent folder" />
+                                        <TextBox Margin="0,6,0,0"
+                                                 Text="{Binding RootPath, UpdateSourceTrigger=PropertyChanged}"
+                                                 AutomationProperties.Name="Parent folder" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="1" Grid.Column="2">
+                                        <TextBlock Style="{StaticResource Text.Label}" Text="Output folder" />
+                                        <TextBox Margin="0,6,0,0"
+                                                 Text="{Binding OutputFolder, UpdateSourceTrigger=PropertyChanged}"
+                                                 AutomationProperties.Name="Output folder" />
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource FormCard}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource Text.CardTitle}" Text="Blueprint options" />
+                                <TextBlock Style="{StaticResource Text.Caption}" Margin="0,4,0,18"
+                                           Text="Inputs are validated by the selected blueprint before planning." />
+                                <ItemsControl ItemsSource="{Binding Inputs}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Width="390" Margin="0,0,16,16">
+                                                <TextBlock Style="{StaticResource Text.Label}" Text="{Binding Id}" />
+                                                <ContentControl Margin="0,6,0,0" Content="{Binding}">
+                                                    <ContentControl.Style>
+                                                        <Style TargetType="ContentControl">
+                                                            <Setter Property="ContentTemplate" Value="{StaticResource TextInputTemplate}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Kind}" Value="{x:Static blueprints:BlueprintInputKind.Choice}">
+                                                                    <Setter Property="ContentTemplate" Value="{StaticResource ChoiceInputTemplate}" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding Kind}" Value="{x:Static blueprints:BlueprintInputKind.Boolean}">
+                                                                    <Setter Property="ContentTemplate" Value="{StaticResource BooleanInputTemplate}" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding Kind}" Value="{x:Static blueprints:BlueprintInputKind.WholeNumber}">
+                                                                    <Setter Property="ContentTemplate" Value="{StaticResource WholeNumberInputTemplate}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </ContentControl.Style>
+                                                </ContentControl>
+                                                <TextBlock Style="{StaticResource ValidationText}"
+                                                           Text="{Binding ValidationMessage}" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource FormCard}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource Text.CardTitle}" Text="Git &amp; GitHub" />
+                                <TextBlock Style="{StaticResource Text.Caption}" Margin="0,4,0,18"
+                                           Text="Local Git is created only after validation. GitHub publication stays private by default." />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="20" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <CheckBox Content="Initialize Git repository"
+                                                  IsChecked="{Binding InitializeRepository}"
+                                                  IsEnabled="{Binding CanEdit}"
+                                                  AutomationProperties.Name="Initialize Git repository" />
+                                        <TextBlock Style="{StaticResource Text.Label}" Margin="0,16,0,0" Text="Branch policy" />
+                                        <ComboBox Margin="0,6,0,0"
+                                                  ItemsSource="{Binding BranchPolicyChoices}"
+                                                  SelectedItem="{Binding BranchPolicy}"
+                                                  IsEnabled="{Binding CanConfigureGit}"
+                                                  AutomationProperties.Name="Git branch policy" />
+                                        <TextBlock Style="{StaticResource Text.Label}" Margin="0,16,0,0" Text="Open after generation" />
+                                        <ComboBox Margin="0,6,0,0"
+                                                  ItemsSource="{Binding IdeChoices}"
+                                                  SelectedItem="{Binding IdeId}"
+                                                  AutomationProperties.Name="Open after generation" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <CheckBox Content="Publish to GitHub"
+                                                  IsChecked="{Binding PublishToGitHub}"
+                                                  IsEnabled="{Binding CanConfigureGit}"
+                                                  AutomationProperties.Name="Publish to GitHub" />
+                                        <CheckBox Margin="0,12,0,0"
+                                                  Content="Private repository"
+                                                  IsChecked="{Binding IsPrivate}"
+                                                  IsEnabled="{Binding CanConfigureGitHub}"
+                                                  AutomationProperties.Name="Private GitHub repository" />
+                                        <TextBlock Style="{StaticResource Text.Label}" Margin="0,16,0,0" Text="GitHub personal account" />
+                                        <TextBox Margin="0,6,0,0"
+                                                 Text="{Binding GitHubAccount, UpdateSourceTrigger=PropertyChanged}"
+                                                 IsEnabled="{Binding CanConfigureGitHub}"
+                                                 AutomationProperties.Name="GitHub personal account" />
+                                        <TextBlock Style="{StaticResource Text.Label}" Margin="0,16,0,0" Text="Repository name" />
+                                        <TextBox Margin="0,6,0,0"
+                                                 Text="{Binding GitHubRepository, UpdateSourceTrigger=PropertyChanged}"
+                                                 IsEnabled="{Binding CanConfigureGitHub}"
+                                                 AutomationProperties.Name="GitHub repository" />
+                                    </StackPanel>
+                                </Grid>
+                                <Border Style="{StaticResource Callout.Info}" Margin="0,18,0,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{StaticResource Icon.Info}" Margin="0,1,10,0"
+                                                   FontFamily="{StaticResource Font.Icon}"
+                                                   Foreground="{DynamicResource Brush.Info}" />
+                                        <TextBlock Text="Authentication is delegated to the trusted GitHub CLI. DevForge never stores your token."
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+
+                        <ItemsControl ItemsSource="{Binding ValidationIssues}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource Callout.Error}" Margin="0,0,0,8">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{StaticResource Icon.Error}" Margin="0,1,10,0"
+                                                       FontFamily="{StaticResource Font.Icon}"
+                                                       Foreground="{DynamicResource Brush.Error}" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Message}" TextWrapping="Wrap" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <StackPanel DataContext="{Binding PlanPreview}">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+
+                        <Border Style="{StaticResource FormCard}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
                                 <StackPanel>
-                                    <TextBlock Text="{Binding Id}" FontWeight="SemiBold" />
-                                    <TextBlock Text="{Binding HandlerId}" />
-                                    <TextBlock Text="{Binding ProcessPreview}" TextWrapping="Wrap" />
+                                    <TextBlock Style="{StaticResource Text.Caption}" Text="REVIEWED BLUEPRINT" />
+                                    <TextBlock Style="{StaticResource Text.SectionTitle}" Margin="0,5,0,0"
+                                               Text="{Binding BlueprintLabel}" />
+                                    <TextBlock Style="{StaticResource Text.Mono}" Margin="0,14,0,0"
+                                               Foreground="{DynamicResource Brush.TextSecondary}"
+                                               Text="{Binding PlanHash, StringFormat=Plan hash: {0}}"
+                                               TextWrapping="Wrap" />
                                 </StackPanel>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                    <TextBlock Style="{StaticResource SectionHeading}" Text="Validators" Margin="0,16,0,4" />
-                    <ListBox ItemsSource="{Binding Validators}" DisplayMemberPath="Id"
-                             VirtualizingStackPanel.IsVirtualizing="True" />
-                    <TextBlock Style="{StaticResource SectionHeading}" Text="Effective inputs" Margin="0,16,0,4" />
-                    <ListBox ItemsSource="{Binding Inputs}"
-                             VirtualizingStackPanel.IsVirtualizing="True">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock>
-                                    <Run Text="{Binding Id}" FontWeight="SemiBold" />
-                                    <Run Text=": " />
-                                    <Run Text="{Binding DisplayValue}" />
-                                </TextBlock>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                    <TextBlock Style="{StaticResource SectionHeading}" Text="Features and warnings" Margin="0,16,0,4" />
-                    <ItemsControl ItemsSource="{Binding Features}" />
-                    <ItemsControl ItemsSource="{Binding Warnings}" DisplayMemberPath="Message" />
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
-                        <Button Content="Back" Margin="0,0,8,0"
-                                Command="{Binding BackToConfigureCommand}" />
-                        <Button Style="{StaticResource PrimaryButton}"
-                                Content="Create &amp; Validate"
-                                Command="{Binding CreateAndValidateCommand}"
-                                AutomationProperties.Name="Create and Validate" />
+                                <StackPanel Grid.Column="1" Margin="20,0,0,0" HorizontalAlignment="Right">
+                                    <Border Style="{StaticResource StatusBadge.Success}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{StaticResource Icon.Success}" Margin="0,0,6,0"
+                                                       FontFamily="{StaticResource Font.Icon}"
+                                                       Foreground="{DynamicResource Brush.Success}" />
+                                            <TextBlock Text="{Binding TrustLabel}" FontWeight="SemiBold" />
+                                        </StackPanel>
+                                    </Border>
+                                    <TextBlock Style="{StaticResource Text.Caption}" Margin="0,12,0,0"
+                                               Text="{Binding GitSummary}" TextAlignment="Right" />
+                                    <TextBlock Style="{StaticResource Text.Caption}" Margin="0,4,0,0"
+                                               Text="{Binding GitHubSummary, StringFormat=GitHub: {0}}" TextAlignment="Right" />
+                                    <TextBlock Style="{StaticResource Text.Caption}" Margin="0,4,0,0"
+                                               Text="{Binding RepositoryVisibility, StringFormat=Visibility: {0}}" TextAlignment="Right" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <Border Style="{StaticResource FormCard}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource Text.CardTitle}" Margin="0,0,0,16"
+                                           Text="Plan evidence" />
+
+                                <Expander Style="{StaticResource ReviewExpander}" Header="Artifacts" IsExpanded="True">
+                                    <ListBox MaxHeight="180" ItemsSource="{Binding Artifacts}"
+                                             DisplayMemberPath="Path" VirtualizingStackPanel.IsVirtualizing="True" />
+                                </Expander>
+                                <Expander Style="{StaticResource ReviewExpander}" Header="Dependencies">
+                                    <ListBox MaxHeight="180" ItemsSource="{Binding Dependencies}"
+                                             DisplayMemberPath="Id" VirtualizingStackPanel.IsVirtualizing="True" />
+                                </Expander>
+                                <Expander Style="{StaticResource ReviewExpander}" Header="Required tools">
+                                    <ListBox MaxHeight="180" ItemsSource="{Binding Tools}"
+                                             DisplayMemberPath="Id" VirtualizingStackPanel.IsVirtualizing="True" />
+                                </Expander>
+                                <Expander Style="{StaticResource ReviewExpander}" Header="Execution steps" IsExpanded="True">
+                                    <ListBox MaxHeight="300" ItemsSource="{Binding Steps}"
+                                             VirtualizingStackPanel.IsVirtualizing="True">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Style="{StaticResource Card.Raised}" Margin="6,6,6,0">
+                                                    <StackPanel>
+                                                        <TextBlock FontWeight="SemiBold" Text="{Binding Id}" />
+                                                        <TextBlock Style="{StaticResource Text.Caption}" Text="{Binding HandlerId}" />
+                                                        <TextBlock Style="{StaticResource Text.Mono}" Margin="0,6,0,0"
+                                                                   Text="{Binding ProcessPreview}" TextWrapping="Wrap" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </Expander>
+                                <Expander Style="{StaticResource ReviewExpander}" Header="Validators">
+                                    <ListBox MaxHeight="180" ItemsSource="{Binding Validators}"
+                                             DisplayMemberPath="Id" VirtualizingStackPanel.IsVirtualizing="True" />
+                                </Expander>
+                                <Expander Style="{StaticResource ReviewExpander}" Header="Effective inputs">
+                                    <ListBox MaxHeight="220" ItemsSource="{Binding Inputs}"
+                                             VirtualizingStackPanel.IsVirtualizing="True">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="8,6">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="180" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock FontWeight="SemiBold" Text="{Binding Id}" />
+                                                    <TextBlock Grid.Column="1" Text="{Binding DisplayValue}" TextWrapping="Wrap" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </Expander>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource FormCard}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource Text.CardTitle}" Margin="0,0,0,12"
+                                           Text="Features &amp; warnings" />
+                                <ItemsControl ItemsSource="{Binding Features}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Style="{StaticResource StatusBadge}" Margin="0,0,8,8"
+                                                    HorizontalAlignment="Left">
+                                                <TextBlock Text="{Binding}" />
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <ItemsControl ItemsSource="{Binding Warnings}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Style="{StaticResource Callout.Warning}" Margin="0,8,0,0">
+                                                <TextBlock Text="{Binding Message}" TextWrapping="Wrap" />
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </StackPanel>
+            </ScrollViewer>
+
+            <Border Grid.Row="1" Style="{StaticResource ActionBar}" Padding="28,16">
+                <Grid MaxWidth="940" HorizontalAlignment="Left">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource Text.Caption}"
+                               VerticalAlignment="Center"
+                               Text="Nothing runs until you approve the reviewed plan." />
+                    <Button Grid.Column="1"
+                            Content="Review Plan"
+                            Command="{Binding ReviewPlanCommand}"
+                            AutomationProperties.Name="Review Plan">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource Button.Primary}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding PlanPreview}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding PlanPreview}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <Button Style="{StaticResource Button.Ghost}"
+                                Margin="0,0,8,0"
+                                Content="Back to configure"
+                                Command="{Binding PlanPreview.BackToConfigureCommand}" />
+                        <Button Style="{StaticResource Button.Primary}"
+                                Content="Create &amp; Validate"
+                                Command="{Binding PlanPreview.CreateAndValidateCommand}"
+                                AutomationProperties.Name="Create and Validate" />
+                    </StackPanel>
+                </Grid>
             </Border>
-        </StackPanel>
+        </Grid>
+
         <ContentControl Content="{Binding ExecutionCenter}">
             <ContentControl.Style>
                 <Style TargetType="ContentControl">
@@ -249,9 +572,12 @@
                 </Style>
             </ContentControl.Style>
             <ContentControl.ContentTemplate>
-                <DataTemplate><execution:ExecutionCenterView /></DataTemplate>
+                <DataTemplate>
+                    <execution:ExecutionCenterView />
+                </DataTemplate>
             </ContentControl.ContentTemplate>
         </ContentControl>
+
         <ContentControl Content="{Binding LocalReady}">
             <ContentControl.Style>
                 <Style TargetType="ContentControl">
@@ -270,9 +596,10 @@
                 </Style>
             </ContentControl.Style>
             <ContentControl.ContentTemplate>
-                <DataTemplate><execution:LocalReadyView /></DataTemplate>
+                <DataTemplate>
+                    <execution:LocalReadyView />
+                </DataTemplate>
             </ContentControl.ContentTemplate>
         </ContentControl>
-        </Grid>
-    </ScrollViewer>
+    </Grid>
 </UserControl>

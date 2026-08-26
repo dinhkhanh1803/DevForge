@@ -201,6 +201,24 @@ public sealed partial class DesktopPresentationContractTests
         Assert.DoesNotContain("#FFD13438", settings, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void CreateProjectPresentsAllFourWorkflowStagesAndReviewEvidence()
+    {
+        var xaml = Read("src/DevForge.Desktop/CreateProject/CreateProjectView.xaml");
+
+        Assert.Contains("Configure", xaml, StringComparison.Ordinal);
+        Assert.Contains("Review", xaml, StringComparison.Ordinal);
+        Assert.Contains("Execute", xaml, StringComparison.Ordinal);
+        Assert.Contains("Complete", xaml, StringComparison.Ordinal);
+        Assert.Contains("WorkflowStepper", xaml, StringComparison.Ordinal);
+        Assert.Contains("FormCard", xaml, StringComparison.Ordinal);
+        Assert.Contains("ActionBar", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text.Mono", xaml, StringComparison.Ordinal);
+        Assert.Contains("CreateAndValidateCommand", xaml, StringComparison.Ordinal);
+        Assert.Contains("BackToConfigureCommand", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("#FFD13438", xaml, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static HashSet<string> ResourceKeys(string relativePath) =>
         KeyExpression()
             .Matches(Read(relativePath))
