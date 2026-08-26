@@ -6,16 +6,21 @@ using DevForge.Application.Creation;
 using DevForge.Application.Execution;
 using DevForge.Application.Planning;
 using DevForge.Application.Planning.CompatibilityRules;
+using DevForge.Application.Publication;
 using DevForge.Blueprints.Abstractions.Models;
 using DevForge.Blueprints.BuiltIn;
 using DevForge.Domain.Environment;
+using DevForge.Domain.Projects;
 using DevForge.Infrastructure.Blueprints;
 using DevForge.Infrastructure.Creation;
 using DevForge.Infrastructure.Execution;
 using DevForge.Infrastructure.FileSystem;
+using DevForge.Infrastructure.Git;
 using DevForge.Infrastructure.Persistence;
 using DevForge.Infrastructure.Persistence.Migrations;
 using DevForge.Infrastructure.Persistence.Repositories;
+using DevForge.Infrastructure.Processes;
+using DevForge.Infrastructure.Publication;
 using DevForge.Infrastructure.Security;
 
 namespace DevForge.E2ETests.M9;
@@ -23,20 +28,44 @@ namespace DevForge.E2ETests.M9;
 internal sealed class WpfBlueprintFixture : IAsyncDisposable
 {
     private readonly string _root;
+    private readonly string _targetRoot;
+    private readonly IProjectRecoveryWorkspaceFactory _recoveryWorkspaces;
+    private readonly IStagingWorkspaceManager _staging;
+    private readonly IRunCheckpointStore _checkpointStore;
+    private readonly IExecutionOrchestrator _orchestrator;
+    private readonly TimeProvider _timeProvider;
+    private readonly IProjectPublicationCoordinator _publication;
 
     private WpfBlueprintFixture(
         string root,
         string targetRoot,
         ProjectCreationWorkflow workflow,
         RecordingProcessRunner runner,
+        BlueprintCatalog catalog,
+        IProjectRecoveryWorkspaceFactory recoveryWorkspaces,
+        IStagingWorkspaceManager staging,
+        IRunCheckpointStore checkpointStore,
+        IExecutionOrchestrator orchestrator,
+        TimeProvider timeProvider,
+        IProjectPublicationCoordinator publication,
+        RejectingRemoteGitHubService remoteGitHub,
         string projectName,
         string targetName,
         string blueprintId)
     {
         _root = root;
+        _targetRoot = targetRoot;
+        _recoveryWorkspaces = recoveryWorkspaces;
+        _staging = staging;
+        _checkpointStore = checkpointStore;
+        _orchestrator = orchestrator;
+        _timeProvider = timeProvider;
+        _publication = publication;
         TargetPath = Path.Combine(targetRoot, targetName);
         Workflow = workflow;
         Runner = runner;
+        Catalog = catalog;
+        RemoteGitHub = remoteGitHub;
         Draft = ProjectCreationDraft.Create(
             projectName,
             targetRoot,
@@ -51,9 +80,47 @@ internal sealed class WpfBlueprintFixture : IAsyncDisposable
 
     public RecordingProcessRunner Runner { get; }
 
+    public BlueprintCatalog Catalog { get; }
+
+    public RejectingRemoteGitHubService RemoteGitHub { get; }
+
     public ProjectCreationDraft Draft { get; }
 
     public string TargetPath { get; }
+
+    public ProjectCreationDraft CreateDraft(string projectName, string targetName) =>
+        ProjectCreationDraft.Create(
+            projectName,
+            _targetRoot,
+            targetName,
+            Draft.Blueprint,
+            Draft.Inputs.Select(item =>
+                new KeyValuePair<string, DynamicInputValue?>(item.Key, item.Value)),
+            Draft.Features,
+            Draft.IdeId,
+            initializeRepository: true,
+            branchPolicy: GitBranchPolicy.Main).Value;
+
+    public async Task<StagingCleanupReceipt> CleanupFailedAsync(RunCheckpoint checkpoint)
+    {
+        var workspaces = await _recoveryWorkspaces.OpenAsync(checkpoint, CancellationToken.None);
+        var recovery = new RunRecoveryService(
+            _checkpointStore,
+            _orchestrator,
+            _staging,
+            _timeProvider);
+        var result = await recovery.CleanupAsync(
+            checkpoint,
+            workspaces.TargetParent,
+            CancellationToken.None);
+        Assert.True(result.IsSuccessful);
+        return result.Value;
+    }
+
+    public Task<ExecutionOperationResult<RunCheckpoint>> PublishLocalAsync(string runId) =>
+        _publication.PublishAsync(
+            PublicationRequest.Create(runId, PublicationMutationMode.Normal).Value,
+            CancellationToken.None);
 
     public static Task<WpfBlueprintFixture> CreateAsync() => CreateAsync(
         "Team Tool",
@@ -150,11 +217,28 @@ internal sealed class WpfBlueprintFixture : IAsyncDisposable
                 new GuidRunIdentityGenerator(),
                 orchestrator,
                 timeProvider);
+            var remoteGitHub = new RejectingRemoteGitHubService();
+            var publication = new ProjectPublicationCoordinator(
+                checkpointStore,
+                new WindowsPublicationLeaseProvider(fileSystem, localDataWorkspaceRoot),
+                new ProjectPublicationWorkspaceFactory(targets),
+                new LocalGitService(new WindowsProcessRunner(), new WorkspaceSecretScanner()),
+                remoteGitHub,
+                new AtomicPublicationReceiptStore(),
+                new FixedNonceGenerator());
             return new WpfBlueprintFixture(
                 root,
                 targetRoot,
                 workflow,
                 runner,
+                catalog,
+                targets,
+                staging,
+                checkpointStore,
+                orchestrator,
+                timeProvider,
+                publication,
+                remoteGitHub,
                 projectName,
                 targetName,
                 blueprintId);
@@ -183,6 +267,15 @@ internal sealed class WpfBlueprintFixture : IAsyncDisposable
 
         if (Directory.Exists(fullPath))
         {
+            foreach (var file in Directory.EnumerateFiles(fullPath, "*", SearchOption.AllDirectories))
+            {
+                var attributes = File.GetAttributes(file);
+                if ((attributes & FileAttributes.ReadOnly) != 0)
+                {
+                    File.SetAttributes(file, attributes & ~FileAttributes.ReadOnly);
+                }
+            }
+
             Directory.Delete(fullPath, recursive: true);
         }
     }
@@ -206,8 +299,11 @@ internal sealed class WpfBlueprintFixture : IAsyncDisposable
     internal sealed class RecordingProcessRunner(string targetRoot, string blueprintId) : IProcessRunner
     {
         private readonly List<CommandSpec> _commands = [];
+        private bool _failNext;
 
         public ImmutableArray<CommandSpec> Commands => [.. _commands];
+
+        public void FailNext() => _failNext = true;
 
         public Task CheckPreconditionsAsync(CommandSpec command, CancellationToken cancellationToken)
         {
@@ -222,6 +318,15 @@ internal sealed class WpfBlueprintFixture : IAsyncDisposable
         {
             cancellationToken.ThrowIfCancellationRequested();
             _commands.Add(command);
+            if (_failNext)
+            {
+                _failNext = false;
+                return Task.FromResult(ProcessResult.Create(
+                    ProcessTerminationReason.Exited,
+                    1,
+                    []).Value);
+            }
+
             if (blueprintId == "web.react-vite-ts"
                 && command.ArgumentList.SequenceEqual(["run", "build"]))
             {
@@ -235,5 +340,32 @@ internal sealed class WpfBlueprintFixture : IAsyncDisposable
             }
             return Task.FromResult(ProcessResult.Create(ProcessTerminationReason.Exited, 0, []).Value);
         }
+    }
+
+    internal sealed class RejectingRemoteGitHubService : IPublicationGitHubService
+    {
+        public int Calls { get; private set; }
+
+        public Task<GitHubPublishResult> PublishAsync(
+            GitHubPublishRequest request,
+            IGitHubPublicationProgress progress,
+            CancellationToken cancellationToken)
+        {
+            Calls++;
+            throw new InvalidOperationException("The M9 local-Git matrix must not contact a remote.");
+        }
+
+        public Task<GitHubPublishResult> VerifyAsync(
+            GitHubPublishRequest request,
+            CancellationToken cancellationToken)
+        {
+            Calls++;
+            throw new InvalidOperationException("The M9 local-Git matrix must not contact a remote.");
+        }
+    }
+
+    private sealed class FixedNonceGenerator : IPublicationNonceGenerator
+    {
+        public string CreateOwnershipNonce() => new('a', 32);
     }
 }

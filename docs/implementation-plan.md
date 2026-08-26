@@ -2,7 +2,7 @@
 
 **Goal:** Ship exactly three deterministic, checksummed production blueprints and validate generated projects with their certified Windows toolchains.
 
-**Status:** M9 Tasks 1-5 complete and locally verified; Task 6 is the next implementation slice.
+**Status:** M9 Tasks 1-5 complete and locally verified; Task 6 cross-blueprint integration and closure is active.
 
 **Architecture:** Versioned static packages are shipped as immutable built-in content. Desktop composes a `BuiltIn` source and the existing `Local` source through guarded workspaces. Blueprint actions remain declarative and all external tools pass through a closed `IProcessRunner` vocabulary.
 
@@ -74,6 +74,16 @@ Task 4 exit is satisfied locally. Python/uv have typed identities and fixed envi
 **Task 5 exit:** every successful generated run contains the complete handoff set plus integrity-bound engine evidence; recovery produces the same bytes without accepting forged state; focused and full format/restore/build/test gates pass before a scoped local commit.
 
 Task 5 exit is satisfied locally. All three packages meet the shared truthful handoff contract. The completion boundary persists the four canonical engine-owned files from the authoritative persisted preview, uses bounded reviewed generated-file evidence, records explicit engine/project/team legacy provenance, and preserves byte-identical recovery across each atomic evidence write and finalization-intent kill window. Spec and quality/security review report no remaining findings; locked restore, format, Release build, all 1,445 tests, EF consistency, and scoped integrity/security checks pass.
+
+## Current Task 6 boundary
+
+**Scope:** consolidate the production release matrix for exactly `desktop.csharp-wpf-tool`, `web.react-vite-ts`, and `tool.python-cli`; prove each package through the real production catalog, review/planning, guarded execution, validation, finalization, deterministic output, failure recovery, and optional M8 local-Git composition; close M9 documentation only from observed gate evidence. M10 behavior, additional blueprints, remote publication, cloud/AI/browser surfaces, and expanded command vocabularies remain out of scope.
+
+**Expected files:** a cohesive `tests/DevForge.E2ETests/M9/ProductionBlueprintReleaseMatrixE2ETests.cs`, narrowly reusable M9 fixture/snapshot helpers, consolidated exact expected-path/digest data for all three packages, and only regression production changes directly exposed by RED. `docs/implementation-status.md`, `README.md`, and `CHANGELOG.md` are updated only after the final closure controller supplies exact full-gate and real-toolchain evidence.
+
+**RED tests:** Desktop/build-output discovery returns exactly the three production IDs; every blueprint completes production review, deterministic planning, guarded generation, validation, and finalization; identical reviewed inputs produce identical plan hashes and exact trees; changed reviewed inputs change the hash and rendered output; occupied final targets remain untouched and failed execution remains recoverable through its owned cleanup boundary; optional local Git creates one exact clean repository without a remote; repository-bound scans reject shell/admin, unbounded latest/wildcard dependency, token/secret, and forbidden platform surfaces.
+
+**Task 6 exit:** focused M9 E2E passes with zero failed or skipped tests, then the controller runs locked restore, format verification, Release build, all four test projects, the real WPF/React/Python generated-project matrices, EF pending-model verification, architecture/privacy/security scans, `git diff --check`, and clean status after the scoped local commit. Only exact observed results may close M9 and recommend M10; any unexecuted environment matrix item is recorded as deferred rather than green.
 
 ## M9 exit gate
 
