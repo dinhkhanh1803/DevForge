@@ -24,6 +24,8 @@ internal static class DesktopSettingKeys
     public const string DefaultIdeId = "ide.default-id";
     public const string DefaultTeamProfileId = "team.default-profile-id";
     public const string OnboardingCompleted = "onboarding.completed";
+    public const string DiagnosticRetentionDays = "diagnostics.retention-days";
+    public const string DiagnosticRetentionMaxBytes = "diagnostics.retention-max-bytes";
 }
 
 public sealed class DesktopSettingsService : IDesktopSettingsService
@@ -48,6 +50,7 @@ public sealed class DesktopSettingsService : IDesktopSettingsService
         var map = settings
             .GroupBy(item => item.Key, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
+        var retention = ReadRetentionPolicy(map);
 
         return new DesktopSettings(
             ReadText(map, DesktopSettingKeys.DefaultProjectRoot, string.Empty),
@@ -55,7 +58,9 @@ public sealed class DesktopSettingsService : IDesktopSettingsService
             ReadIdentifier(map, DesktopSettingKeys.DefaultTeamProfileId),
             ReadCulture(map),
             ReadTheme(map),
-            ReadBoolean(map, DesktopSettingKeys.OnboardingCompleted));
+            ReadBoolean(map, DesktopSettingKeys.OnboardingCompleted),
+            retention.MaxAgeDays,
+            retention.MaxTotalBytes);
     }
 
     public async Task<ValidationResult<DesktopSettings>> SaveAsync(
@@ -81,6 +86,14 @@ public sealed class DesktopSettingsService : IDesktopSettingsService
             CreateText(DesktopSettingKeys.Culture, settings.CultureName, timestamp),
             CreateText(DesktopSettingKeys.Theme, settings.Theme.ToString(), timestamp),
             CreateBoolean(DesktopSettingKeys.OnboardingCompleted, settings.OnboardingCompleted, timestamp),
+            CreateInteger(
+                DesktopSettingKeys.DiagnosticRetentionDays,
+                settings.DiagnosticRetentionDays,
+                timestamp),
+            CreateInteger(
+                DesktopSettingKeys.DiagnosticRetentionMaxBytes,
+                settings.DiagnosticRetentionMaxBytes,
+                timestamp),
         };
 
         foreach (var record in records)
@@ -122,6 +135,14 @@ public sealed class DesktopSettingsService : IDesktopSettingsService
                 nameof(draft.Theme)));
         }
 
+        var retention = DiagnosticRetentionPolicy.Create(
+            draft.DiagnosticRetentionDays,
+            draft.DiagnosticRetentionMaxBytes);
+        if (!retention.IsValid)
+        {
+            issues.AddRange(retention.Issues);
+        }
+
         if (issues.Count != 0)
         {
             return ValidationResult.Failure<DesktopSettings>(issues);
@@ -134,7 +155,9 @@ public sealed class DesktopSettingsService : IDesktopSettingsService
             teamId!,
             culture!,
             draft.Theme,
-            draft.OnboardingCompleted));
+            draft.OnboardingCompleted,
+            retention.Value.MaxAgeDays,
+            retention.Value.MaxTotalBytes));
     }
 
     private static string? NormalizeIdentifier(
@@ -190,6 +213,11 @@ public sealed class DesktopSettingsService : IDesktopSettingsService
         return CreateSetting(key, AppSettingValue.CreateBoolean(value), timestamp);
     }
 
+    private static AppSetting CreateInteger(string key, long value, DateTimeOffset timestamp)
+    {
+        return CreateSetting(key, AppSettingValue.CreateInteger(value), timestamp);
+    }
+
     private static AppSetting CreateSetting(string key, AppSettingValue value, DateTimeOffset timestamp)
     {
         var setting = AppSetting.Create(key, value, timestamp);
@@ -243,5 +271,36 @@ public sealed class DesktopSettingsService : IDesktopSettingsService
         return settings.TryGetValue(key, out var setting)
             && setting.Value.Kind == AppSettingValueKind.BooleanFlag
             && setting.Value.BooleanValue;
+    }
+
+    private static long ReadInteger(
+        Dictionary<string, AppSetting> settings,
+        string key,
+        long fallback)
+    {
+        return settings.TryGetValue(key, out var setting)
+            && setting.Value.Kind == AppSettingValueKind.WholeNumber
+                ? setting.Value.IntegerValue
+                : fallback;
+    }
+
+    private static DiagnosticRetentionPolicy ReadRetentionPolicy(
+        Dictionary<string, AppSetting> settings)
+    {
+        var days = ReadInteger(
+            settings,
+            DesktopSettingKeys.DiagnosticRetentionDays,
+            DiagnosticRetentionPolicy.Default.MaxAgeDays);
+        var bytes = ReadInteger(
+            settings,
+            DesktopSettingKeys.DiagnosticRetentionMaxBytes,
+            DiagnosticRetentionPolicy.Default.MaxTotalBytes);
+        if (days is < int.MinValue or > int.MaxValue)
+        {
+            return DiagnosticRetentionPolicy.Default;
+        }
+
+        var policy = DiagnosticRetentionPolicy.Create((int)days, bytes);
+        return policy.IsValid ? policy.Value : DiagnosticRetentionPolicy.Default;
     }
 }

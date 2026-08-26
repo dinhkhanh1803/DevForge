@@ -2,7 +2,7 @@
 
 **Goal:** close the MVP security/recovery/diagnostics/documentation/package release gates without expanding the blueprint catalog.
 
-**Status:** M10 Task 1 is implemented, review findings are resolved, and its affected gates are green. Task 2 structured diagnostics/retention is next. Concurrent Desktop presentation work still owns three RED E2E assertions and remains outside M10 Task 1. M9's Windows 11 certification remains accepted environmental debt and neither M9 nor M10 may be marked complete until it is executed.
+**Status:** M10 Tasks 1-2 are implemented and their affected gates are green; Task 2 awaits independent review before Task 3 begins. Concurrent Desktop presentation work owns one remaining RED E2E assertion and remains outside M10 diagnostics. M9's Windows 11 certification remains accepted environmental debt and neither M9 nor M10 may be marked complete until it is executed.
 
 **Design:** `docs/superpowers/specs/2026-08-26-m10-security-diagnostics-packaging-release-hardening-design.md`
 
@@ -11,7 +11,7 @@
 ## Milestone tasks
 
 - [x] Task 1: security closure and guarded local-data provisioning.
-- [ ] Task 2: structured JSONL diagnostics and bounded retention.
+- [x] Task 2: structured JSONL diagnostics and bounded retention.
 - [ ] Task 3: privacy-safe support bundle and owned cleanup.
 - [ ] Task 4: Desktop diagnostics, keyboard accessibility, and scaling.
 - [ ] Task 5: self-contained `win-x64` package and upgrade smoke.
@@ -28,6 +28,14 @@
 **Exit gate:** all hostile cases fail before unsafe IO/process execution, all summaries remain scrubbed, local-data creation passes through `IFileSystem`, focused and affected suites pass, and exact results are recorded.
 
 Task 1 satisfied this boundary. `IFileSystem` now owns validated root provisioning. Its Windows implementation creates the directory chain component-by-component while retaining `GENERIC_READ`, read-sharing-only handles to every verified non-reparse ancestor. This prevents both rename/delete replacement and in-place reparse conversion until the final guarded root is opened. `LocalDataRootProvisioner` contains no direct file operation and normalizes expected provisioning failures to scrubbed `DF-FS-001` while preserving cancellation. Blueprint action inspection rejects executable/package-manager identities outside the typed trusted tool catalog before planning/execution; the production package-loader matrix proves hostile actions yield no executable package and zero workspace mutation attempts. Architecture discovery narrowly ignores only generated WPF `_wpftmp` siblings and retains legitimate similarly named projects; direct existence and bulk-enumeration APIs outside Infrastructure are also rejected.
+
+## Task 2 boundary and exit
+
+**Scope:** add immutable diagnostic events/retention policy, canonical bounded UTF-8 JSONL, guarded daily and run streams, deterministic owned-log retention, settings persistence, and Desktop DI composition. Support-bundle creation, diagnostics UI, external telemetry, cloud logging, and arbitrary filesystem paths remain excluded.
+
+**Files:** Application diagnostics and guarded metadata contracts; Infrastructure normalizer, atomic JSONL sink, retention service, and Windows metadata implementation; Desktop settings/host composition; focused Unit/Integration/E2E tests.
+
+**Tests and exit gate:** validation defaults/bounds, stable property order, control normalization, 32 KiB truncation, concurrent parseable daily/run writes, cancellation without partial JSONL, expired-before-oldest cleanup, active-day/unowned/support-bundle preservation, settings validation, and DI resolution. Release build passes 12 projects with 0 warnings/errors; Unit 643, Integration 574, and Blueprint 127 pass with 0 failed/skipped. The focused Desktop settings/host selection passes 14/14. Full E2E currently reports 193 passed and one unrelated presentation failure for a removed read-only settings indicator binding.
 
 ---
 

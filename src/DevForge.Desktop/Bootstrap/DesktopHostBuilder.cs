@@ -19,6 +19,7 @@ using DevForge.Desktop.Shell;
 using DevForge.Desktop.Theming;
 using DevForge.Infrastructure.Blueprints;
 using DevForge.Infrastructure.Creation;
+using DevForge.Infrastructure.Diagnostics;
 using DevForge.Infrastructure.Execution;
 using DevForge.Infrastructure.FileSystem;
 using DevForge.Infrastructure.Git;
@@ -93,6 +94,8 @@ public static class DesktopHostBuilder
         }
 
         services.AddSingleton(workspaceRoot.Value);
+        services.AddSingleton<IDiagnosticSink, JsonLinesDiagnosticSink>();
+        services.AddSingleton<IDiagnosticRetentionService, DiagnosticRetentionService>();
         services.AddSingleton<DesktopBlueprintSourceRegistry>();
         services.AddSingleton<IEnumerable<BlueprintPackageSource>>(provider =>
             provider.GetRequiredService<DesktopBlueprintSourceRegistry>());

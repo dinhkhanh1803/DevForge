@@ -1,7 +1,7 @@
 # DevForge Studio Implementation Status
 
-**Current milestone:** M10 - Security, diagnostics, packaging, and release hardening (Task 1 review findings resolved; Task 2 next)
-**Status:** M0-M8 complete; M9 implementation and Windows 10 matrix complete; M9 Windows 11 certification is accepted carry-forward environmental debt; M10 Task 1 affected gates are green
+**Current milestone:** M10 - Security, diagnostics, packaging, and release hardening (Tasks 1-2 implemented; Task 2 review pending)
+**Status:** M0-M8 complete; M9 implementation and Windows 10 matrix complete; M9 Windows 11 certification is accepted carry-forward environmental debt; M10 Tasks 1-2 affected gates are green
 **Last updated:** 2026-08-26
 
 ## M10 entry and current scope
@@ -14,7 +14,11 @@ M10 Task 1 is complete locally. Root provisioning is a typed `IFileSystem` opera
 
 Task 1 TDD evidence observed the missing injected provisioner/port as compile RED, six untrusted executable cases as behavioral RED, a junction-ancestor provisioning escape that created outside the requested root as RED, provisioner error-code leakage as RED, and over-broad `_wpftmp` suppression as RED. Review then identified the remaining same-user TOCTOU windows: rename replacement and in-place junction conversion each failed before the handle access/share contract was hardened, and both native regressions are now green. The fresh Release build passes all 12 projects with 0 warnings/errors. Full project results are Unit 636 passed, Integration 567 passed, and Blueprint 127 passed, all with 0 failed/skipped. Scoped format verification exits 0 with no output.
 
-The authoritative full E2E gate is currently blocked by concurrent Desktop presentation work not owned by Task 1. The current run reports 187 passed and three RED presentation-contract cases: missing `EmptyState` in Dashboard and Blueprint Catalog, plus missing `StatusBadge` in Run History. Those files are preserved outside the Task 1 commit. This does not invalidate the Task 1 Unit/Integration/Blueprint and Release-build evidence, but the release gate remains red until the presentation owner completes the views.
+At Task 1 close, the full E2E gate was blocked by three concurrent Desktop presentation assertions outside its scope. Those presentation cases were subsequently completed by their owner; the later Task 2 gate below supersedes that historical count.
+
+M10 Task 2 is implemented locally. `DiagnosticEvent` and `DiagnosticRetentionPolicy` enforce UTC, closed levels, bounded non-secret identifiers, positive attempt, non-negative duration, and release defaults of 30 days/256 MiB within the allowed 1-365 day and 16 MiB-2 GiB range. `DiagnosticEventNormalizer` emits one fixed-order UTF-8 JSON object per line, normalizes control characters, rechecks secret/source shapes, and replaces oversized messages so a physical event never exceeds 32 KiB. `JsonLinesDiagnosticSink` writes deterministic daily and optional run streams through a guarded workspace, process-local serialization, an OS-exclusive lease, and whole-file atomic publication capped at 16 MiB. Cancellation/fault injection leaves no partial JSONL.
+
+Retention enumerates only guarded `logs`, recognizes canonical daily/run `.jsonl` ownership, obtains length/timestamp through a new read-only metadata capability, deletes expired files before oldest-by-time/path budget candidates, and never deletes the active day, unowned files, or support bundles. Desktop settings persist validated limits and DI resolves both services. The fresh Release build passes all 12 projects with 0 warnings/errors; Unit 643, Integration 574, and Blueprint 127 pass with zero failed/skipped; the focused settings/host E2E selection passes 14/14. Full E2E is now 193 passed and one failed assertion owned by concurrent UI work (`ReadOnlySettingsIndicatorsUseOneWayBindings` expects a binding removed by that UI change). Task 2 awaits independent code review before Task 3.
 
 ## M8 final scope and closure
 

@@ -317,6 +317,21 @@ public interface IAtomicFileWorkspaceFileSystem : IWorkspaceFileSystem
         CancellationToken cancellationToken);
 }
 
+public sealed record WorkspaceFileMetadata(
+    WorkspaceRelativePath Path,
+    long Length,
+    DateTimeOffset LastWriteUtc);
+
+/// <summary>
+/// Exposes only guarded metadata required for deterministic owned-file retention.
+/// </summary>
+public interface IWorkspaceFileMetadataFileSystem : IWorkspaceFileSystem
+{
+    Task<WorkspaceFileMetadata?> GetFileMetadataAsync(
+        WorkspaceRelativePath path,
+        CancellationToken cancellationToken);
+}
+
 public interface IWorkspaceExclusiveLease : IAsyncDisposable
 {
 }

@@ -111,6 +111,8 @@ public sealed class DesktopHostBuilderTests
         Assert.NotNull(host.Services.GetRequiredService<IPublicationReceiptStore>());
         Assert.NotNull(host.Services.GetRequiredService<IPublicationNonceGenerator>());
         Assert.NotNull(host.Services.GetRequiredService<IProjectPublicationCoordinator>());
+        Assert.NotNull(host.Services.GetRequiredService<IDiagnosticSink>());
+        Assert.NotNull(host.Services.GetRequiredService<IDiagnosticRetentionService>());
         Assert.NotNull(host.Services.GetRequiredService<IStagingWorkspaceManager>());
         Assert.NotNull(host.Services.GetRequiredService<IExecutionOrchestrator>());
         Assert.NotNull(host.Services.GetRequiredService<IRunRecoveryService>());

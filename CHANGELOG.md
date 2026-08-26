@@ -6,6 +6,8 @@ All notable DevForge Studio changes are documented here.
 
 ### Added
 
+- M10 canonical bounded JSONL diagnostics with guarded atomic daily/run streams, cross-process write leasing, validated 30-day/256-MiB defaults, and deterministic owned-log retention that preserves active and unowned data.
+
 - Native WPF/.NET 10 solution with seven production projects and four test projects.
 - Clean Architecture project-reference graph and executable architecture tests.
 - Central package management, NuGet lock files, deterministic compiler policy, editor configuration, and repository ignore rules.

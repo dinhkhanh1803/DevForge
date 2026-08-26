@@ -19,6 +19,8 @@ public sealed class DesktopSettingsServiceTests
         Assert.Equal("none", settings.DefaultIdeId);
         Assert.Equal("none", settings.DefaultTeamProfileId);
         Assert.False(settings.OnboardingCompleted);
+        Assert.Equal(30, settings.DiagnosticRetentionDays);
+        Assert.Equal(256L * 1024 * 1024, settings.DiagnosticRetentionMaxBytes);
     }
 
     [Theory]
@@ -47,13 +49,47 @@ public sealed class DesktopSettingsServiceTests
         var sut = new DesktopSettingsService(store, new FixedTimeProvider(now));
 
         var result = await sut.SaveAsync(
-            new DesktopSettingsDraft(@"C:\Projects", "rider", "leader", "vi-VN", ThemePreference.Dark, true),
+            new DesktopSettingsDraft(
+                @"C:\Projects",
+                "rider",
+                "leader",
+                "vi-VN",
+                ThemePreference.Dark,
+                true,
+                14,
+                64L * 1024 * 1024),
             CancellationToken.None);
 
         Assert.True(result.IsValid);
-        Assert.Equal(6, store.Writes.Count);
+        Assert.Equal(8, store.Writes.Count);
         Assert.All(store.Writes, item => Assert.Equal(now, item.UpdatedAt));
-        Assert.Equal(6, store.Writes.Select(item => item.Key).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(8, store.Writes.Select(item => item.Key).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(14, result.Value.DiagnosticRetentionDays);
+        Assert.Equal(64L * 1024 * 1024, result.Value.DiagnosticRetentionMaxBytes);
+    }
+
+    [Theory]
+    [InlineData(0, 256L * 1024 * 1024)]
+    [InlineData(30, 1024)]
+    public async Task SaveRejectsInvalidDiagnosticRetentionWithoutWriting(int days, long bytes)
+    {
+        var store = new FakeSettingsStore();
+        var sut = new DesktopSettingsService(store, TimeProvider.System);
+
+        var result = await sut.SaveAsync(
+            new DesktopSettingsDraft(
+                @"C:\Projects",
+                "none",
+                "none",
+                "en-US",
+                ThemePreference.System,
+                false,
+                days,
+                bytes),
+            CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Empty(store.Writes);
     }
 
     [Theory]

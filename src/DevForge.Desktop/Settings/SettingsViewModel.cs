@@ -36,6 +36,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     private bool _onboardingCompleted;
 
     [ObservableProperty]
+    private int _diagnosticRetentionDays = 30;
+
+    [ObservableProperty]
+    private long _diagnosticRetentionMaxBytes = 256L * 1024 * 1024;
+
+    [ObservableProperty]
     private bool _isBusy;
 
     [ObservableProperty]
@@ -123,7 +129,9 @@ public sealed partial class SettingsViewModel : ObservableObject
                     DefaultTeamProfileId,
                     CultureName,
                     Theme,
-                    OnboardingCompleted),
+                    OnboardingCompleted,
+                    DiagnosticRetentionDays,
+                    DiagnosticRetentionMaxBytes),
                 cancellationToken).ConfigureAwait(true);
             if (!result.IsValid)
             {
@@ -171,6 +179,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         CultureName = settings.CultureName;
         Theme = settings.Theme;
         OnboardingCompleted = settings.OnboardingCompleted;
+        DiagnosticRetentionDays = settings.DiagnosticRetentionDays;
+        DiagnosticRetentionMaxBytes = settings.DiagnosticRetentionMaxBytes;
     }
 
     private void SetBusy(bool value)

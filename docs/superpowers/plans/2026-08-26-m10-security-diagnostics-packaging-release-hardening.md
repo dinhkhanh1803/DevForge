@@ -148,7 +148,7 @@ git commit -m "security(m10): close hostile input boundaries"
 - Test: `tests/DevForge.UnitTests/Application/Diagnostics/*`
 - Test: `tests/DevForge.IntegrationTests/Infrastructure/Diagnostics/*`
 
-- [ ] **Step 1: Define RED contract tests**
+- [x] **Step 1: Define RED contract tests**
 
 Require `DiagnosticEvent.Create` to validate UTC timestamp, level, event ID, optional bounded run/step IDs, attempt, source, `RedactedText`, duration, and error code. Require `DiagnosticRetentionPolicy.Create` to accept 1-365 days and 16 MiB-2 GiB with defaults 30 days/256 MiB.
 
@@ -166,23 +166,23 @@ public sealed record DiagnosticEvent(
     string? ErrorCode);
 ```
 
-- [ ] **Step 2: Implement immutable validation and canonical serialization**
+- [x] **Step 2: Implement immutable validation and canonical serialization**
 
 Serialize one canonical UTF-8 JSON object per line with fixed property order. Normalize CR/LF/tab/C0 controls in identifiers and source; message is already redacted but is scanned again before persistence. Cap an event at 32 KiB and replace oversized message text with `[DIAGNOSTIC TRUNCATED]`.
 
-- [ ] **Step 3: Add RED integration tests for daily/run sinks**
+- [x] **Step 3: Add RED integration tests for daily/run sinks**
 
 Prove simultaneous writes remain parseable, daily and run-specific paths are deterministic, no partial line is observed after cancellation/fault injection, required fields exist, and secret/control-character fixtures never survive.
 
-- [ ] **Step 4: Implement sinks through guarded workspaces**
+- [x] **Step 4: Implement sinks through guarded workspaces**
 
 Use `IAtomicFileWorkspaceFileSystem` for bounded snapshot publication or a dedicated guarded append capability that keeps the OS handle inside Infrastructure. Do not pass absolute log paths across the port.
 
-- [ ] **Step 5: Add RED retention tests and implement deterministic cleanup**
+- [x] **Step 5: Add RED retention tests and implement deterministic cleanup**
 
 Sort eligible owned artefacts by timestamp then relative path. Delete expired files first, then oldest remaining files until under the byte ceiling. Never delete the active day's file, database, blueprints, finalized projects, unowned folders, reparse points, or support bundles currently under lease.
 
-- [ ] **Step 6: Compose settings/host, run GREEN, update docs, commit**
+- [x] **Step 6: Compose settings/host, run GREEN, update docs, commit**
 
 Run Unit diagnostics, Integration diagnostics/file guards, Desktop settings/host tests, then full affected suites. Commit as `feat(m10): add structured diagnostics retention`.
 

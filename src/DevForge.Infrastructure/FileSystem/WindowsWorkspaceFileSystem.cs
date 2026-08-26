@@ -8,6 +8,7 @@ internal sealed class WindowsWorkspaceFileSystem :
     IAtomicWorkspaceFileSystem,
     IAtomicFileWorkspaceFileSystem,
     IExclusiveLeaseWorkspaceFileSystem,
+    IWorkspaceFileMetadataFileSystem,
     IBoundedWorkspaceEnumerator
 {
     private const int ErrorFileExists = 80;
@@ -37,6 +38,37 @@ internal sealed class WindowsWorkspaceFileSystem :
     {
         return ExecuteAsync(
             () => Directory.Exists(_guard.Resolve(path)),
+            cancellationToken);
+    }
+
+    public Task<WorkspaceFileMetadata?> GetFileMetadataAsync(
+        WorkspaceRelativePath path,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        return ExecuteAsync<WorkspaceFileMetadata?>(
+            () =>
+            {
+                var fullPath = _guard.Resolve(path);
+                if (!File.Exists(fullPath))
+                {
+                    return null;
+                }
+
+                _guard.VerifyExisting(fullPath);
+                var information = new FileInfo(fullPath);
+                information.Refresh();
+                if (!information.Exists)
+                {
+                    return null;
+                }
+
+                _guard.VerifyExisting(fullPath);
+                return new WorkspaceFileMetadata(
+                    path,
+                    information.Length,
+                    new DateTimeOffset(information.LastWriteTimeUtc));
+            },
             cancellationToken);
     }
 

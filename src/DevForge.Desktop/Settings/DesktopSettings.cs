@@ -8,7 +8,9 @@ public sealed record DesktopSettings(
     string DefaultTeamProfileId,
     string CultureName,
     ThemePreference Theme,
-    bool OnboardingCompleted);
+    bool OnboardingCompleted,
+    int DiagnosticRetentionDays = 30,
+    long DiagnosticRetentionMaxBytes = 256L * 1024 * 1024);
 
 public sealed record DesktopSettingsDraft(
     string? DefaultProjectRoot,
@@ -16,4 +18,6 @@ public sealed record DesktopSettingsDraft(
     string? DefaultTeamProfileId,
     string? CultureName,
     ThemePreference Theme,
-    bool OnboardingCompleted);
+    bool OnboardingCompleted,
+    int DiagnosticRetentionDays = 30,
+    long DiagnosticRetentionMaxBytes = 256L * 1024 * 1024);
