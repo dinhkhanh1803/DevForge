@@ -1,8 +1,8 @@
 # DevForge Studio Implementation Status
 
-**Current milestone:** M9 - Production Blueprints (Task 5 active)
-**Status:** M0-M8 and M9 Tasks 1-4 complete and locally verified
-**Last updated:** 2026-08-25
+**Current milestone:** M9 - Production Blueprints (Tasks 1-6 implemented; Windows 11 certification pending)
+**Status:** M0-M8 complete; M9 implementation and Windows 10 matrix complete; M9 release exit remains open
+**Last updated:** 2026-08-26
 
 ## M8 final scope and closure
 
@@ -546,4 +546,25 @@ Fresh final verification on 2026-08-26 used the workspace-local .NET SDK 10.0.30
 | EF model consistency | local pinned `dotnet-ef.dll migrations has-pending-model-changes ... --configuration Release --no-build` | Exit 0; `No changes have been made to the model since the last migration.` |
 | Integrity/security/diff | scoped added-line shell/process/file/platform scan, empty-value `.env.example` check, package contract tests, and `git diff --check` | Exit 0; 0 shell/direct-process, unguarded file API, or forbidden platform/AI matches; both environment examples have 0 valued assignments; package checksum contracts and whitespace check pass. |
 
-Task 6 is recommended next: cross-blueprint integration and M9 closure, including consolidated real-tool release matrices and final milestone documentation. M10 remains out of scope.
+M9 Task 6 implementation is complete locally. The former per-blueprint E2E fixtures are consolidated into one production release matrix driven by a single typed case catalog. Desktop's real built-in/local source composition discovers exactly `desktop.csharp-wpf-tool`, `web.react-vite-ts`, and `tool.python-cli`; each case proves review, mutation-sensitive planning, exact ordered command materialization, two byte-identical finalized trees, engine evidence, no-overwrite refusal, owned failure recovery, typed forbidden-surface policy, and production local-Git commit verification without a remote. Specification and quality/security review finished with no remaining Critical, Important, or Minor findings.
+
+The cross-blueprint matrix exposed two production defects. React declared `dist/index.html` as final evidence while `.gitignore` excluded it, preventing the committed Git tree from matching the finalized project. The package now intentionally commits its integrity-bound production bundle and every handoff document states that policy. A fresh real Vite build also exposed that Prettier scanned the four Task 5 engine-owned evidence paths; `.prettierignore` now excludes exactly `.devforge/`, `devforge.lock.json`, `generation-report.json`, and `policy.snapshot.json`, while source and project configuration remain checked. Both fixes have package checksum and regression coverage.
+
+Fresh Task 6 verification on 2026-08-26 ran on Windows 10 Pro build 19045 with .NET SDK 10.0.302, Node 22.21.1, pnpm 10.24.0, Git 2.52.0, CPython 3.14.6, and uv 0.12.1:
+
+| Gate | Command | Exact result |
+|---|---|---|
+| Focused cross-blueprint E2E | `dotnet test tests/DevForge.E2ETests/DevForge.E2ETests.csproj -c Release --no-build --no-restore --disable-build-servers -m:1 -nodeReuse:false -p:UseSharedCompilation=false --filter "FullyQualifiedName~DevForge.E2ETests.M9.ProductionBlueprintReleaseMatrixE2ETests"` | Exit 0; 13 passed, 0 failed, 0 skipped. |
+| Production package contracts | corresponding Release BlueprintTests command filtered to `DevForge.BlueprintTests.Production` | Exit 0; 18 passed, 0 failed, 0 skipped; all current package checksums match. |
+| Generated WPF | fresh production-composed tree: locked restore, format verification, serialized Release build/test, and `WindowsSmoke` publish | Exit 0 for every command; 5 projects restored, build 0 warnings/0 errors, 1 test passed with 0 failed/skipped, publish emitted under `artifacts\publish`. |
+| Generated React | fresh production-composed tree: frozen script-disabled install, format, lint, typecheck, test, and build | Exit 0 for every command; 236 locked packages installed, Prettier/ESLint/TypeScript clean, 2 files and 2 tests passed, Vite 8.2.2 transformed 16 modules and emitted 3 reviewed `dist` files. |
+| React real-output Git repeatability | isolated local root commit of the complete real generated tree, second `pnpm run build`, `git status --porcelain=v1`, and `git remote` | Exit 0; 36 files committed, second build emitted identical asset names, status empty, no remote configured or contacted. |
+| Generated Python | fresh production-composed tree: frozen sync, Ruff format/lint, mypy, pytest, package build, and CLI help | Exit 0 for every command; 19 locked packages installed, 14 files formatted, no type issues in 7 source files, 4 tests passed, sdist and universal wheel built, reviewed help rendered. |
+| DevForge locked restore | `dotnet restore DevForge.sln --locked-mode --force-evaluate --no-cache --disable-build-servers -m:1 --verbosity minimal` | Exit 0; all 12 projects restored from pinned lock files. |
+| DevForge format | `dotnet format DevForge.sln --verify-no-changes --no-restore --verbosity minimal` | Exit 0; no formatting diagnostics. |
+| DevForge Release build | `dotnet build DevForge.sln -c Release --no-restore --disable-build-servers -m:1 -nodeReuse:false -p:UseSharedCompilation=false --verbosity minimal` | Exit 0; all 12 projects built; 0 warnings, 0 errors. |
+| Full tests | `dotnet test DevForge.sln -c Release --no-build --no-restore --disable-build-servers -m:1 -nodeReuse:false -p:UseSharedCompilation=false --verbosity minimal` | Exit 0; Unit 632, Integration 526, Blueprint 127, E2E 171; total 1,456 passed, 0 failed, 0 skipped. |
+| EF model consistency | pinned local `dotnet-ef.dll migrations has-pending-model-changes --project src/DevForge.Infrastructure --startup-project src/DevForge.Infrastructure --context DevForgeDbContext --configuration Release --no-build` | Exit 0; `No changes have been made to the model since the last migration.` |
+| Security/privacy/diff | focused typed action/control tests, scoped dependency/platform/control scan, empty-value `.env.example` scan, and `git diff --check` | Exit 0; 0 forbidden project dependency/platform or blueprint-control matches, 0 valued environment examples, no Task 6 `src` mutation, and no whitespace errors. |
+
+The available host is Windows 10 build 19045, so the approved M9 Windows 11 WPF/React/Python release matrix was not executed and is not reported green. Task 6 code and the available-host closure are complete, but the M9 release exit gate remains open until those Windows 11 commands pass with exact evidence. Per the specification, M10 must not begin before that certification is recorded.

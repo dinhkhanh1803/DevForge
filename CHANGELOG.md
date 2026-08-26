@@ -48,3 +48,11 @@ All notable DevForge Studio changes are documented here.
 - Cross-process publication lease, cancellation-independent durable phase checkpoints, recoverable `PublishPending`, atomic integrity-bound receipts, exact orphan adoption, and retry without duplicate generation or commit.
 - Native Desktop one-button completion, bounded remediation and Retry Publish, Run History recovery, evidence-backed `Completed`, and safe-mode publication refusal.
 - Composed M8 E2E coverage for trusted generation and validation through real local Git completion, deterministic private fake-GitHub interruption/retry, durable receipts, clean re-verification, and read-only Git-object cleanup in guarded temporary fixtures.
+- Exactly three checksummed M9 production blueprints for native .NET 10 WPF, React/Vite/TypeScript, and Python CLI with pinned locks, deterministic plans and trees, truthful seven-document team handoff, and certified closed tool vocabularies.
+- Engine-owned canonical recipe, lock, generation report, and policy snapshot evidence with integrity binding, tamper refusal, atomic recovery, and exact final-tree/publication digest preservation.
+- Consolidated cross-blueprint release contracts for actual Desktop discovery, changed reviewed inputs, deterministic output snapshots, failure recovery, no-overwrite targets, forbidden execution surfaces, and production local-Git verification without remote contact.
+- React production-output policy that commits integrity-bound deterministic `dist` artifacts, excludes only engine-owned evidence from Prettier, and remains clean after a repeated real Vite build.
+
+### Known release gates
+
+- M9 implementation and the real Windows 10 matrix are green. The approved Windows 11 WPF/React/Python release matrix is still required before starting M10.

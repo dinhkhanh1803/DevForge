@@ -2,7 +2,7 @@
 
 **Goal:** Ship exactly three deterministic, checksummed production blueprints and validate generated projects with their certified Windows toolchains.
 
-**Status:** M9 Tasks 1-5 complete and locally verified; Task 6 cross-blueprint integration and closure is active.
+**Status:** M9 Tasks 1-6 are implemented and locally verified. The required Windows 11 release certification remains open because the available host is Windows 10 build 19045; M10 must not start until that matrix is run and green.
 
 **Architecture:** Versioned static packages are shipped as immutable built-in content. Desktop composes a `BuiltIn` source and the existing `Local` source through guarded workspaces. Blueprint actions remain declarative and all external tools pass through a closed `IProcessRunner` vocabulary.
 
@@ -27,7 +27,7 @@
 - [x] Task 3: closed pnpm vocabulary and React production blueprint.
 - [x] Task 4: Python/uv boundary and Python CLI production blueprint.
 - [x] Task 5: shared handoff and engine-owned run evidence.
-- [ ] Task 6: cross-blueprint integration and closure.
+- [x] Task 6: cross-blueprint integration and local closure.
 
 ## Completed Task 2 boundary
 
@@ -75,7 +75,7 @@ Task 4 exit is satisfied locally. Python/uv have typed identities and fixed envi
 
 Task 5 exit is satisfied locally. All three packages meet the shared truthful handoff contract. The completion boundary persists the four canonical engine-owned files from the authoritative persisted preview, uses bounded reviewed generated-file evidence, records explicit engine/project/team legacy provenance, and preserves byte-identical recovery across each atomic evidence write and finalization-intent kill window. Spec and quality/security review report no remaining findings; locked restore, format, Release build, all 1,445 tests, EF consistency, and scoped integrity/security checks pass.
 
-## Current Task 6 boundary
+## Completed Task 6 boundary
 
 **Scope:** consolidate the production release matrix for exactly `desktop.csharp-wpf-tool`, `web.react-vite-ts`, and `tool.python-cli`; prove each package through the real production catalog, review/planning, guarded execution, validation, finalization, deterministic output, failure recovery, and optional M8 local-Git composition; close M9 documentation only from observed gate evidence. M10 behavior, additional blueprints, remote publication, cloud/AI/browser surfaces, and expanded command vocabularies remain out of scope.
 
@@ -84,6 +84,8 @@ Task 5 exit is satisfied locally. All three packages meet the shared truthful ha
 **RED tests:** Desktop/build-output discovery returns exactly the three production IDs; every blueprint completes production review, deterministic planning, guarded generation, validation, and finalization; identical reviewed inputs produce identical plan hashes and exact trees; changed reviewed inputs change the hash and rendered output; occupied final targets remain untouched and failed execution remains recoverable through its owned cleanup boundary; optional local Git creates one exact clean repository without a remote; repository-bound scans reject shell/admin, unbounded latest/wildcard dependency, token/secret, and forbidden platform surfaces.
 
 **Task 6 exit:** focused M9 E2E passes with zero failed or skipped tests, then the controller runs locked restore, format verification, Release build, all four test projects, the real WPF/React/Python generated-project matrices, EF pending-model verification, architecture/privacy/security scans, `git diff --check`, and clean status after the scoped local commit. Only exact observed results may close M9 and recommend M10; any unexecuted environment matrix item is recorded as deferred rather than green.
+
+Task 6 implementation and the available-host matrix are satisfied locally. The consolidated production test discovers exactly three built-in packages and proves deterministic review, planning, execution, evidence, recovery, exact command vocabulary, no-overwrite finalization, and production local-Git verification without a remote. Fresh generated WPF, React, and Python projects pass their real pinned toolchains on Windows 10 build 19045. The React matrix also proves its integrity-bound `dist` output is byte-stable across a second real build and leaves Git clean. The final Windows 11 WPF/React/Python certification required by the approved M9 design has not been executed on this host, so the milestone release gate remains open and M10 is not yet authorized.
 
 ## M9 exit gate
 
