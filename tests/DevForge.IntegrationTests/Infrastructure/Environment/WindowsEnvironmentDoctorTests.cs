@@ -24,12 +24,19 @@ public sealed class WindowsEnvironmentDoctorTests
         var snapshot = await doctor.InspectAsync(CancellationToken.None);
 
         Assert.Equal(
-            ["dotnet", "git", "gh", "node"],
+            ["dotnet", "git", "gh", "node", "python", "uv"],
             snapshot.Tools.Select(tool => tool.Name));
         Assert.All(snapshot.Tools, tool => Assert.True(tool.IsAvailable));
         Assert.All(snapshot.Tools, tool => Assert.Equal("1.2.3", tool.Version));
         Assert.Equal(
-            [ExecutableTool.DotNet, ExecutableTool.Git, ExecutableTool.GitHubCli, ExecutableTool.Node],
+            [
+                ExecutableTool.DotNet,
+                ExecutableTool.Git,
+                ExecutableTool.GitHubCli,
+                ExecutableTool.Node,
+                ExecutableTool.Python,
+                ExecutableTool.Uv,
+            ],
             runner.Commands.Select(command => command.Executable.Tool));
         Assert.All(runner.Commands, command =>
         {

@@ -500,3 +500,31 @@ Fresh Task 3 verification on 2026-08-25 used Node 22.21.1, pnpm 10.24.0, and the
 | EF model consistency | local `dotnet-ef migrations has-pending-model-changes ... --configuration Release --no-build` | Exit 0; `No changes have been made to the model since the last migration.` |
 
 Task 4 is now recommended: the closed uv boundary and production `tool.python-cli` blueprint.
+
+M9 Task 4 is complete locally. `tool.python-cli@1.0.0` is now a checksum-complete built-in package with a Python `src` layout, Hatchling packaging, strict mypy, Ruff format/lint, pytest coverage, immutable typed environment configuration, configured standard-library logging, an exact `uv.lock`, and seven production handoff documents. ADR-0018 records the certified CPython 3.14.6/uv 0.12.1 pair and closed-uv decision.
+
+Python and uv are typed executable identities resolved only as direct trusted executables and included in the fixed environment doctor. Raw Python `-c`/`-m` modes are rejected at the `CommandSpec` boundary. The execution handlers admit only `uv sync --frozen --no-config` and six exact frozen/no-sync/no-config validators; dependency mutation, config/index overrides, evaluation, fix mode, path escape, arbitrary entrypoints, and the non-working direct `uv build --no-build-isolation` form fail before `IProcessRunner` invocation. The build validator instead uses the exact locked `pyproject-build --no-isolation` entrypoint inside the project environment.
+
+Two production-composition executions prove stable plan hashes, exact command vocabulary, and identical final-tree digests. An independent rendered tree passes the real frozen toolchain matrix. The real matrix exposed that uv 0.12.1's interpreter catalog ends at CPython 3.14.6 and that direct non-isolated `uv build` cannot see Hatchling in `.venv`; both findings are captured in the certified pair and regression-protected build vocabulary.
+
+Fresh Task 4 verification on 2026-08-26 used CPython 3.14.6, uv 0.12.1, and the workspace-local .NET SDK 10.0.302:
+
+| Gate | Command | Exact result |
+|---|---|---|
+| uv binary integrity | SHA-256 of official `uv-x86_64-pc-windows-msvc.zip` plus `uv --version` | Exit 0; digest `8fcb0cb46e1229065e344758980924e569bef5882ef45f46fada8fb24e06b74a`; uv 0.12.1. |
+| Generated frozen sync | standalone rendered tree: `uv sync --frozen --no-config` | Exit 0; CPython 3.14.6 selected; 19 locked packages installed. |
+| Generated format/lint | `uv run --frozen --no-sync --no-config ruff format --check .` and `ruff check .` | Exit 0; 14 files formatted; all lint checks passed. |
+| Generated typecheck | `uv run --frozen --no-sync --no-config mypy src tests` | Exit 0; no issues in 7 source files. |
+| Generated tests | `uv run --frozen --no-sync --no-config pytest` | Exit 0; 4 passed, 0 failed. |
+| Generated package build | `uv run --frozen --no-sync --no-config pyproject-build --no-isolation` | Exit 0; sdist and universal wheel built. |
+| Generated CLI smoke | `uv run --frozen --no-sync --no-config team-tool --help` | Exit 0; reviewed help surface rendered. |
+| DevForge locked restore | `dotnet restore DevForge.sln --locked-mode --disable-build-servers -m:1` | Exit 0; all 12 projects restored or up to date from pinned lock files. |
+| DevForge format | `dotnet format DevForge.sln --verify-no-changes --no-restore` | Exit 0; no formatting diagnostics after CRLF normalization. |
+| DevForge Release build | serialized `dotnet build DevForge.sln --configuration Release --no-restore ...` | Exit 0; all 12 projects built; 0 warnings, 0 errors. |
+| Full tests | four Release project test commands with `--no-build --no-restore` | Exit 0; UnitTests 611, IntegrationTests 499, BlueprintTests 124, E2ETests 161; total 1,395 passed, 0 failed, 0 skipped. |
+| EF model consistency | local `dotnet-ef migrations has-pending-model-changes ... --configuration Release --no-build` | Exit 0; `No changes have been made to the model since the last migration.` |
+| Integrity/security/diff | checksum recomputation, forbidden-surface scan, and `git diff --check` | Exit 0; 27 declared package files, 0 missing/extra/mismatched; no forbidden product/package matches or whitespace errors. |
+
+Independent read-only review approved Task 4 with no remaining Critical, Important, or Minor findings after the composed E2E was strengthened to pin the canonical 21-path output and stable aggregate tree digest. The separately executed real-tool matrix remains intentionally distinct from the always-on recording-runner composition suite; Task 6 will consolidate those release matrices across all three blueprints.
+
+Task 5 is now recommended: shared handoff and engine-owned run evidence across all three production blueprints. Catalog expansion and M10 remain out of scope.

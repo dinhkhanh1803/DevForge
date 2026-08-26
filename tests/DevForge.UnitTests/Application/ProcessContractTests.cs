@@ -184,6 +184,42 @@ public sealed class ProcessContractTests
     }
 
     [Fact]
+    public void PythonAndUvUseClosedIdentitiesAndPythonRawModesAreRejected()
+    {
+        var python = ExecutableIdentity.Create("python");
+        var uv = ExecutableIdentity.Create("uv");
+
+        Assert.True(python.IsValid);
+        Assert.Equal(ExecutableTool.Python, python.Value.Tool);
+        Assert.True(uv.IsValid);
+        Assert.Equal(ExecutableTool.Uv, uv.Value.Tool);
+
+        var workspace = new StubWorkspaceFileSystem();
+        var directory = WorkspaceRelativePath.Create("src").Value;
+        var rawModes = new[]
+        {
+            new[] { "-c", "print('unsafe')" },
+            new[] { "-cprint('unsafe')" },
+            new[] { "-m", "http.server" },
+            new[] { "-mhttp.server" },
+        };
+        foreach (var arguments in rawModes)
+        {
+            var command = CommandSpec.Create(
+                python.Value,
+                arguments,
+                workspace,
+                directory,
+                [],
+                TimeSpan.FromMinutes(1),
+                [0],
+                []);
+
+            Assert.Contains(command.Issues, issue => issue.Code == "process.argument.raw-mode-forbidden");
+        }
+    }
+
+    [Fact]
     public void ProcessOutputAndRetainedResultAreRedactedAndBounded()
     {
         var line = ProcessOutputLine.Create(

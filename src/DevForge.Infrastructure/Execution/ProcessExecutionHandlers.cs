@@ -58,7 +58,7 @@ internal sealed class PackageInstallExecutionHandler(IProcessRunner runner) :
             "arguments",
             "workingDirectory");
     private static readonly ImmutableHashSet<string> _packageManagers =
-        ImmutableHashSet.Create(StringComparer.Ordinal, "dotnet", "npm", "pnpm", "yarn", "bun");
+        ImmutableHashSet.Create(StringComparer.Ordinal, "dotnet", "npm", "pnpm", "yarn", "bun", "uv");
 
     protected override ImmutableHashSet<string> RequiredInputNames => _inputs;
 
@@ -102,6 +102,13 @@ internal sealed class PackageInstallExecutionHandler(IProcessRunner runner) :
                 StringComparer.Ordinal);
         }
 
+        if (StringComparer.Ordinal.Equals(packageManager, "uv"))
+        {
+            return arguments.SequenceEqual(
+                ["sync", "--frozen", "--no-config"],
+                StringComparer.Ordinal);
+        }
+
         return arguments[0] is "install" or "ci"
             && arguments.Any(argument => argument is "--ignore-scripts" or "--ignore-scripts=true")
             && arguments.All(argument =>
@@ -118,6 +125,19 @@ internal sealed class ValidateCommandExecutionHandler(IProcessRunner runner) :
         ExecutionResumeBehavior.RevalidatePostcondition,
         runner)
 {
+    private static readonly ImmutableArray<ImmutableArray<string>> _safeUvValidations =
+    [
+        ["run", "--frozen", "--no-sync", "--no-config", "ruff", "format", "--check", "."],
+        ["run", "--frozen", "--no-sync", "--no-config", "ruff", "check", "."],
+        ["run", "--frozen", "--no-sync", "--no-config", "mypy", "src", "tests"],
+        ["run", "--frozen", "--no-sync", "--no-config", "pytest"],
+        [
+            "run", "--frozen", "--no-sync", "--no-config",
+            "pyproject-build", "--no-isolation",
+        ],
+        ["run", "--frozen", "--no-sync", "--no-config", "team-tool", "--help"],
+    ];
+
     private static readonly ImmutableHashSet<string> _inputs =
         ImmutableHashSet.Create(
             StringComparer.Ordinal,
@@ -175,10 +195,16 @@ internal sealed class ValidateCommandExecutionHandler(IProcessRunner runner) :
                     || IsWpfPublishSmoke(arguments));
         }
 
-        return StringComparer.Ordinal.Equals(executable, "pnpm")
-            && arguments.Length == 2
-            && arguments[0] == "run"
-            && arguments[1] is "lint" or "typecheck" or "test" or "build";
+        if (StringComparer.Ordinal.Equals(executable, "pnpm"))
+        {
+            return arguments.Length == 2
+                && arguments[0] == "run"
+                && arguments[1] is "lint" or "typecheck" or "test" or "build";
+        }
+
+        return StringComparer.Ordinal.Equals(executable, "uv")
+            && _safeUvValidations.Any(candidate =>
+                arguments.SequenceEqual(candidate, StringComparer.Ordinal));
     }
 }
 
@@ -190,7 +216,8 @@ internal abstract class ProcessExecutionHandlerBase : IExecutionHandler
             ExecutableTool.Npm,
             ExecutableTool.Pnpm,
             ExecutableTool.Yarn,
-            ExecutableTool.Bun);
+            ExecutableTool.Bun,
+            ExecutableTool.Uv);
     private static readonly UTF8Encoding _strictUtf8 = new(
         encoderShouldEmitUTF8Identifier: false,
         throwOnInvalidBytes: true);

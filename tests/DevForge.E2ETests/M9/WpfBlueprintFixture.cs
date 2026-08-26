@@ -70,6 +70,15 @@ internal sealed class WpfBlueprintFixture : IAsyncDisposable
             new EnvironmentTool("pnpm", "10.24.0", true),
         ]);
 
+    public static Task<WpfBlueprintFixture> CreatePythonAsync() => CreateAsync(
+        "Team Tool",
+        "team-tool",
+        "tool.python-cli",
+        [
+            new EnvironmentTool("python", "3.14.6", true),
+            new EnvironmentTool("uv", "0.12.1", true),
+        ]);
+
     private static async Task<WpfBlueprintFixture> CreateAsync(
         string projectName,
         string targetName,

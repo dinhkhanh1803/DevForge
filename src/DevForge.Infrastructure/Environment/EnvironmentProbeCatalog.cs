@@ -11,6 +11,8 @@ internal static class EnvironmentProbeCatalog
         Create("git", "git", "--version"),
         Create("gh", "gh", "--version"),
         Create("node", "node", "--version"),
+        Create("python", "python", "--version"),
+        Create("uv", "uv", "--version"),
     ];
 
     public static ImmutableArray<EnvironmentProbe> DotNetOnly { get; } = [All[0]];

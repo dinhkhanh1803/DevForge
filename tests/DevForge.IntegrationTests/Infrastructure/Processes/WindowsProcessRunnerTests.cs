@@ -94,6 +94,42 @@ public sealed class WindowsProcessRunnerTests
     }
 
     [Fact]
+    public void PythonAndUvResolveOnlyToAbsoluteDirectExecutables()
+    {
+        var root = Path.Combine(
+            Path.GetTempPath(),
+            $"DevForge-PythonResolver-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(root);
+            var python = Path.Combine(root, "python.exe");
+            var uv = Path.Combine(root, "uv.exe");
+            File.WriteAllBytes(python, [0]);
+            File.WriteAllBytes(uv, [0]);
+            var resolver = new TrustedExecutableResolver(root, dotNetHostPath: null);
+
+            var pythonLaunch = resolver.Resolve(ExecutableIdentity.Create("python").Value);
+            var uvLaunch = resolver.Resolve(ExecutableIdentity.Create("uv").Value);
+
+            Assert.Equal(Path.GetFullPath(python), pythonLaunch.ExecutablePath);
+            Assert.Empty(pythonLaunch.PrefixArguments);
+            Assert.Equal(Path.GetFullPath(uv), uvLaunch.ExecutablePath);
+            Assert.Empty(uvLaunch.PrefixArguments);
+        }
+        finally
+        {
+            if (Directory.Exists(root)
+                && Path.GetFileName(root).StartsWith(
+                    "DevForge-PythonResolver-",
+                    StringComparison.Ordinal))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task StandardOutputAndErrorAreRedirectedAndReported()
     {
         await using var fixture = await ProcessFixture.CreateAsync();

@@ -388,6 +388,125 @@ public sealed class ProcessExecutionHandlerTests
     }
 
     [Fact]
+    public async Task PackageInstallAcceptsOnlyFrozenConfigIsolatedUvSync()
+    {
+        await using var fixture = await ProcessFixture.CreateAsync();
+        var runner = new RecordingRunner(Exited(0));
+        var valid = fixture.StepRequest(
+            "package-install",
+            ("packageManager", Text("uv")),
+            ("arguments", Sequence(Text("sync"), Text("--frozen"), Text("--no-config"))),
+            ("workingDirectory", Text(".")));
+        var invalidArguments = new[]
+        {
+            new[] { "sync", "--frozen" },
+            new[] { "sync", "--frozen", "--no-config", "--index-url", "https://example.invalid" },
+            new[] { "sync", "--frozen", "--config-file", "uv.toml" },
+            new[] { "add", "requests" },
+        };
+
+        var success = await new PackageInstallExecutionHandler(runner).ExecuteAsync(valid, null, default);
+        foreach (var arguments in invalidArguments)
+        {
+            var request = fixture.StepRequest(
+                "package-install",
+                ("packageManager", Text("uv")),
+                ("arguments", Sequence([.. arguments.Select(Text)])),
+                ("workingDirectory", Text(".")));
+            var failure = await new PackageInstallExecutionHandler(runner).ExecuteAsync(
+                request,
+                null,
+                default);
+            Assert.Equal(ExecutionHandlerOutcome.Failed, failure.Outcome);
+        }
+
+        Assert.Equal(ExecutionHandlerOutcome.Succeeded, success.Outcome);
+        var command = Assert.Single(runner.Commands);
+        Assert.Equal(ExecutableTool.Uv, command.Executable.Tool);
+        Assert.Equal(["sync", "--frozen", "--no-config"], command.ArgumentList.ToArray());
+    }
+
+    [Fact]
+    public async Task ValidateCommandAcceptsOnlyReviewedUvEntrypoints()
+    {
+        await using var fixture = await ProcessFixture.CreateAsync();
+        var runner = new RecordingRunner(Exited(0));
+        var reviewed = new[]
+        {
+            new[] { "run", "--frozen", "--no-sync", "--no-config", "ruff", "format", "--check", "." },
+            new[] { "run", "--frozen", "--no-sync", "--no-config", "ruff", "check", "." },
+            new[] { "run", "--frozen", "--no-sync", "--no-config", "mypy", "src", "tests" },
+            new[] { "run", "--frozen", "--no-sync", "--no-config", "pytest" },
+            new[]
+            {
+                "run", "--frozen", "--no-sync", "--no-config",
+                "pyproject-build", "--no-isolation",
+            },
+            new[] { "run", "--frozen", "--no-sync", "--no-config", "team-tool", "--help" },
+        };
+
+        foreach (var arguments in reviewed)
+        {
+            var request = fixture.ValidatorRequest(
+                required: true,
+                ("executable", Text("uv")),
+                ("arguments", Sequence([.. arguments.Select(Text)])),
+                ("workingDirectory", Text(".")),
+                ("allowedExitCodes", Sequence(PlanValue.FromInteger(0))),
+                ("required", PlanValue.FromBoolean(true)));
+
+            var result = await new ValidateCommandExecutionHandler(runner).ExecuteAsync(
+                request,
+                null,
+                CancellationToken.None);
+
+            Assert.Equal(ExecutionHandlerOutcome.Succeeded, result.Outcome);
+        }
+
+        Assert.Equal(reviewed, runner.Commands.Select(command => command.ArgumentList.ToArray()));
+        Assert.All(runner.Commands, command => Assert.Equal(ExecutableTool.Uv, command.Executable.Tool));
+    }
+
+    [Fact]
+    public async Task ValidateCommandRejectsUvMutationEvaluationAndIndexEscapes()
+    {
+        await using var fixture = await ProcessFixture.CreateAsync();
+        var runner = new RecordingRunner(Exited(0));
+        var rejected = new[]
+        {
+            new[] { "run", "python", "-c", "print('unsafe')" },
+            new[] { "run", "python", "-m", "http.server" },
+            new[] { "run", "ruff", "check", "--fix", "." },
+            new[] { "run", "mypy", "outside" },
+            new[] { "run", "pytest", "--override-ini", "addopts=-x" },
+            new[] { "build", "--no-build-isolation", "--no-config" },
+            new[] { "build", "--index-url", "https://example.invalid" },
+            new[] { "add", "requests" },
+            new[] { "sync", "--config-file", "uv.toml" },
+        };
+
+        foreach (var arguments in rejected)
+        {
+            var request = fixture.ValidatorRequest(
+                required: true,
+                ("executable", Text("uv")),
+                ("arguments", Sequence([.. arguments.Select(Text)])),
+                ("workingDirectory", Text(".")),
+                ("allowedExitCodes", Sequence(PlanValue.FromInteger(0))),
+                ("required", PlanValue.FromBoolean(true)));
+
+            var result = await new ValidateCommandExecutionHandler(runner).ExecuteAsync(
+                request,
+                null,
+                CancellationToken.None);
+
+            Assert.Equal(ExecutionHandlerOutcome.Failed, result.Outcome);
+        }
+
+        Assert.Empty(runner.Commands);
+    }
+
+    [Fact]
     public async Task HandlerKindCannotCrossTheGenerationValidatorBoundary()
     {
         await using var fixture = await ProcessFixture.CreateAsync();

@@ -2,7 +2,7 @@
 
 **Goal:** Ship exactly three deterministic, checksummed production blueprints and validate generated projects with their certified Windows toolchains.
 
-**Status:** M9 Tasks 1-3 complete and locally verified; Task 4 is the current implementation slice.
+**Status:** M9 Tasks 1-4 complete and locally verified; Task 5 is the next implementation slice.
 
 **Architecture:** Versioned static packages are shipped as immutable built-in content. Desktop composes a `BuiltIn` source and the existing `Local` source through guarded workspaces. Blueprint actions remain declarative and all external tools pass through a closed `IProcessRunner` vocabulary.
 
@@ -15,6 +15,7 @@
 - Decision: `docs/decisions/0015-versioned-static-built-in-blueprints.md` (Task 1)
 - Decision: `docs/decisions/0016-closed-production-blueprint-validation.md` (Task 2)
 - Decision: `docs/decisions/0017-static-react-blueprint-and-closed-pnpm.md` (Task 3)
+- Decision: `docs/decisions/0018-static-python-cli-blueprint-and-closed-uv.md` (Task 4)
 
 ## Current scope and progress
 
@@ -23,7 +24,7 @@
 - [x] Task 1: built-in distribution, catalog composition, and production contract harness.
 - [x] Task 2: WPF production blueprint.
 - [x] Task 3: closed pnpm vocabulary and React production blueprint.
-- [ ] Task 4: Python/uv boundary and Python CLI production blueprint (active).
+- [x] Task 4: Python/uv boundary and Python CLI production blueprint.
 - [ ] Task 5: shared handoff and engine-owned run evidence.
 - [ ] Task 6: cross-blueprint integration and closure.
 
@@ -49,7 +50,7 @@
 
 Task 3 exit is satisfied locally. The package loads through the production checksummed catalog, planning is deterministic across target roots, two composed executions have identical plan hashes and tree digests, and the independently located generated project passes frozen script-disabled install, Prettier verification, lint, strict typecheck, two Vitest tests, and Vite production build on Node 22.21.1/pnpm 10.24.0. The full DevForge test matrix passes after serializing process-wide execution E2E fixtures through a non-parallel test collection.
 
-## Current Task 4 boundary
+## Completed Task 4 boundary
 
 **Scope:** add only the closed uv operations required by `tool.python-cli` manifest version `1.0.0`, then deliver its checksummed static skeleton and real Windows Python/uv matrix. Shared engine-owned run evidence, M10, online project generators, arbitrary Python/module execution, custom indexes, credentials, activation scripts, and install hooks remain out of scope.
 
@@ -58,6 +59,8 @@ Task 3 exit is satisfied locally. The package loads through the production check
 **Tests:** certified Python/uv compatibility; exact pinned `pyproject.toml` and `uv.lock`; `src` layout, Ruff format/lint, mypy strict checking, pytest coverage, deterministic plan/tree, complete handoff documents, frozen install; exact immutable validation vocabulary; rejection of module/eval/index/config/credential/hook escape surfaces.
 
 **Task 4 exit:** composed generation and deterministic tree gates pass, then a fresh standalone generated project passes frozen uv sync, format check, lint, typecheck, test, and build/package smoke with the certified toolchain before affected/full DevForge gates and a scoped local commit.
+
+Task 4 exit is satisfied locally. Python/uv have typed identities and fixed environment probes; Python raw evaluation/module modes fail closed; package installation and all six uv validators use exact reviewed argument lists. The static package carries exact build/quality pins, the frozen lock, checksums, typed configuration/logging, tests, and handoff documents. Two composed runs prove identical plan hashes and tree digests, while an independent rendered tree passes the certified CPython 3.14.6/uv 0.12.1 matrix. Locked restore, format, Release build, all 1,395 DevForge tests, EF consistency, checksum, security, and diff gates pass.
 
 ## M9 exit gate
 

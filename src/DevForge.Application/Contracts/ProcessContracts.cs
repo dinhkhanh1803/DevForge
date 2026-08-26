@@ -18,6 +18,8 @@ public enum ExecutableTool
     VisualStudioCode = 10,
     VisualStudio = 11,
     MsBuild = 12,
+    Python = 13,
+    Uv = 14,
 }
 
 /// <summary>
@@ -41,6 +43,8 @@ public sealed record ExecutableIdentity
             ["code"] = ExecutableTool.VisualStudioCode,
             ["devenv"] = ExecutableTool.VisualStudio,
             ["msbuild"] = ExecutableTool.MsBuild,
+            ["python"] = ExecutableTool.Python,
+            ["uv"] = ExecutableTool.Uv,
         }.ToImmutableDictionary(StringComparer.Ordinal);
 
     private ExecutableIdentity(ExecutableTool tool, string executableName)
@@ -267,6 +271,10 @@ public sealed class CommandSpec
                 StringComparer.OrdinalIgnoreCase,
                 "-c",
                 "--call"),
+            [ExecutableTool.Python] = ImmutableHashSet.Create(
+                StringComparer.OrdinalIgnoreCase,
+                "-c",
+                "-m"),
         }.ToImmutableDictionary();
 
     private CommandSpec(
@@ -629,6 +637,11 @@ public sealed class CommandSpec
             || tool == ExecutableTool.Npx
                 && (argument!.StartsWith("--call=", StringComparison.OrdinalIgnoreCase)
                     || argument.StartsWith("-c", StringComparison.OrdinalIgnoreCase)
+                        && argument.Length > 2)
+            || tool == ExecutableTool.Python
+                && (argument!.StartsWith("-c", StringComparison.OrdinalIgnoreCase)
+                        && argument.Length > 2
+                    || argument.StartsWith("-m", StringComparison.OrdinalIgnoreCase)
                         && argument.Length > 2));
     }
 
