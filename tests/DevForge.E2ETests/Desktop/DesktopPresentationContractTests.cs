@@ -5,7 +5,7 @@ namespace DevForge.E2ETests.Desktop;
 
 public sealed partial class DesktopPresentationContractTests
 {
-    private static readonly string[] RequiredSemanticPaletteKeys =
+    private static readonly string[] _requiredSemanticPaletteKeys =
     [
         "Brush.AppBackground",
         "Brush.Navigation",
@@ -42,7 +42,7 @@ public sealed partial class DesktopPresentationContractTests
         Assert.Equal(
             light.Order(StringComparer.Ordinal),
             dark.Order(StringComparer.Ordinal));
-        Assert.All(RequiredSemanticPaletteKeys, key =>
+        Assert.All(_requiredSemanticPaletteKeys, key =>
         {
             Assert.Contains(key, light);
             Assert.Contains(key, dark);
