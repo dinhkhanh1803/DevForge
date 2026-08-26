@@ -54,6 +54,29 @@ public sealed class InfrastructureBoundaryTests
     }
 
     [Fact]
+    public void AnalyzerReportsExistenceAndBulkEnumerationApisOutsideInfrastructure()
+    {
+        var sources = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["src/DevForge.Application/UnsafeProbe.cs"] =
+                "class UnsafeProbe { bool Probe() => File.Exists(\"x\") || Directory.Exists(\"x\"); }",
+            ["src/DevForge.Desktop/UnsafeBrowser.cs"] =
+                "class UnsafeBrowser { object Browse() => Directory.GetFiles(\"C:\\\")" +
+                ".Concat(Directory.GetDirectories(\"C:\\\")); }",
+        };
+
+        var violations = InfrastructureBoundary.FindViolationsFromSources(sources);
+
+        Assert.Equal(
+            [
+                "src/DevForge.Application/UnsafeProbe.cs: forbidden direct file existence check outside Infrastructure",
+                "src/DevForge.Application/UnsafeProbe.cs: forbidden direct directory existence check outside Infrastructure",
+                "src/DevForge.Desktop/UnsafeBrowser.cs: forbidden direct directory enumeration outside Infrastructure",
+            ],
+            violations);
+    }
+
+    [Fact]
     public void ProductionSourcesKeepOperatingSystemEffectsInsideInfrastructure()
     {
         var repositoryRoot = FindRepositoryRoot(AppContext.BaseDirectory);
@@ -103,12 +126,16 @@ internal static class InfrastructureBoundary
         ("File.WriteAll", "forbidden direct file write outside Infrastructure"),
         ("File.ReadAll", "forbidden direct file read outside Infrastructure"),
         ("File.Open", "forbidden direct file open outside Infrastructure"),
+        ("File.Exists(", "forbidden direct file existence check outside Infrastructure"),
         ("File.Delete(", "forbidden direct file delete outside Infrastructure"),
         ("File.Move(", "forbidden direct file move outside Infrastructure"),
         ("Directory.CreateDirectory(", "forbidden direct directory creation outside Infrastructure"),
         ("Directory.Delete(", "forbidden direct directory delete outside Infrastructure"),
         ("Directory.Move(", "forbidden direct directory move outside Infrastructure"),
         ("Directory.Enumerate", "forbidden direct directory enumeration outside Infrastructure"),
+        ("Directory.GetFiles(", "forbidden direct directory enumeration outside Infrastructure"),
+        ("Directory.GetDirectories(", "forbidden direct directory enumeration outside Infrastructure"),
+        ("Directory.Exists(", "forbidden direct directory existence check outside Infrastructure"),
         ("cmd /c", "forbidden command shell text"),
         ("powershell.exe", "forbidden PowerShell execution"),
         ("pwsh.exe", "forbidden PowerShell execution"),
@@ -128,9 +155,11 @@ internal static class InfrastructureBoundary
                 continue;
             }
 
+            var reportedDescriptions = new HashSet<string>(StringComparer.Ordinal);
             foreach (var pattern in _forbiddenPatterns)
             {
-                if (source.Value.Contains(pattern.Pattern, StringComparison.OrdinalIgnoreCase))
+                if (source.Value.Contains(pattern.Pattern, StringComparison.OrdinalIgnoreCase)
+                    && reportedDescriptions.Add(pattern.Description))
                 {
                     violations.Add($"{normalizedPath}: {pattern.Description}");
                 }

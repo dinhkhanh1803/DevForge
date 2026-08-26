@@ -8,7 +8,9 @@ public sealed class LocalDataRootProvisioner(IFileSystem fileSystem) : ILocalDat
     private readonly IFileSystem _fileSystem =
         fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
 
-    public Task EnsureExistsAsync(DatabaseLocation location, CancellationToken cancellationToken)
+    public async Task EnsureExistsAsync(
+        DatabaseLocation location,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(location);
         cancellationToken.ThrowIfCancellationRequested();
@@ -20,6 +22,20 @@ public sealed class LocalDataRootProvisioner(IFileSystem fileSystem) : ILocalDat
                 "The local application data root is invalid.");
         }
 
-        return _fileSystem.EnsureWorkspaceExistsAsync(root.Value, cancellationToken);
+        try
+        {
+            await _fileSystem.EnsureWorkspaceExistsAsync(root.Value, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (InfrastructureOperationException)
+        {
+            throw new InfrastructureOperationException(
+                "DF-FS-001",
+                "The local application data root could not be prepared.");
+        }
     }
 }

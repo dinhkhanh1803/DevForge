@@ -111,6 +111,17 @@ public sealed class RepositoryModelRegressionTests
     }
 
     [Fact]
+    public void ProjectDiscoveryDoesNotHideARealProjectWhoseNameEndsWithWpftmp()
+    {
+        using var fixture = RepositoryFixture.Create();
+        fixture.WriteProject("src/Legit_wpftmp/Legit_wpftmp.csproj", MinimalProject);
+
+        var repository = RepositoryModel.LoadFrom(fixture.RootDirectory);
+
+        Assert.Equal(["Legit_wpftmp"], repository.ProductionProjects.Keys);
+    }
+
+    [Fact]
     public void ProjectPathSortingNormalizesAndUsesWindowsCaseInsensitiveOrder()
     {
         using var fixture = RepositoryFixture.Create();

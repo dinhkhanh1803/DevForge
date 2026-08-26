@@ -2,7 +2,7 @@
 
 **Goal:** close the MVP security/recovery/diagnostics/documentation/package release gates without expanding the blueprint catalog.
 
-**Status:** M10 Task 1 is implemented and its affected gates are green. Task 2 structured diagnostics/retention is next after the concurrent untracked Desktop presentation work is reconciled. M9's Windows 11 certification remains accepted environmental debt and neither M9 nor M10 may be marked complete until it is executed.
+**Status:** M10 Task 1 is implemented, review findings are resolved, and its affected gates are green. Task 2 structured diagnostics/retention is next. Concurrent Desktop presentation work still owns three RED E2E assertions and remains outside M10 Task 1. M9's Windows 11 certification remains accepted environmental debt and neither M9 nor M10 may be marked complete until it is executed.
 
 **Design:** `docs/superpowers/specs/2026-08-26-m10-security-diagnostics-packaging-release-hardening-design.md`
 
@@ -27,7 +27,7 @@
 
 **Exit gate:** all hostile cases fail before unsafe IO/process execution, all summaries remain scrubbed, local-data creation passes through `IFileSystem`, focused and affected suites pass, and exact results are recorded.
 
-Task 1 satisfied this boundary. `IFileSystem` now owns validated root provisioning, rejects an existing junction anywhere in the root ancestry before mutation, and rechecks after creation. `LocalDataRootProvisioner` contains no direct file operation. Blueprint action inspection rejects executable/package-manager identifiers outside the typed trusted tool catalog before planning/execution. The consolidated M10 matrix covers traversal, drive/device/UNC/GLOBALROOT paths, reserved devices and `.env`, shell/download/installer identities, privileged handler intent, trust, and secret-shaped nested keys without echoing hostile values. Architecture discovery also ignores transient WPF compiler `_wpftmp` projects, eliminating a build/test race exposed by the Task 1 full gate.
+Task 1 satisfied this boundary. `IFileSystem` now owns validated root provisioning. Its Windows implementation creates the directory chain component-by-component while retaining non-delete-shared handles to every verified non-reparse ancestor, preventing same-user replacement until the final guarded root is opened. `LocalDataRootProvisioner` contains no direct file operation and normalizes expected provisioning failures to scrubbed `DF-FS-001` while preserving cancellation. Blueprint action inspection rejects executable/package-manager identities outside the typed trusted tool catalog before planning/execution; the production package-loader matrix proves hostile actions yield no executable package and zero workspace mutation attempts. Architecture discovery narrowly ignores only generated WPF `_wpftmp` siblings and retains legitimate similarly named projects; direct existence and bulk-enumeration APIs outside Infrastructure are also rejected.
 
 ---
 

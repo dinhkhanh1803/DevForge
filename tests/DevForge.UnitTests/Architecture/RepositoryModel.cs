@@ -104,11 +104,39 @@ internal sealed class RepositoryModel
     {
         return SortProjectPaths(
             Directory.GetFiles(directory, "*.csproj", SearchOption.AllDirectories)
-                .Where(path => !Path.GetFileNameWithoutExtension(path)
-                    .EndsWith("_wpftmp", StringComparison.OrdinalIgnoreCase))
+                .Where(path => !IsTransientWpfCompilerProject(path))
                 .Where(path => !Path.GetRelativePath(directory, path)
                     .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                     .Any(segment => segment is "bin" or "obj")));
+    }
+
+    private static bool IsTransientWpfCompilerProject(string projectPath)
+    {
+        const string transientSuffix = "_wpftmp";
+        var projectName = Path.GetFileNameWithoutExtension(projectPath);
+        if (!projectName.EndsWith(transientSuffix, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var withoutTransientSuffix = projectName[..^transientSuffix.Length];
+        var generatedSuffixSeparator = withoutTransientSuffix.LastIndexOf('_');
+        if (generatedSuffixSeparator <= 0)
+        {
+            return false;
+        }
+
+        var generatedSuffix = withoutTransientSuffix[(generatedSuffixSeparator + 1)..];
+        if (generatedSuffix.Length == 0 || !generatedSuffix.All(char.IsLetterOrDigit))
+        {
+            return false;
+        }
+
+        var canonicalProjectName = withoutTransientSuffix[..generatedSuffixSeparator];
+        var canonicalProjectPath = Path.Combine(
+            Path.GetDirectoryName(projectPath)!,
+            canonicalProjectName + ".csproj");
+        return File.Exists(canonicalProjectPath);
     }
 
     internal static string[] SortProjectPaths(IEnumerable<string> paths)

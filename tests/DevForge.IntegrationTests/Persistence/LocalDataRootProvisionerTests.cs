@@ -1,5 +1,6 @@
 using DevForge.Application.Contracts;
 using DevForge.Application.Contracts.Persistence;
+using DevForge.Infrastructure;
 using DevForge.Infrastructure.Persistence;
 
 namespace DevForge.IntegrationTests.Persistence;
@@ -41,6 +42,44 @@ public sealed class LocalDataRootProvisionerTests : IDisposable
         Assert.Empty(fileSystem.EnsuredRoots);
     }
 
+    [Theory]
+    [InlineData("DF-FS-003")]
+    [InlineData("DF-FS-001")]
+    public async Task NormalizesExpectedProvisioningFailuresWithoutDisclosingTheRoot(
+        string sourceCode)
+    {
+        var fileSystem = new RecordingFileSystem
+        {
+            EnsureFailure = new InfrastructureOperationException(
+                sourceCode,
+                $"unsafe detail: {_root}"),
+        };
+        var location = DatabaseLocation.Create(_root, "devforge.db").Value;
+
+        var exception = await Assert.ThrowsAsync<InfrastructureOperationException>(() =>
+            new LocalDataRootProvisioner(fileSystem).EnsureExistsAsync(
+                location,
+                CancellationToken.None));
+
+        Assert.Equal("DF-FS-001", exception.Code);
+        Assert.DoesNotContain(_root, exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task PreservesCancellationRaisedByTheGuardedFileSystemPort()
+    {
+        var fileSystem = new RecordingFileSystem
+        {
+            EnsureFailure = new OperationCanceledException(),
+        };
+        var location = DatabaseLocation.Create(_root, "devforge.db").Value;
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            new LocalDataRootProvisioner(fileSystem).EnsureExistsAsync(
+                location,
+                CancellationToken.None));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_root))
@@ -55,11 +94,18 @@ public sealed class LocalDataRootProvisionerTests : IDisposable
 
         public bool OpenWorkspaceCalled { get; private set; }
 
+        public Exception? EnsureFailure { get; init; }
+
         public Task EnsureWorkspaceExistsAsync(
             WorkspaceRoot allowedRoot,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (EnsureFailure is not null)
+            {
+                throw EnsureFailure;
+            }
+
             EnsuredRoots.Add(allowedRoot);
             return Task.CompletedTask;
         }

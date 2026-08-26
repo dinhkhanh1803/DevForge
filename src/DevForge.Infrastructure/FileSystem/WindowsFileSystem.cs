@@ -13,14 +13,7 @@ public sealed class WindowsFileSystem : IFileSystem
 
         try
         {
-            WorkspacePathGuard.RejectExistingAncestorReparsePoints(
-                allowedRoot,
-                cancellationToken);
-            Directory.CreateDirectory(allowedRoot.RevealForFileSystem());
-            cancellationToken.ThrowIfCancellationRequested();
-            WorkspacePathGuard.RejectExistingAncestorReparsePoints(
-                allowedRoot,
-                cancellationToken);
+            using var provisioningLease = WindowsDirectoryProvisioningLease.Acquire(allowedRoot);
             _ = WorkspacePathGuard.Open(allowedRoot);
             return Task.CompletedTask;
         }
