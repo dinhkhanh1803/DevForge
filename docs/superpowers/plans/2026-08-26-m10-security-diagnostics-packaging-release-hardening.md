@@ -272,11 +272,11 @@ Automated implementation is green on 2026-08-26: scoped format, 12-project Relea
 - Create: `tests/DevForge.E2ETests/Release/ReleaseUpgradeTests.cs`
 - Modify: `.github/workflows/ci.yml`
 
-- [ ] **Step 1: Add RED package contract tests**
+- [x] **Step 1: Add RED package contract tests**
 
 Assert fixed RID `win-x64`, self-contained true, single-file false, ReadyToRun choice explicit, deterministic version metadata, no wildcard package/content declaration, and exactly three built-in blueprint roots in publish output.
 
-- [ ] **Step 2: Add the fixed publish profile**
+- [x] **Step 2: Add the fixed publish profile**
 
 ```xml
 <PropertyGroup>
@@ -288,17 +288,19 @@ Assert fixed RID `win-x64`, self-contained true, single-file false, ReadyToRun c
 </PropertyGroup>
 ```
 
-- [ ] **Step 3: Publish and audit from an isolated directory**
+- [x] **Step 3: Publish and audit from an isolated directory**
 
 Run locked restore/build/tests first, then `dotnet publish` with the fixed profile and explicit output under `artifacts/release/win-x64`. The audit rejects missing EXE/runtime/blueprints/config/docs, unexpected `.env`/database/private-key/script payload, and files outside the output root.
 
-- [ ] **Step 4: Add fresh/upgrade/migration-failure E2E**
+- [x] **Step 4: Add fresh/upgrade/migration-failure E2E**
 
 Start the packaged EXE with an isolated local-data root test hook already owned by Desktop composition, wait for a responsive main window, and exit cleanly. Repeat with a prior-schema fixture and injected migration failure; verify data preservation, backup, and read-only safe mode. Tests must not require Administrator or a repo-local installed runtime.
 
 - [ ] **Step 5: Add pinned CI release job, run GREEN, docs, commit**
 
 Upload only the audited package after all tests. Pin actions by commit SHA and keep permissions `contents: read`. Commit as `build(m10): verify self-contained release package`.
+
+Local implementation is green on 2026-08-26. Both solution and `win-x64` release restores pass locked mode; publish/audit reports 559 files and exactly three roots; fresh, upgrade, and restored-failure packaged WPF processes become responsive and close cleanly on Windows 10.0.19045 x64. The full gate is Unit 651, Integration 601, Blueprint 127, and E2E 212 with zero failures/skips, and the 12-project Release build has zero warnings/errors. The SHA-pinned read-only CI job is authored, but its remote execution remains unobserved; therefore Step 5 and Windows 11 release evidence remain open for Task 6.
 
 ### Task 6: Documentation, release checklist, and M10 closure
 
@@ -310,7 +312,7 @@ Upload only the audited package after all tests. Pin actions by commit SHA and k
 - Create: `docs/privacy-and-support-bundles.md`
 - Create: `docs/release-checklist.md`
 - Create: `docs/decisions/0020-private-local-diagnostics-and-retention.md`
-- Create: `docs/decisions/0021-self-contained-win-x64-release.md`
+- Reference: `docs/decisions/0023-self-contained-win-x64-release.md`
 - Modify: `README.md`, `CHANGELOG.md`, `docs/implementation-plan.md`, `docs/implementation-status.md`
 
 - [ ] **Step 1: Add RED documentation/checklist contract**

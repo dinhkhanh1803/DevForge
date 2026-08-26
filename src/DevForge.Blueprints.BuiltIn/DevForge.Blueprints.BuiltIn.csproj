@@ -5,8 +5,23 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="..\..\blueprints\**\*">
-      <Link>blueprints\built-in\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    <Content Include="..\..\blueprints\README.md">
+      <Link>blueprints\built-in\README.md</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="..\..\blueprints\desktop.csharp-wpf-tool\**\*">
+      <Link>blueprints\built-in\desktop.csharp-wpf-tool\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="..\..\blueprints\web.react-vite-ts\**\*">
+      <Link>blueprints\built-in\web.react-vite-ts\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="..\..\blueprints\tool.python-cli\**\*">
+      <Link>blueprints\built-in\tool.python-cli\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>

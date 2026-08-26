@@ -1,4 +1,3 @@
-using System.IO;
 using System.Windows;
 using DevForge.Desktop.BlueprintCatalog;
 using DevForge.Desktop.Bootstrap;
@@ -27,9 +26,7 @@ public partial class App : System.Windows.Application, IDisposable
         base.OnStartup(e);
         try
         {
-            var localDataRoot = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "DevForge");
+            var localDataRoot = DesktopLocalDataRootResolver.Resolve(e.Args);
             _host = DesktopHostBuilder.Create(localDataRoot, new WpfThemeResourceHost(this));
             await _host.StartAsync(_shutdown.Token).ConfigureAwait(true);
 

@@ -75,3 +75,61 @@ jobs:
           path: artifacts/test-results/**/*.trx
           if-no-files-found: error
           retention-days: 14
+
+  release-package:
+    name: Self-contained win-x64 release package
+    needs: build-and-test
+    runs-on: windows-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
+
+      - name: Restore locked dependencies
+        run: dotnet restore DevForge.sln --locked-mode
+
+      - name: Restore release runtime
+        run: dotnet restore src/DevForge.Desktop/DevForge.Desktop.csproj --locked-mode --runtime win-x64
+
+      - name: Build package smoke tests
+        run: dotnet build tests/DevForge.E2ETests/DevForge.E2ETests.csproj --configuration Release --no-restore
+
+      - name: Publish fixed release profile
+        run: >-
+          dotnet publish src/DevForge.Desktop/DevForge.Desktop.csproj
+          --configuration Release
+          --no-restore
+          --property:PublishProfile=ReleaseWinX64
+          --output artifacts/release/win-x64
+
+      - name: Audit release package
+        shell: pwsh
+        run: ./scripts/Test-ReleasePackage.ps1 -PackageRoot artifacts/release/win-x64
+
+      - name: Run fresh and upgrade package smoke
+        env:
+          DEVFORGE_RELEASE_PACKAGE_ROOT: ${{ github.workspace }}\artifacts\release\win-x64
+        run: >-
+          dotnet test tests/DevForge.E2ETests/DevForge.E2ETests.csproj
+          --configuration Release
+          --no-build
+          --no-restore
+          --filter FullyQualifiedName~ReleaseUpgradeTests
+
+      - name: Upload audited release package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-win-x64
+          path: artifacts/release/win-x64
+          if-no-files-found: error
+          retention-days: 14

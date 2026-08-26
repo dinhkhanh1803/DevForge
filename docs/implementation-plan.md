@@ -2,7 +2,7 @@
 
 **Goal:** close the MVP security/recovery/diagnostics/documentation/package release gates without expanding the blueprint catalog.
 
-**Status:** M10 Tasks 1-3 are complete. Task 4 implementation and automated gates are green; its real-display 100/125/150% certification is carried to the Task 6 release matrix. Task 5 is active. M9's Windows 11 certification remains accepted environmental debt and neither M9 nor M10 may be marked complete until it is executed.
+**Status:** M10 Tasks 1-3 are complete. Task 4 implementation/automated gates and Task 5 local package gates are green. Task 4 real-display certification, remote CI evidence, and the required Windows 11 matrix are carried to Task 6, which is active. M9's Windows 11 certification remains accepted environmental debt and neither M9 nor M10 may be marked complete until it is executed.
 
 **Design:** `docs/superpowers/specs/2026-08-26-m10-security-diagnostics-packaging-release-hardening-design.md`
 
@@ -14,7 +14,7 @@
 - [x] Task 2: structured JSONL diagnostics and bounded retention.
 - [x] Task 3: privacy-safe support bundle and owned cleanup.
 - [ ] Task 4: Desktop diagnostics, keyboard accessibility, and scaling (implementation/automated gates complete; real-display certification outstanding).
-- [ ] Task 5: self-contained `win-x64` package and upgrade smoke.
+- [x] Task 5: self-contained `win-x64` package and upgrade smoke (local Windows 10 evidence; Windows 11 repeat remains Task 6).
 - [ ] Task 6: release documentation, checklist, Windows 11 evidence, and closure.
 
 ## Task 4 boundary and automated exit
@@ -25,7 +25,17 @@
 
 **Tests:** typed relative receipt export/copy, safe-mode cleanup refusal, authoritative run identity, capability-driven command state, redacted notifications, DI graph resolution, automation names, icon-plus-text and explicit one-way status projection, failed-step selection, virtualized output/history, and WPF measure/arrange at 960x640, 1200x800, and 1440x960 in Light/Dark themes.
 
-**Automated exit:** locked restore passed; scoped format verification exited 0; all 12 Release projects built with 0 warnings/errors; Unit 651, Integration 601, Blueprint 127, and E2E 205 passed with zero failed/skipped. No ViewModel uses `Process`, `File`, `Directory`, shell strings, or an absolute staging path. The intentionally disabled `Open staging` action remains fail-closed because no verified typed folder-launch boundary exists. Real Windows display checks at 100/125/150% remain release-host evidence, not an automated proxy, and are carried to Task 6. Task 5 is the next implementation task.
+**Automated exit:** locked restore passed; scoped format verification exited 0; all 12 Release projects built with 0 warnings/errors; Unit 651, Integration 601, Blueprint 127, and E2E 205 passed with zero failed/skipped. No ViewModel uses `Process`, `File`, `Directory`, shell strings, or an absolute staging path. The intentionally disabled `Open staging` action remains fail-closed because no verified typed folder-launch boundary exists. Real Windows display checks at 100/125/150% remain release-host evidence, not an automated proxy, and are carried to Task 6.
+
+## Task 5 boundary and local exit
+
+**Scope:** publish one deterministic self-contained `win-x64` directory, bind release restore to the checked-in RID lock graph, include only the three reviewed production blueprints plus catalog/release documentation, audit the isolated directory, and prove packaged fresh/upgrade/recovery startup without Administrator or a repo-local runtime.
+
+**Files:** fixed publish profile and release metadata; bounded blueprint/package content declarations; `win-x64` lock graph; exact test-owned local-data startup argument; package audit script; pinned read-only CI release job; release contract and packaged migration E2E; ADR-0023 and milestone docs.
+
+**Tests:** profile/RID/version/content/CI contracts; repeated package audit; responsive packaged main window; fresh database/local blueprint source; upgrade from initial schema with historical settings preserved and backup retained; duplicate-index injected migration failure with backup restore, prior data preservation, and visible safe mode.
+
+**Local exit:** both solution and release-RID restores pass `--locked-mode`; all 12 Release projects build with 0 warnings/errors; Unit 651, Integration 601, Blueprint 127, and E2E 212 pass with zero failed/skipped. `dotnet publish` produced a self-contained directory whose repeated audit reports 559 files and exactly three blueprint roots. All three packaged startup scenarios pass on Microsoft Windows 10.0.19045 x64 with .NET SDK 10.0.302/runtime 10.0.10. This is not Windows 11 evidence. The remote pinned CI job is authored but has not been observed in GitHub; Task 6 owns remote/Windows 11 release evidence and truthful closure.
 
 ## Task 1 boundary before code
 
