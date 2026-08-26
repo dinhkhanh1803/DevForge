@@ -219,6 +219,25 @@ public sealed partial class DesktopPresentationContractTests
         Assert.DoesNotContain("#FFD13438", xaml, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void ExecutionAndCompletionSeparateProgressRecoveryAndPublicationState()
+    {
+        var execution = Read("src/DevForge.Desktop/Execution/ExecutionCenterView.xaml");
+        Assert.Contains("TimelineList", execution, StringComparison.Ordinal);
+        Assert.Contains("ConsolePanel", execution, StringComparison.Ordinal);
+        Assert.Contains("CancelCommand", execution, StringComparison.Ordinal);
+        Assert.Contains("ResumeCommand", execution, StringComparison.Ordinal);
+        Assert.Contains("CleanupCommand", execution, StringComparison.Ordinal);
+
+        var completion = Read("src/DevForge.Desktop/Execution/LocalReadyView.xaml");
+        Assert.Contains("validated local project remains safe", completion, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Callout.Success", completion, StringComparison.Ordinal);
+        Assert.Contains("Callout.Warning", completion, StringComparison.Ordinal);
+        Assert.Contains("RetryPublishCommand", completion, StringComparison.Ordinal);
+        Assert.Contains("OpenIdeCommand", completion, StringComparison.Ordinal);
+        Assert.DoesNotContain("#FFD13438", completion, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static HashSet<string> ResourceKeys(string relativePath) =>
         KeyExpression()
             .Matches(Read(relativePath))
