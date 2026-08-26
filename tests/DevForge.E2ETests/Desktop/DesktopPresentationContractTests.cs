@@ -238,6 +238,31 @@ public sealed partial class DesktopPresentationContractTests
         Assert.DoesNotContain("#FFD13438", completion, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void RedesignedViewsRetainAutomationAndDoNotInventBehavior()
+    {
+        var paths = new[]
+        {
+            "src/DevForge.Desktop/MainWindow.xaml",
+            "src/DevForge.Desktop/Dashboard/DashboardView.xaml",
+            "src/DevForge.Desktop/CreateProject/CreateProjectView.xaml",
+            "src/DevForge.Desktop/RunHistory/RunHistoryView.xaml",
+            "src/DevForge.Desktop/BlueprintCatalog/BlueprintCatalogView.xaml",
+            "src/DevForge.Desktop/EnvironmentDoctor/EnvironmentDoctorView.xaml",
+            "src/DevForge.Desktop/Settings/SettingsView.xaml",
+            "src/DevForge.Desktop/Execution/ExecutionCenterView.xaml",
+            "src/DevForge.Desktop/Execution/LocalReadyView.xaml",
+        };
+
+        Assert.All(paths, path => Assert.Contains(
+            "AutomationProperties.Name", Read(path), StringComparison.Ordinal));
+        var all = string.Join(Environment.NewLine, paths.Select(Read));
+        Assert.DoesNotContain("Click=", all, StringComparison.Ordinal);
+        Assert.DoesNotContain("File.", all, StringComparison.Ordinal);
+        Assert.DoesNotContain("Process.", all, StringComparison.Ordinal);
+        Assert.DoesNotContain("#FFD13438", all, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static HashSet<string> ResourceKeys(string relativePath) =>
         KeyExpression()
             .Matches(Read(relativePath))

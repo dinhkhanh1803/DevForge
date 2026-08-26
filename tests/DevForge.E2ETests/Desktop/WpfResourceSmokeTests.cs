@@ -22,28 +22,13 @@ public sealed class WpfResourceSmokeTests
         {
             var application = new DevForge.Desktop.App();
             application.InitializeComponent();
-            application.Resources.MergedDictionaries.Insert(
-                0,
-                new ResourceDictionary
-                {
-                    Source = new Uri(
-                        "/DevForge.Desktop;component/Resources/Colors.Light.xaml",
-                        UriKind.Relative),
-                });
-            FrameworkElement[] views =
+            string[] themes = ["Light", "Dark"];
+            Size[] dpiEquivalentConstraints =
             [
-                new DashboardView(),
-                new SettingsView(),
-                new EnvironmentDoctorView(),
-                new CreateProjectView(),
-                new BlueprintCatalogView(),
-                new RunHistoryView(),
-                new ExecutionCenterView(),
-                new LocalReadyView(),
-                new DevForge.Desktop.MainWindow(),
+                new(960, 640),
+                new(1200, 800),
+                new(1440, 960),
             ];
-
-            var createProject = Assert.IsType<CreateProjectView>(views[3]);
             string[] inputTemplateKeys =
             [
                 "TextInputTemplate",
@@ -51,52 +36,80 @@ public sealed class WpfResourceSmokeTests
                 "BooleanInputTemplate",
                 "WholeNumberInputTemplate",
             ];
-            Assert.All(
-                inputTemplateKeys,
-                key => Assert.IsType<DataTemplate>(createProject.Resources[key]));
-            foreach (var key in inputTemplateKeys)
-            {
-                var template = Assert.IsType<DataTemplate>(createProject.Resources[key]);
-                var input = Assert.IsAssignableFrom<Control>(template.LoadContent());
-                Assert.NotNull(System.Windows.Data.BindingOperations.GetBindingExpressionBase(
-                    input,
-                    AutomationProperties.NameProperty));
-            }
 
-            Size[] dpiEquivalentConstraints =
+            foreach (var theme in themes)
             {
-                new(960, 640),
-                new(1200, 800),
-                new(1440, 960),
-            };
-
-            foreach (var constraint in dpiEquivalentConstraints)
-            {
-                foreach (var view in views)
+                var themeDictionary = new ResourceDictionary
                 {
-                    view.Measure(constraint);
-                    view.Arrange(new Rect(new Point(), constraint));
-                    Assert.InRange(view.DesiredSize.Width, 0, constraint.Width);
-                    Assert.InRange(view.DesiredSize.Height, 0, constraint.Height);
-                }
-            }
+                    Source = new Uri(
+                        $"/DevForge.Desktop;component/Resources/Colors.{theme}.xaml",
+                        UriKind.Relative),
+                };
+                application.Resources.MergedDictionaries.Add(themeDictionary);
+                FrameworkElement[] views =
+                [
+                    new DashboardView(),
+                    new SettingsView(),
+                    new EnvironmentDoctorView(),
+                    new CreateProjectView(),
+                    new BlueprintCatalogView(),
+                    new RunHistoryView(),
+                    new ExecutionCenterView(),
+                    new LocalReadyView(),
+                    new DevForge.Desktop.MainWindow(),
+                ];
 
-            foreach (var view in views.Where(view => view is CreateProjectView or SettingsView))
-            {
-                var inputs = Descendants<Control>(view)
-                    .Where(control => control is TextBox or ComboBox)
-                    .ToArray();
-                Assert.NotEmpty(inputs);
-                Assert.All(inputs, input =>
-                    Assert.False(string.IsNullOrWhiteSpace(AutomationProperties.GetName(input))));
-            }
-
-            foreach (var view in views.Where(view =>
-                         view is CreateProjectView or BlueprintCatalogView or RunHistoryView or ExecutionCenterView or LocalReadyView))
-            {
+                var createProject = Assert.IsType<CreateProjectView>(views[3]);
                 Assert.All(
-                    Descendants<ListBox>(view),
-                    list => Assert.True(VirtualizingPanel.GetIsVirtualizing(list)));
+                    inputTemplateKeys,
+                    key => Assert.IsType<DataTemplate>(createProject.Resources[key]));
+                foreach (var key in inputTemplateKeys)
+                {
+                    var template = Assert.IsType<DataTemplate>(createProject.Resources[key]);
+                    var input = Assert.IsAssignableFrom<Control>(template.LoadContent());
+                    Assert.NotNull(System.Windows.Data.BindingOperations.GetBindingExpressionBase(
+                        input,
+                        AutomationProperties.NameProperty));
+                }
+
+                foreach (var constraint in dpiEquivalentConstraints)
+                {
+                    foreach (var view in views)
+                    {
+                        view.Measure(constraint);
+                        view.Arrange(new Rect(new Point(), constraint));
+                        Assert.InRange(view.DesiredSize.Width, 0, constraint.Width);
+                        Assert.InRange(view.DesiredSize.Height, 0, constraint.Height);
+                        if (view is not Window)
+                        {
+                            Assert.True(view.IsMeasureValid, $"{view.GetType().Name} ({theme})");
+                            Assert.True(view.IsArrangeValid, $"{view.GetType().Name} ({theme})");
+                        }
+                    }
+                }
+
+                foreach (var view in views.Where(view => view is CreateProjectView or SettingsView))
+                {
+                    var inputs = Descendants<Control>(view)
+                        .Where(control => control is TextBox or ComboBox)
+                        .ToArray();
+                    Assert.NotEmpty(inputs);
+                    Assert.All(inputs, input =>
+                        Assert.False(string.IsNullOrWhiteSpace(AutomationProperties.GetName(input))));
+                }
+
+                foreach (var view in views.Where(view =>
+                             view is CreateProjectView or BlueprintCatalogView or RunHistoryView or ExecutionCenterView or LocalReadyView))
+                {
+                    Assert.All(
+                        Descendants<ListBox>(view),
+                        list => Assert.True(VirtualizingPanel.GetIsVirtualizing(list)));
+                }
+
+                var window = Assert.IsType<DevForge.Desktop.MainWindow>(views[^1]);
+                Assert.Equal(960, window.MinWidth);
+                Assert.Equal(640, window.MinHeight);
+                application.Resources.MergedDictionaries.Remove(themeDictionary);
             }
 
             string[] sources =
