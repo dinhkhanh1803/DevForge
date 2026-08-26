@@ -98,8 +98,12 @@ internal sealed class WpfBlueprintFixture : IAsyncDisposable
                 new KeyValuePair<string, DynamicInputValue?>(item.Key, item.Value)),
             Draft.Features,
             Draft.IdeId,
-            initializeRepository: true,
-            branchPolicy: GitBranchPolicy.Main).Value;
+            Draft.Git.InitializeRepository,
+            Draft.Git.BranchPolicy,
+            Draft.Git.PublishToGitHub,
+            Draft.Git.IsPrivate,
+            Draft.Git.GitHubAccount,
+            Draft.Git.GitHubRepository).Value;
 
     public async Task<StagingCleanupReceipt> CleanupFailedAsync(RunCheckpoint checkpoint)
     {

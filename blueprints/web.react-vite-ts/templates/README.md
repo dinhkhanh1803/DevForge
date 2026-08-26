@@ -16,4 +16,4 @@ Use the supported Node and pnpm versions, keep lifecycle scripts disabled during
 
 ## Quality gates
 
-Run the ordered commands in `TESTING.md`; the production output is the generated `dist` directory.
+Run the ordered commands in `TESTING.md`; the production output is the generated `dist` directory. This blueprint intentionally integrity-binds and commits the reviewed `dist` output so the repository records the exact production artifact.

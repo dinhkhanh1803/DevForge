@@ -1,6 +1,6 @@
 # Contributing
 
-Use focused changes, keep all dependencies exact, update `pnpm-lock.yaml` intentionally, and add a regression test for reproducible defects. Never commit `.env`, credentials, generated `dist`, coverage, or `node_modules`.
+Use focused changes, keep all dependencies exact, update `pnpm-lock.yaml` intentionally, and add a regression test for reproducible defects. Never commit `.env`, credentials, coverage, or `node_modules`. Commit the reviewed `dist` production output because this blueprint integrity-binds it as a release artifact.
 
 ## Workflow
 
@@ -12,7 +12,7 @@ Create a short-lived branch from the reviewed primary branch. Keep each focused 
 
 ## Review
 
-Review public-environment exposure, dependency and lock changes, lint/type/test/build evidence, accessibility, and generated-output exclusions.
+Review public-environment exposure, dependency and lock changes, lint/type/test/build evidence, accessibility, and the complete `dist` production output. Do not hand-edit `dist`; regenerate it with the exact build command.
 
 ## Quality gates
 

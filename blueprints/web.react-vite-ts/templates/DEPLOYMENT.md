@@ -4,7 +4,7 @@
 
 ## Release preparation
 
-Run the full release gate, inspect `dist`, confirm public environment values, and configure hosting security and cache headers in the approved platform.
+Run the full release gate, inspect `dist`, confirm public environment values, and commit the complete reviewed `dist` output before configuring hosting security and cache headers in the approved platform. Rerun `pnpm run build` and require a clean repository to prove the committed artifact is reproducible.
 
 ## Rollback
 

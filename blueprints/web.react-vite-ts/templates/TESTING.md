@@ -10,8 +10,11 @@ Run the release gate in order:
 
 ```text
 pnpm install --frozen-lockfile --ignore-scripts
+pnpm run format:check
 pnpm run lint
 pnpm run typecheck
 pnpm run test
 pnpm run build
 ```
+
+The build must reproduce the complete committed `dist` directory without a repository change. Prettier excludes only dependency/build outputs and DevForge-owned evidence; source and configuration remain checked.

@@ -219,6 +219,37 @@ public sealed class ReactViteBlueprintContractTests
         }
     }
 
+    [Fact]
+    public async Task ReviewedProductionDistIsCommittedAndEngineEvidenceIsExcludedFromFormatting()
+    {
+        using var fixture = await ProductionBlueprintCatalogFixture.CreateAsync();
+        await fixture.Catalog.RefreshAsync(CancellationToken.None);
+        var blueprint = Assert.Single(
+            await fixture.Catalog.ListAsync(CancellationToken.None),
+            candidate => candidate.Manifest.Id == BlueprintId);
+        Assert.Contains(blueprint.Manifest.Artifacts, artifact => artifact.Path == "dist\\index.html");
+
+        var package = await ReadTextAsync(fixture, $"{BlueprintId}\\templates\\package.json");
+        Assert.Contains("\"build\": \"vite build\"", package, StringComparison.Ordinal);
+        var gitignore = await ReadTextAsync(fixture, $"{BlueprintId}\\templates\\.gitignore");
+        Assert.DoesNotContain("dist/", gitignore, StringComparison.Ordinal);
+        var contributing = await ReadTextAsync(fixture, $"{BlueprintId}\\templates\\CONTRIBUTING.md");
+        Assert.Contains("Commit the reviewed `dist` production output", contributing, StringComparison.Ordinal);
+        Assert.DoesNotContain("Never commit `.env`, credentials, generated `dist`", contributing,
+            StringComparison.OrdinalIgnoreCase);
+        var deployment = await ReadTextAsync(fixture, $"{BlueprintId}\\templates\\DEPLOYMENT.md");
+        Assert.Contains("commit the complete reviewed `dist` output", deployment, StringComparison.Ordinal);
+
+        var prettierIgnore = (await ReadTextAsync(
+                fixture,
+                $"{BlueprintId}\\templates\\.prettierignore"))
+            .Replace("\r\n", "\n", StringComparison.Ordinal);
+        Assert.Equal(
+            "coverage\ndist\nnode_modules\npnpm-lock.yaml\n.devforge/\ndevforge.lock.json\n" +
+            "generation-report.json\npolicy.snapshot.json\n",
+            prettierIgnore);
+    }
+
     private static ProjectRecipe Recipe(string targetPath) => ProjectRecipe.Create(new ProjectRecipeDraft(
         "Team Portal",
         targetPath,

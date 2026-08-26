@@ -8,7 +8,7 @@ UI consumes typed configuration and service functions; only the configuration bo
 
 ## Repository layout
 
-Application code is under `src`, public static inputs are under `public` when present, and root configuration defines the shared TypeScript, Vite, lint, test, and package policy.
+Application code is under `src`, public static inputs are under `public` when present, and root configuration defines the shared TypeScript, Vite, lint, test, and package policy. The generated `dist` directory is an integrity-bound release artifact committed from the exact reviewed build; it is not a source boundary and must not be hand-edited.
 
 ## Decision records
 

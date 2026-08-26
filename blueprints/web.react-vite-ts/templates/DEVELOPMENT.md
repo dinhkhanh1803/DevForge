@@ -21,3 +21,7 @@ No database is used by this blueprint.
 ## Debugging
 
 Run `pnpm run dev`, reproduce the issue in the browser, and use browser developer tools with source maps. Run `pnpm run typecheck` and `pnpm run test` before changing behavior.
+
+## Production output
+
+Use only `pnpm run build` to regenerate `dist`. Review and commit the complete output with the source change that produced it; never hand-edit generated production files.

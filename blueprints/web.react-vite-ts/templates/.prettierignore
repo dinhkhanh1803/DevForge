@@ -2,3 +2,7 @@ coverage
 dist
 node_modules
 pnpm-lock.yaml
+.devforge/
+devforge.lock.json
+generation-report.json
+policy.snapshot.json

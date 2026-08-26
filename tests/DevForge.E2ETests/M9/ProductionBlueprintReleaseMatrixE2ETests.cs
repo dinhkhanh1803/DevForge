@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
@@ -19,40 +20,79 @@ namespace DevForge.E2ETests.M9;
 [Collection(M9ExecutionTestGroup.Name)]
 public sealed partial class ProductionBlueprintReleaseMatrixE2ETests
 {
-    private static readonly string[] _blueprintIds =
-    [
-        "desktop.csharp-wpf-tool",
-        "tool.python-cli",
-        "web.react-vite-ts",
-    ];
     private static readonly string[] _controlFileNames =
         ["manifest.yaml", "rules.yaml", "inputs.schema.json"];
-    private static readonly Dictionary<string, int> _expectedCommandCounts = new(StringComparer.Ordinal)
-    {
-        ["desktop.csharp-wpf-tool"] = 9,
-        ["web.react-vite-ts"] = 9,
-        ["tool.python-cli"] = 13,
-    };
-    private static readonly Dictionary<string, ExpectedTree> _expectedTrees =
-        new Dictionary<string, ExpectedTree>(StringComparer.Ordinal)
-        {
-            ["desktop.csharp-wpf-tool"] = new(
-                "1965e539bf77cf214b5bac0031b42de2cf06684bfacbc19c7a668b1944ed6669",
-                Split(".devforge/project.recipe.yaml,.editorconfig,.gitignore,ARCHITECTURE.md,CONTRIBUTING.md,DEPLOYMENT.md,DEVELOPMENT.md,Directory.Build.props,Directory.Packages.props,README.md,TEAM_START_HERE.md,TESTING.md,TeamTool.slnx,devforge.lock.json,generation-report.json,global.json,policy.snapshot.json,src/TeamTool.Application/IStatusService.cs,src/TeamTool.Application/TeamTool.Application.csproj,src/TeamTool.Application/packages.lock.json,src/TeamTool.Desktop/App.xaml,src/TeamTool.Desktop/App.xaml.cs,src/TeamTool.Desktop/MainViewModel.cs,src/TeamTool.Desktop/MainWindow.xaml,src/TeamTool.Desktop/MainWindow.xaml.cs,src/TeamTool.Desktop/Properties/PublishProfiles/WindowsSmoke.pubxml,src/TeamTool.Desktop/TeamTool.Desktop.csproj,src/TeamTool.Desktop/appsettings.json,src/TeamTool.Desktop/packages.lock.json,src/TeamTool.Domain/TeamTool.Domain.csproj,src/TeamTool.Domain/ToolStatus.cs,src/TeamTool.Domain/packages.lock.json,src/TeamTool.Infrastructure/StatusService.cs,src/TeamTool.Infrastructure/TeamTool.Infrastructure.csproj,src/TeamTool.Infrastructure/packages.lock.json,tests/TeamTool.UnitTests/StatusContractTests.cs,tests/TeamTool.UnitTests/TeamTool.UnitTests.csproj,tests/TeamTool.UnitTests/packages.lock.json")),
-            ["web.react-vite-ts"] = new(
-                "392f85ace28fb15e1bc1815e2b1b55adf8ab406f99d09399b2e2f79adc4e7173",
-                Split(".devforge/project.recipe.yaml,.editorconfig,.env.example,.gitignore,.prettierignore,.prettierrc.json,ARCHITECTURE.md,CONTRIBUTING.md,DEPLOYMENT.md,DEVELOPMENT.md,README.md,TEAM_START_HERE.md,TESTING.md,devforge.lock.json,dist/index.html,eslint.config.js,generation-report.json,index.html,package.json,pnpm-lock.yaml,policy.snapshot.json,src/app/App.test.tsx,src/app/App.tsx,src/app/index.css,src/config/env.test.ts,src/config/env.ts,src/main.tsx,src/services/apiClient.ts,src/test/setup.ts,src/vite-env.d.ts,tsconfig.app.json,tsconfig.json,tsconfig.node.json,vite.config.ts")),
-            ["tool.python-cli"] = new(
-                "b7ed822c6e08f3ca3aca60df63f92dffd6d4d822a4f10e4cc2268639f7694b4b",
-                Split(".devforge/project.recipe.yaml,.editorconfig,.env.example,.gitignore,.python-version,ARCHITECTURE.md,CONTRIBUTING.md,DEPLOYMENT.md,DEVELOPMENT.md,README.md,TEAM_START_HERE.md,TESTING.md,devforge.lock.json,generation-report.json,policy.snapshot.json,pyproject.toml,src/team_tool/__init__.py,src/team_tool/__main__.py,src/team_tool/cli.py,src/team_tool/config.py,src/team_tool/logging_config.py,src/team_tool/py.typed,tests/test_cli.py,tests/test_config.py,uv.lock")),
-        };
+    private static readonly string[] _approvedActionHandlers =
+        ["copy-overlay", "package-install", "render-template"];
+    private static readonly ProductionBlueprintCase[] _cases =
+    [
+        new(
+            "desktop.csharp-wpf-tool",
+            WpfBlueprintFixture.CreateAsync,
+            "1965e539bf77cf214b5bac0031b42de2cf06684bfacbc19c7a668b1944ed6669",
+            Split(".devforge/project.recipe.yaml,.editorconfig,.gitignore,ARCHITECTURE.md,CONTRIBUTING.md,DEPLOYMENT.md,DEVELOPMENT.md,Directory.Build.props,Directory.Packages.props,README.md,TEAM_START_HERE.md,TESTING.md,TeamTool.slnx,devforge.lock.json,generation-report.json,global.json,policy.snapshot.json,src/TeamTool.Application/IStatusService.cs,src/TeamTool.Application/TeamTool.Application.csproj,src/TeamTool.Application/packages.lock.json,src/TeamTool.Desktop/App.xaml,src/TeamTool.Desktop/App.xaml.cs,src/TeamTool.Desktop/MainViewModel.cs,src/TeamTool.Desktop/MainWindow.xaml,src/TeamTool.Desktop/MainWindow.xaml.cs,src/TeamTool.Desktop/Properties/PublishProfiles/WindowsSmoke.pubxml,src/TeamTool.Desktop/TeamTool.Desktop.csproj,src/TeamTool.Desktop/appsettings.json,src/TeamTool.Desktop/packages.lock.json,src/TeamTool.Domain/TeamTool.Domain.csproj,src/TeamTool.Domain/ToolStatus.cs,src/TeamTool.Domain/packages.lock.json,src/TeamTool.Infrastructure/StatusService.cs,src/TeamTool.Infrastructure/TeamTool.Infrastructure.csproj,src/TeamTool.Infrastructure/packages.lock.json,tests/TeamTool.UnitTests/StatusContractTests.cs,tests/TeamTool.UnitTests/TeamTool.UnitTests.csproj,tests/TeamTool.UnitTests/packages.lock.json"),
+            [
+                Operation("restore", "package-install", "dotnet", 300, false,
+                    "restore", "TeamTool.slnx", "--locked-mode"),
+                Operation("format", "validate-command", "dotnet", 180, true,
+                    "format", "TeamTool.slnx", "--verify-no-changes", "--no-restore"),
+                Operation("build", "validate-command", "dotnet", 300, true,
+                    "build", "TeamTool.slnx", "--configuration", "Release", "--no-restore"),
+                Operation("test", "validate-command", "dotnet", 300, true,
+                    "test", "TeamTool.slnx", "--configuration", "Release", "--no-build", "--no-restore"),
+                Operation("publish-smoke", "validate-command", "dotnet", 300, true,
+                    "publish", "src\\TeamTool.Desktop\\TeamTool.Desktop.csproj", "--configuration",
+                    "Release", "--no-restore", "--property:PublishProfile=WindowsSmoke"),
+            ]),
+        new(
+            "tool.python-cli",
+            WpfBlueprintFixture.CreatePythonAsync,
+            "b7ed822c6e08f3ca3aca60df63f92dffd6d4d822a4f10e4cc2268639f7694b4b",
+            Split(".devforge/project.recipe.yaml,.editorconfig,.env.example,.gitignore,.python-version,ARCHITECTURE.md,CONTRIBUTING.md,DEPLOYMENT.md,DEVELOPMENT.md,README.md,TEAM_START_HERE.md,TESTING.md,devforge.lock.json,generation-report.json,policy.snapshot.json,pyproject.toml,src/team_tool/__init__.py,src/team_tool/__main__.py,src/team_tool/cli.py,src/team_tool/config.py,src/team_tool/logging_config.py,src/team_tool/py.typed,tests/test_cli.py,tests/test_config.py,uv.lock"),
+            [
+                Operation("install", "package-install", "uv", 900, false,
+                    "sync", "--frozen", "--no-config"),
+                Operation("format", "validate-command", "uv", 300, true,
+                    "run", "--frozen", "--no-sync", "--no-config", "ruff", "format", "--check", "."),
+                Operation("lint", "validate-command", "uv", 300, true,
+                    "run", "--frozen", "--no-sync", "--no-config", "ruff", "check", "."),
+                Operation("typecheck", "validate-command", "uv", 300, true,
+                    "run", "--frozen", "--no-sync", "--no-config", "mypy", "src", "tests"),
+                Operation("test", "validate-command", "uv", 300, true,
+                    "run", "--frozen", "--no-sync", "--no-config", "pytest"),
+                Operation("build", "validate-command", "uv", 300, true,
+                    "run", "--frozen", "--no-sync", "--no-config", "pyproject-build", "--no-isolation"),
+                Operation("cli-smoke", "validate-command", "uv", 300, true,
+                    "run", "--frozen", "--no-sync", "--no-config", "team-tool", "--help"),
+            ]),
+        new(
+            "web.react-vite-ts",
+            WpfBlueprintFixture.CreateReactAsync,
+            "eace5e3ac4c08e0e674a3817729e2e6007e51b6d18fa85d6b3f0319f6935f18e",
+            Split(".devforge/project.recipe.yaml,.editorconfig,.env.example,.gitignore,.prettierignore,.prettierrc.json,ARCHITECTURE.md,CONTRIBUTING.md,DEPLOYMENT.md,DEVELOPMENT.md,README.md,TEAM_START_HERE.md,TESTING.md,devforge.lock.json,dist/index.html,eslint.config.js,generation-report.json,index.html,package.json,pnpm-lock.yaml,policy.snapshot.json,src/app/App.test.tsx,src/app/App.tsx,src/app/index.css,src/config/env.test.ts,src/config/env.ts,src/main.tsx,src/services/apiClient.ts,src/test/setup.ts,src/vite-env.d.ts,tsconfig.app.json,tsconfig.json,tsconfig.node.json,vite.config.ts"),
+            [
+                Operation("install", "package-install", "pnpm", 900, false,
+                    "install", "--frozen-lockfile", "--ignore-scripts"),
+                Operation("lint", "validate-command", "pnpm", 300, true, "run", "lint"),
+                Operation("typecheck", "validate-command", "pnpm", 300, true, "run", "typecheck"),
+                Operation("test", "validate-command", "pnpm", 300, true, "run", "test"),
+                Operation("build", "validate-command", "pnpm", 300, true, "run", "build"),
+            ]),
+    ];
 
-    public static TheoryData<string> ProductionBlueprintIds => new()
+    public static TheoryData<string> ProductionBlueprintIds
     {
-        "desktop.csharp-wpf-tool",
-        "web.react-vite-ts",
-        "tool.python-cli",
-    };
+        get
+        {
+            var data = new TheoryData<string>();
+            foreach (var item in _cases)
+            {
+                data.Add(item.Id);
+            }
+
+            return data;
+        }
+    }
 
     [Fact]
     public async Task DesktopProductionCatalogDiscoversExactlyThreeBuiltInBlueprints()
@@ -78,7 +118,7 @@ public sealed partial class ProductionBlueprintReleaseMatrixE2ETests
 
             var blueprints = await catalog.ListAsync(CancellationToken.None);
 
-            Assert.Equal(_blueprintIds,
+            Assert.Equal(_cases.Select(item => item.Id),
                 blueprints.Select(item => item.Manifest.Id).Order(StringComparer.Ordinal));
             Assert.All(blueprints, blueprint =>
             {
@@ -102,6 +142,7 @@ public sealed partial class ProductionBlueprintReleaseMatrixE2ETests
     public async Task ReviewedBlueprintCompletesWithAnExactDeterministicPlanAndFinalTree(
         string blueprintId)
     {
+        var blueprintCase = Case(blueprintId);
         await using var first = await CreateFixtureAsync(blueprintId);
         await using var second = await CreateFixtureAsync(blueprintId);
         var firstPlan = await first.Workflow.CreatePlanAsync(first.Draft, CancellationToken.None);
@@ -117,14 +158,12 @@ public sealed partial class ProductionBlueprintReleaseMatrixE2ETests
         Assert.True(secondRun.IsValid);
         Assert.Equal(RunStatus.LocalReady, firstRun.Value.Checkpoint.Run.Status);
         Assert.Equal(RunStatus.LocalReady, secondRun.Value.Checkpoint.Run.Status);
-        var expected = _expectedTrees[blueprintId];
-        Assert.Equal(expected.Paths, RelativePaths(first.TargetPath));
-        Assert.Equal(expected.Paths, RelativePaths(second.TargetPath));
-        Assert.Equal(expected.Digest, TreeDigest(first.TargetPath));
-        Assert.Equal(expected.Digest, TreeDigest(second.TargetPath));
-        Assert.Equal(_expectedCommandCounts[blueprintId], first.Runner.Commands.Length);
-        Assert.All(first.Runner.Commands, command =>
-            Assert.Equal(0, Assert.Single(command.AllowedExitCodes)));
+        Assert.Equal(blueprintCase.Paths, RelativePaths(first.TargetPath));
+        Assert.Equal(blueprintCase.Paths, RelativePaths(second.TargetPath));
+        Assert.Equal(blueprintCase.Digest, TreeDigest(first.TargetPath));
+        Assert.Equal(blueprintCase.Digest, TreeDigest(second.TargetPath));
+        AssertCommands(blueprintCase, first.Runner.Commands);
+        AssertCommands(blueprintCase, second.Runner.Commands);
         Assert.False(Directory.Exists(Path.Combine(first.TargetPath, ".git")));
     }
 
@@ -134,7 +173,14 @@ public sealed partial class ProductionBlueprintReleaseMatrixE2ETests
     {
         await using var baseline = await CreateFixtureAsync(blueprintId);
         await using var changed = await CreateFixtureAsync(blueprintId);
-        var changedDraft = changed.CreateDraft("Alternate Project", "alternate-project");
+        var changedDraft = changed.CreateDraft("Alternate Project", changed.Draft.OutputFolder);
+        Assert.NotEqual(baseline.Draft.RootPath, changedDraft.RootPath);
+        Assert.Equal(baseline.Draft.OutputFolder, changedDraft.OutputFolder);
+        Assert.Equal(baseline.Draft.Blueprint, changedDraft.Blueprint);
+        Assert.Equal(baseline.Draft.Inputs, changedDraft.Inputs);
+        Assert.Equal(baseline.Draft.Features, changedDraft.Features);
+        Assert.Equal(baseline.Draft.IdeId, changedDraft.IdeId);
+        AssertGitIntentEqual(baseline.Draft.Git, changedDraft.Git);
         var baselinePlan = await baseline.Workflow.CreatePlanAsync(baseline.Draft, CancellationToken.None);
         var changedPlan = await changed.Workflow.CreatePlanAsync(changedDraft, CancellationToken.None);
         Assert.True(baselinePlan.IsValid);
@@ -154,8 +200,7 @@ public sealed partial class ProductionBlueprintReleaseMatrixE2ETests
 
         Assert.True(baselineRun.IsValid);
         Assert.True(changedRun.IsValid);
-        Assert.NotEqual(TreeDigest(baseline.TargetPath), TreeDigest(
-            Path.Combine(Path.GetDirectoryName(changed.TargetPath)!, "alternate-project")));
+        Assert.NotEqual(TreeDigest(baseline.TargetPath), TreeDigest(changed.TargetPath));
     }
 
     [Fact]
@@ -226,21 +271,55 @@ public sealed partial class ProductionBlueprintReleaseMatrixE2ETests
         var blueprints = await fixture.Catalog.ListAsync(CancellationToken.None);
         Assert.All(blueprints, blueprint =>
         {
-            Assert.All(blueprint.Manifest.Actions,
-                action => Assert.DoesNotMatch(ForbiddenHandler(), action.HandlerId));
-            Assert.All(blueprint.Manifest.Validators,
-                validator => Assert.DoesNotMatch(ForbiddenHandler(), validator.HandlerId));
+            var blueprintCase = Case(blueprint.Manifest.Id);
+            Assert.All(blueprint.Manifest.Actions, action =>
+            {
+                Assert.Contains(action.HandlerId, _approvedActionHandlers);
+                Assert.DoesNotMatch(ForbiddenSurface(), action.HandlerId);
+                if (action.HandlerId is "copy-overlay" or "render-template")
+                {
+                    Assert.Equal(["source", "target"], action.Parameters.Keys.Order(StringComparer.Ordinal));
+                }
+            });
+            var expectedAction = Assert.Single(blueprintCase.Operations, operation => !operation.IsValidator);
+            var actualAction = Assert.Single(
+                blueprint.Manifest.Actions,
+                action => action.HandlerId == "package-install");
+            AssertOperation(expectedAction, actualAction.Id, actualAction.HandlerId,
+                actualAction.Parameters, actualAction.Timeout, isValidator: false);
+
+            Assert.Equal(
+                blueprintCase.Operations.Where(operation => operation.IsValidator).Select(operation => operation.Id),
+                blueprint.Manifest.Validators.Select(validator => validator.Id));
+            foreach (var expectedValidator in blueprintCase.Operations.Where(operation => operation.IsValidator))
+            {
+                var validator = Assert.Single(
+                    blueprint.Manifest.Validators,
+                    candidate => candidate.Id == expectedValidator.Id);
+                AssertOperation(expectedValidator, validator.Id, validator.HandlerId,
+                    validator.Parameters, validator.Timeout, isValidator: true);
+                Assert.True(validator.Required);
+            }
+
             Assert.All(blueprint.Manifest.Dependencies, dependency =>
             {
                 Assert.DoesNotContain("*", dependency.Version, StringComparison.Ordinal);
                 Assert.DoesNotContain("latest", dependency.Version, StringComparison.OrdinalIgnoreCase);
+                Assert.DoesNotMatch(ForbiddenSurface(), dependency.Id);
             });
             Assert.DoesNotContain(blueprint.Manifest.Inputs, input =>
                 ForbiddenInput().IsMatch(input.Id));
+
+            var typedControlText = blueprint.Manifest.Actions
+                .SelectMany(action => action.Parameters.SelectMany(parameter =>
+                    Flatten(parameter.Key, parameter.Value)))
+                .Concat(blueprint.Manifest.Validators.SelectMany(validator =>
+                    validator.Parameters.SelectMany(parameter => Flatten(parameter.Key, parameter.Value))));
+            Assert.All(typedControlText, value => Assert.DoesNotMatch(ForbiddenSurface(), value));
         });
 
         var root = FindRepositoryRoot();
-        var controlFiles = _blueprintIds
+        var controlFiles = _cases.Select(item => item.Id)
             .SelectMany(id => _controlFileNames
                 .Select(name => Path.Combine(root, "blueprints", id, name)));
         foreach (var path in controlFiles)
@@ -249,12 +328,116 @@ public sealed partial class ProductionBlueprintReleaseMatrixE2ETests
         }
     }
 
-    private static Task<WpfBlueprintFixture> CreateFixtureAsync(string blueprintId) => blueprintId switch
+    private static Task<WpfBlueprintFixture> CreateFixtureAsync(string blueprintId) =>
+        Case(blueprintId).CreateFixture();
+
+    private static ProductionBlueprintCase Case(string blueprintId) => Assert.Single(
+        _cases,
+        item => StringComparer.Ordinal.Equals(item.Id, blueprintId));
+
+    private static void AssertCommands(
+        ProductionBlueprintCase blueprintCase,
+        ImmutableArray<CommandSpec> actualCommands)
     {
-        "desktop.csharp-wpf-tool" => WpfBlueprintFixture.CreateAsync(),
-        "web.react-vite-ts" => WpfBlueprintFixture.CreateReactAsync(),
-        "tool.python-cli" => WpfBlueprintFixture.CreatePythonAsync(),
-        _ => throw new ArgumentOutOfRangeException(nameof(blueprintId), blueprintId, null),
+        var expectedCommands = blueprintCase.Operations
+            .SelectMany(operation => Enumerable.Repeat(operation, operation.IsValidator ? 2 : 1))
+            .ToArray();
+        Assert.Equal(expectedCommands.Length, actualCommands.Length);
+        for (var index = 0; index < expectedCommands.Length; index++)
+        {
+            var expected = expectedCommands[index];
+            var actual = actualCommands[index];
+            Assert.Equal(Tool(expected.Tool), actual.Executable.Tool);
+            Assert.Equal(expected.Arguments, actual.ArgumentList);
+            Assert.True(actual.UsesWorkspaceRoot);
+            Assert.Null(actual.WorkingDirectory);
+            Assert.Equal(TimeSpan.FromSeconds(expected.TimeoutSeconds), actual.Timeout);
+            Assert.Equal([0], actual.AllowedExitCodes.Order());
+            Assert.Empty(actual.EnvironmentVariables);
+            Assert.Empty(actual.RedactionNeedles);
+        }
+    }
+
+    private static void AssertOperation(
+        ExpectedOperation expected,
+        string actualId,
+        string actualHandler,
+        ImmutableDictionary<string, BlueprintValue> parameters,
+        TimeSpan actualTimeout,
+        bool isValidator)
+    {
+        Assert.Equal(expected.Id, actualId);
+        Assert.Equal(expected.Handler, actualHandler);
+        Assert.Equal(TimeSpan.FromSeconds(expected.TimeoutSeconds), actualTimeout);
+        Assert.Equal(
+            isValidator
+                ? ["allowedExitCodes", "arguments", "executable", "required", "workingDirectory"]
+                : ["arguments", "packageManager", "workingDirectory"],
+            parameters.Keys.Order(StringComparer.Ordinal));
+        var toolKey = isValidator ? "executable" : "packageManager";
+        Assert.Equal(expected.Tool, parameters[toolKey].StringValue);
+        Assert.Equal(
+            expected.Arguments,
+            parameters["arguments"].ArrayValue.Select(value => value.StringValue));
+        Assert.Equal(".", parameters["workingDirectory"].StringValue);
+        if (isValidator)
+        {
+            Assert.Equal([0L], parameters["allowedExitCodes"].ArrayValue.Select(value => value.IntegerValue));
+            Assert.True(parameters["required"].BooleanValue);
+        }
+    }
+
+    private static IEnumerable<string> Flatten(string key, BlueprintValue value)
+    {
+        yield return key;
+        if (value.StringValue is not null)
+        {
+            yield return value.StringValue;
+        }
+
+        foreach (var item in value.ArrayValue)
+        {
+            foreach (var nested in Flatten(key, item))
+            {
+                yield return nested;
+            }
+        }
+
+        foreach (var item in value.ObjectValue)
+        {
+            foreach (var nested in Flatten(item.Key, item.Value))
+            {
+                yield return nested;
+            }
+        }
+    }
+
+    private static void AssertGitIntentEqual(GitOptions expected, GitOptions actual)
+    {
+        Assert.Equal(expected.InitializeRepository, actual.InitializeRepository);
+        Assert.Equal(expected.PrimaryBranch, actual.PrimaryBranch);
+        Assert.Equal(expected.BranchPolicy, actual.BranchPolicy);
+        Assert.Equal(expected.PublishToGitHub, actual.PublishToGitHub);
+        Assert.Equal(expected.IsPrivate, actual.IsPrivate);
+        Assert.Equal(expected.GitHubAccount, actual.GitHubAccount);
+        Assert.Equal(expected.GitHubRepository, actual.GitHubRepository);
+    }
+
+    private static ExpectedOperation Operation(
+        string id,
+        string handler,
+        string tool,
+        int timeoutSeconds,
+        bool isValidator,
+        params string[] arguments) =>
+        new(id, handler, tool, arguments, timeoutSeconds, isValidator);
+
+    private static ExecutableTool Tool(string tool) => tool switch
+    {
+        "dotnet" => ExecutableTool.DotNet,
+        "pnpm" => ExecutableTool.Pnpm,
+        "uv" => ExecutableTool.Uv,
+        _ => throw new ArgumentOutOfRangeException(nameof(tool), tool, null),
     };
 
     private static string[] Split(string paths) => paths.Split(',');
@@ -293,16 +476,29 @@ public sealed partial class ProductionBlueprintReleaseMatrixE2ETests
             ?? throw new InvalidOperationException("The DevForge repository root was not found.");
     }
 
-    [GeneratedRegex("(?i)(shell|cmd(?:\\.exe)?|powershell(?:\\.exe)?|runas|administrator)")]
-    private static partial Regex ForbiddenHandler();
-
     [GeneratedRegex("(?i)(token|secret|password|credential)")]
     private static partial Regex ForbiddenInput();
 
-    [GeneratedRegex("(?im)(cmd\\.exe|powershell\\.exe|\\brunas\\b|--registry|--index-url|--extra-index-url|--token|--password|webview2|electron|(?:^|[^a-z])latest(?:[^a-z]|$))")]
+    [GeneratedRegex("(?i)(?:^|[^a-z0-9])(shell|cmd(?:\\.exe)?|powershell(?:\\.exe)?|bash|sh|sudo|runas|admin(?:istrator)?|latest|token|secret|password|credential|registry|index-url|extra-index-url|webview2|electron|aspnetcore|kestrel)(?:$|[^a-z0-9])|(?:^|[^a-z0-9])\\*(?:$|[^a-z0-9])")]
+    private static partial Regex ForbiddenSurface();
+
+    [GeneratedRegex("(?im)(cmd(?:\\.exe)?|powershell(?:\\.exe)?|\\bbash\\b|(?:^|\\s)sh(?:$|\\s)|\\bsudo\\b|\\brunas\\b|\\badmin(?:istrator)?\\b|--registry|--index-url|--extra-index-url|--token|\\bsecret\\b|--password|\\bcredential\\b|webview2|electron|aspnetcore|kestrel|(?:^|[^a-z])latest(?:[^a-z]|$)|(?:^|\\s)\\*(?:$|\\s))")]
     private static partial Regex ForbiddenControlText();
 
-    private sealed record ExpectedTree(string Digest, string[] Paths);
+    private sealed record ProductionBlueprintCase(
+        string Id,
+        Func<Task<WpfBlueprintFixture>> CreateFixture,
+        string Digest,
+        string[] Paths,
+        ExpectedOperation[] Operations);
+
+    private sealed record ExpectedOperation(
+        string Id,
+        string Handler,
+        string Tool,
+        string[] Arguments,
+        int TimeoutSeconds,
+        bool IsValidator);
 }
 
 [CollectionDefinition(Name, DisableParallelization = true)]
