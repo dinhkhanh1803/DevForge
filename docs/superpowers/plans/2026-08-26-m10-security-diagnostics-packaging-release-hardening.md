@@ -315,15 +315,15 @@ Local implementation is green on 2026-08-26. Both solution and `win-x64` release
 - Reference: `docs/decisions/0023-self-contained-win-x64-release.md`
 - Modify: `README.md`, `CHANGELOG.md`, `docs/implementation-plan.md`, `docs/implementation-status.md`
 
-- [ ] **Step 1: Add RED documentation/checklist contract**
+- [x] **Step 1: Add RED documentation/checklist contract**
 
 Require every MVP Must gate—Build, Recovery, Security, Blueprints, UX, Data, Documentation, Packaging—to have a status, exact command/evidence link, host, timestamp, and no unfinished marker or manual-green field. Require guides to cover install, first run, create/recovery/publish, blueprint trust/authoring, diagnostics/privacy, and remediation codes.
 
-- [ ] **Step 2: Write guides and ADRs from observed behavior only**
+- [x] **Step 2: Write guides and ADRs from observed behavior only**
 
 Do not document unimplemented installer/updater/telemetry/catalog features. Mark Windows 11 items Pending until executed.
 
-- [ ] **Step 3: Run authoritative local release gate**
+- [x] **Step 3: Run authoritative local release gate**
 
 Run locked restore, format write and verify, Release build, all four test projects, EF pending-model check, self-contained publish/audit/startup/upgrade smoke, blueprint real-tool matrices available on the host, security/privacy/static scans, `git diff --check`, and clean status after commit. Record exact counts and outputs.
 
@@ -331,9 +331,11 @@ Run locked restore, format write and verify, Release build, all four test projec
 
 On a real supported Windows 11 host, repeat WPF/React/Python generated-project matrices, Desktop keyboard/scaling smokes, and packaged fresh/upgrade smokes. No proxy result from Windows 10 or Windows Server may be recorded as Windows 11 evidence.
 
-- [ ] **Step 5: Close or truthfully hold M10**
+- [x] **Step 5: Close or truthfully hold M10**
 
 If every Must item is green, mark M9/M10 complete and recommend M11. Otherwise keep the milestone open, list exact pending gates, and do not use “release ready”. Commit verified documentation as `docs(m10): record release gate evidence`.
+
+Local hold recorded 2026-08-26 on Windows 10.0.19045 x64: locked restore/format, 12-project Release build (0 warnings/errors), Unit 651, Integration 601, Blueprint 127, E2E 216, EF schema 1/1, 565-file/3-root package audit including all six release guides, and package/documentation smokes are green with zero skips. Blueprints, UX, and Packaging checklist rows remain Pending for real Windows 11 evidence; Packaging also awaits observation of the pinned remote CI job. M9/M10 remain open and M11 remains blocked.
 
 ## Final acceptance
 

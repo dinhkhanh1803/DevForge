@@ -14,6 +14,7 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
 {
     private readonly ExecutionSessionCoordinator _coordinator;
     private readonly DesktopDiagnosticsCoordinator? _diagnostics;
+    private bool _isReadOnly;
 
     [ObservableProperty]
     private ProjectCreationExecutionSnapshot? _snapshot;
@@ -65,13 +66,13 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
             () => IsBusy);
         ResumeCommand = new AsyncRelayCommand(
             ResumeAsync,
-            () => !IsBusy && CanResume);
+            () => !IsBusy && !_isReadOnly && CanResume);
         RetryCommand = new AsyncRelayCommand(
             RetryAsync,
-            () => !IsBusy && CanRetry);
+            () => !IsBusy && !_isReadOnly && CanRetry);
         CleanupCommand = new AsyncRelayCommand(
             CleanupAsync,
-            () => !IsBusy && CanCleanup);
+            () => !IsBusy && !_isReadOnly && CanCleanup);
         CreateSupportBundleCommand = new AsyncRelayCommand(
             CreateSupportBundleAsync,
             () => CanCreateSupportBundle);
@@ -108,6 +109,14 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
 
     public RunStatusProjection Status => ProjectStatus(
         Snapshot?.Checkpoint.Run.Status ?? RecoveredCheckpoint?.Run.Status ?? RunStatus.Draft);
+
+    public void EnterReadOnlyMode()
+    {
+        _isReadOnly = true;
+        ResumeCommand.NotifyCanExecuteChanged();
+        RetryCommand.NotifyCanExecuteChanged();
+        CleanupCommand.NotifyCanExecuteChanged();
+    }
 
     public void ApplyRecovered(
         PlannedProject plannedProject,
@@ -242,7 +251,7 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
         ExecutionMode mode,
         CancellationToken cancellationToken)
     {
-        if (_recoveryRunId is null)
+        if (_recoveryRunId is null || _isReadOnly)
         {
             return;
         }
@@ -267,7 +276,7 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
 
     private async Task CleanupAsync(CancellationToken cancellationToken)
     {
-        if (_recoveryRunId is null)
+        if (_recoveryRunId is null || _isReadOnly)
         {
             return;
         }

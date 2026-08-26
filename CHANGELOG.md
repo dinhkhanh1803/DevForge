@@ -10,6 +10,7 @@ All notable DevForge Studio changes are documented here.
 - Deterministic privacy-safe support bundles with a closed evidence catalog, normalized bounded UTF-8, per-entry SHA-256 inventory, marker-owned staging and atomic publication, exact kill-window recovery, and marker-plus-digest-authorized idempotent cleanup.
 - Native Desktop diagnostics actions backed by authoritative run identity and typed relative receipts, safe-mode cleanup refusal, redacted user notifications, exposed retention settings, failed-step selection, named keyboard actions, explicit read-only status bindings, and virtualized scaling contracts.
 - Deterministic self-contained `win-x64` directory packaging with RID-aware lock files, fixed version/profile policy, bounded three-blueprint content, isolated package audit, exact local-data startup isolation, and fresh/upgrade/restore-safe-mode WPF process smoke coverage.
+- Release documentation and an evidence-linked eight-gate checklist covering verified user, maintainer, blueprint, privacy, troubleshooting, package, and hold-state behavior; safe mode now fail-closes every visible recovery/cleanup/publication command.
 
 - Native WPF/.NET 10 solution with seven production projects and four test projects.
 - Clean Architecture project-reference graph and executable architecture tests.

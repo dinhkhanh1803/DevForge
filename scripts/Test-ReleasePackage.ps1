@@ -29,6 +29,12 @@ $requiredFiles = @(
     'hostfxr.dll'
     'docs\README.md'
     'docs\CHANGELOG.md'
+    'docs\user-guide.md'
+    'docs\maintainer-guide.md'
+    'docs\blueprint-author-guide.md'
+    'docs\troubleshooting.md'
+    'docs\privacy-and-support-bundles.md'
+    'docs\release-checklist.md'
 )
 
 foreach ($requiredFile in $requiredFiles) {

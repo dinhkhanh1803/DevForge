@@ -11,6 +11,18 @@
           CopyToPublishDirectory="PreserveNewest" />
     <None Include="..\..\CHANGELOG.md" Link="docs\CHANGELOG.md"
           CopyToPublishDirectory="PreserveNewest" />
+    <None Include="..\..\docs\user-guide.md" Link="docs\user-guide.md"
+          CopyToPublishDirectory="PreserveNewest" />
+    <None Include="..\..\docs\maintainer-guide.md" Link="docs\maintainer-guide.md"
+          CopyToPublishDirectory="PreserveNewest" />
+    <None Include="..\..\docs\blueprint-author-guide.md" Link="docs\blueprint-author-guide.md"
+          CopyToPublishDirectory="PreserveNewest" />
+    <None Include="..\..\docs\troubleshooting.md" Link="docs\troubleshooting.md"
+          CopyToPublishDirectory="PreserveNewest" />
+    <None Include="..\..\docs\privacy-and-support-bundles.md" Link="docs\privacy-and-support-bundles.md"
+          CopyToPublishDirectory="PreserveNewest" />
+    <None Include="..\..\docs\release-checklist.md" Link="docs\release-checklist.md"
+          CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

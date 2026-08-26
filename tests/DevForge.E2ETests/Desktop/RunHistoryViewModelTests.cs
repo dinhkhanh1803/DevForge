@@ -1,7 +1,9 @@
+using System.Collections.Immutable;
 using DevForge.Application.Contracts;
 using DevForge.Desktop.RunHistory;
 using DevForge.Desktop.Diagnostics;
 using DevForge.Desktop.EnvironmentDoctor;
+using DevForge.Desktop.Execution;
 using DevForge.Desktop.Notifications;
 using DevForge.Domain.Diagnostics;
 using DevForge.Domain.Privacy;
@@ -35,6 +37,38 @@ public sealed class RunHistoryViewModelTests
 
         Assert.True(result.IsSuccessful);
         Assert.Equal("run-001", exporter.RunId);
+    }
+
+    [Fact]
+    public void SafeModeDisablesEveryMutatingHistoryCommand()
+    {
+        var actions = new RunHistoryActionCoordinator(
+            new UnusedRecoveryWorkflow(),
+            new RecordingPublication());
+        var viewModel = new RunHistoryViewModel(
+            new UnusedCheckpointStore(),
+            actions,
+            new ExecutionCenterViewModel(new ExecutionSessionCoordinator(
+                new UnusedCreationWorkflow(),
+                new UnusedRecoveryService())),
+            new UnusedLocalReadyService());
+        var run = ProjectRun.Rehydrate(
+            "run-1",
+            "recipe-1",
+            RunStatus.Cancelled,
+            null,
+            [],
+            []).Value;
+        var item = RunHistoryItemViewModel.From(
+            run,
+            new ProjectRecoveryEligibility(true, true, true));
+
+        viewModel.EnterReadOnlyMode();
+
+        Assert.False(viewModel.ResumeCommand.CanExecute(item));
+        Assert.False(viewModel.RetryCommand.CanExecute(item));
+        Assert.False(viewModel.CleanupCommand.CanExecute(item));
+        Assert.False(viewModel.RetryPublishCommand.CanExecute(item));
     }
 
     [Fact]
@@ -162,5 +196,40 @@ public sealed class RunHistoryViewModelTests
         public void SetText(string text)
         {
         }
+    }
+
+    private sealed class UnusedCheckpointStore : IRunCheckpointStore
+    {
+        public Task SaveAsync(RunCheckpoint checkpoint, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<RunCheckpoint?> FindAsync(string runId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<ImmutableArray<RunCheckpoint>> ListAsync(CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+    }
+
+    private sealed class UnusedCreationWorkflow : IProjectCreationWorkflow
+    {
+        public Task<BlueprintCatalogSnapshot> LoadCatalogAsync(bool forceRefresh, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<Domain.Validation.ValidationResult<ProjectCreationPlanSnapshot>> CreatePlanAsync(ProjectCreationDraft draft, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<Domain.Validation.ValidationResult<ProjectCreationExecutionSnapshot>> ExecuteAsync(ProjectCreationPlanSnapshot plan, IProgress<ExecutionProgressLine>? progress, CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+
+    private sealed class UnusedRecoveryService : IRunRecoveryService
+    {
+        public Task<ExecutionOperationResult<RunRecoveryBatch>> RecoverInterruptedAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<ExecutionOperationResult<RunCheckpoint>> NormalizeInterruptedAsync(RunCheckpoint checkpoint, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<ExecutionOperationResult<RunCheckpoint>> ResumeAsync(ExecutionRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<ExecutionOperationResult<StagingCleanupReceipt>> CleanupAsync(RunCheckpoint checkpoint, IWorkspaceFileSystem targetParentWorkspace, CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+
+    private sealed class UnusedLocalReadyService : ILocalReadyService
+    {
+        public LocalReadyPresentation Describe(RunCheckpoint checkpoint) =>
+            throw new NotSupportedException();
+
+        public Task OpenIdeAsync(RunCheckpoint checkpoint, string ideId, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 }

@@ -51,6 +51,27 @@ public sealed class ExecutionCenterViewModelTests
     }
 
     [Fact]
+    public void SafeModeDisablesEveryMutatingRecoveryCommand()
+    {
+        var plan = CreatePlan();
+        var execution = CreateExecution(plan);
+        var sut = new ExecutionCenterViewModel(
+            new ExecutionSessionCoordinator(
+                new SequencedWorkflow(execution),
+                new UnsupportedRecovery()));
+        sut.ApplyRecovered(
+            plan.PlannedProject,
+            execution.Checkpoint,
+            new ProjectRecoveryEligibility(true, true, true));
+
+        sut.EnterReadOnlyMode();
+
+        Assert.False(sut.ResumeCommand.CanExecute(null));
+        Assert.False(sut.RetryCommand.CanExecute(null));
+        Assert.False(sut.CleanupCommand.CanExecute(null));
+    }
+
+    [Fact]
     public async Task FailedNewExecutionCannotReusePreviousSuccessfulSnapshot()
     {
         var plan = CreatePlan();

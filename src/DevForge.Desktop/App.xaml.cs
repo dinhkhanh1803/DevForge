@@ -68,6 +68,7 @@ public partial class App : System.Windows.Application, IDisposable
                 _host.Services.GetRequiredService<CreateProjectViewModel>().EnterReadOnlyMode();
                 _host.Services.GetRequiredService<BlueprintCatalogViewModel>().EnterReadOnlyMode();
                 _host.Services.GetRequiredService<ExecutionSessionCoordinator>().EnterReadOnlyMode();
+                _host.Services.GetRequiredService<ExecutionCenterViewModel>().EnterReadOnlyMode();
                 _host.Services.GetRequiredService<RunHistoryViewModel>().EnterReadOnlyMode();
                 _host.Services.GetRequiredService<DesktopDiagnosticsCoordinator>().EnterReadOnlyMode();
             }

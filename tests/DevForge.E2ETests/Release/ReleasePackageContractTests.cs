@@ -54,6 +54,8 @@ public sealed class ReleasePackageContractTests
         Assert.Contains("support-bundles", audit, StringComparison.Ordinal);
         Assert.Contains(".sqlite", audit, StringComparison.Ordinal);
         Assert.Contains("coreclr.dll", audit, StringComparison.Ordinal);
+        Assert.Contains("docs\\user-guide.md", audit, StringComparison.Ordinal);
+        Assert.Contains("docs\\release-checklist.md", audit, StringComparison.Ordinal);
     }
 
     [Fact]

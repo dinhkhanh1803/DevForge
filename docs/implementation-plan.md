@@ -2,7 +2,7 @@
 
 **Goal:** close the MVP security/recovery/diagnostics/documentation/package release gates without expanding the blueprint catalog.
 
-**Status:** M10 Tasks 1-3 are complete. Task 4 implementation/automated gates and Task 5 local package gates are green. Task 4 real-display certification, remote CI evidence, and the required Windows 11 matrix are carried to Task 6, which is active. M9's Windows 11 certification remains accepted environmental debt and neither M9 nor M10 may be marked complete until it is executed.
+**Status:** M10 Tasks 1-3 are complete; Task 4 implementation/automated gates, Task 5 local package gates, and Task 6 local documentation/release gates are green. M10 is truthfully held open for real Windows 11 display/blueprint/package evidence and observation of the remote pinned CI job. M11 remains blocked.
 
 **Design:** `docs/superpowers/specs/2026-08-26-m10-security-diagnostics-packaging-release-hardening-design.md`
 
@@ -16,6 +16,14 @@
 - [ ] Task 4: Desktop diagnostics, keyboard accessibility, and scaling (implementation/automated gates complete; real-display certification outstanding).
 - [x] Task 5: self-contained `win-x64` package and upgrade smoke (local Windows 10 evidence; Windows 11 repeat remains Task 6).
 - [ ] Task 6: release documentation, checklist, Windows 11 evidence, and closure.
+
+## Task 6 local boundary and hold
+
+**Scope:** document only verified MVP behavior, enforce the eight-row Must checklist contract, run the authoritative local gate, and hold M9/M10 open rather than infer Windows 11 or remote CI evidence.
+
+**Files:** user, maintainer, blueprint author, troubleshooting, privacy/support-bundle, and release-checklist guides; README/changelog/status/plan; documentation E2E contract; safe-mode capability regression fix and tests.
+
+**Local exit:** documentation contracts pass; safe mode now visibly disables Resume, Retry, Cleanup, and Retry Publish in both Execution Center/Run History while the underlying workflow remains read-only. Locked restore and scoped format verification pass. All 12 Release projects build with 0 warnings/errors; Unit 651, Integration 601, Blueprint 127, and E2E 216 pass with zero failed/skipped. EF schema consistency passes 1/1. Republished self-contained output including all six release guides audits at 565 files/3 roots and all packaged startup scenarios pass. Checklist rows Build, Recovery, Security, Data, and Documentation are Pass; Blueprints, UX, and Packaging remain Pending for real Windows 11 and remote CI evidence. M10 is not closed and M11 is not recommended.
 
 ## Task 4 boundary and automated exit
 

@@ -77,13 +77,13 @@ public sealed partial class RunHistoryViewModel : ObservableObject
         RefreshCommand = new AsyncRelayCommand(LoadAsync, () => !IsBusy);
         ResumeCommand = new AsyncRelayCommand<RunHistoryItemViewModel>(
             (item, token) => ContinueAsync(item, ExecutionMode.Resume, token),
-            item => !IsBusy && item?.CanResume == true);
+            item => !IsBusy && !_isReadOnly && item?.CanResume == true);
         RetryCommand = new AsyncRelayCommand<RunHistoryItemViewModel>(
             (item, token) => ContinueAsync(item, ExecutionMode.ManualRetry, token),
-            item => !IsBusy && item?.CanRetry == true);
+            item => !IsBusy && !_isReadOnly && item?.CanRetry == true);
         CleanupCommand = new AsyncRelayCommand<RunHistoryItemViewModel>(
             CleanupAsync,
-            item => !IsBusy && item?.CanCleanup == true);
+            item => !IsBusy && !_isReadOnly && item?.CanCleanup == true);
         RetryPublishCommand = new AsyncRelayCommand<RunHistoryItemViewModel>(
             RetryPublishAsync,
             item => !IsBusy && !_isReadOnly && item?.CanRetryPublish == true);
@@ -117,6 +117,9 @@ public sealed partial class RunHistoryViewModel : ObservableObject
     {
         _isReadOnly = true;
         _actions.EnterReadOnlyMode();
+        ResumeCommand.NotifyCanExecuteChanged();
+        RetryCommand.NotifyCanExecuteChanged();
+        CleanupCommand.NotifyCanExecuteChanged();
         RetryPublishCommand.NotifyCanExecuteChanged();
         CreateSupportBundleCommand.NotifyCanExecuteChanged();
     }
@@ -170,7 +173,7 @@ public sealed partial class RunHistoryViewModel : ObservableObject
         ExecutionMode mode,
         CancellationToken cancellationToken)
     {
-        if (item is null || IsBusy)
+        if (item is null || IsBusy || _isReadOnly)
         {
             return;
         }
@@ -207,7 +210,7 @@ public sealed partial class RunHistoryViewModel : ObservableObject
         RunHistoryItemViewModel? item,
         CancellationToken cancellationToken)
     {
-        if (item is null || IsBusy)
+        if (item is null || IsBusy || _isReadOnly)
         {
             return;
         }
