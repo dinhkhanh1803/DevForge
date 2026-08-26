@@ -1,8 +1,16 @@
 # DevForge Studio Implementation Status
 
-**Current milestone:** M9 - Production Blueprints (Tasks 1-6 implemented; Windows 11 certification pending)
-**Status:** M0-M8 complete; M9 implementation and Windows 10 matrix complete; M9 release exit remains open
+**Current milestone:** M10 - Security, diagnostics, packaging, and release hardening (design/plan approved; Task 1 next)
+**Status:** M0-M8 complete; M9 implementation and Windows 10 matrix complete; M9 Windows 11 certification is accepted carry-forward environmental debt; M10 implementation has not yet started
 **Last updated:** 2026-08-26
+
+## M10 entry and current scope
+
+The owner explicitly requested M10 after the outstanding M9 Windows 11 certification had been recorded. Under section 18.1 of the detailed baseline, that environmental gate is carried as accepted technical debt; it is not reported green, M9 remains open, and M10 cannot close until the real Windows 11 evidence exists.
+
+The approved design is `docs/superpowers/specs/2026-08-26-m10-security-diagnostics-packaging-release-hardening-design.md`; the executable TDD plan is `docs/superpowers/plans/2026-08-26-m10-security-diagnostics-packaging-release-hardening.md`. M10 is limited to security closure, structured local diagnostics and retention, privacy-safe support bundles/cleanup, Desktop accessibility/scaling, self-contained `win-x64` packaging/upgrade, documentation, and release evidence. M11 catalog expansion remains excluded.
+
+Task 1 is next. Before code, its boundary is: consolidate the mandatory hostile-input release matrix and route local-data root creation through the guarded `IFileSystem` abstraction. Expected changes and exact tests are recorded in `docs/implementation-plan.md`. No M10 production behavior or passing test is claimed yet.
 
 ## M8 final scope and closure
 

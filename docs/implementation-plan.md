@@ -1,4 +1,35 @@
-# Milestone M9 Production Blueprints Implementation Plan
+# Milestone M10 Security, Diagnostics, Packaging, and Release Hardening Implementation Plan
+
+**Goal:** close the MVP security/recovery/diagnostics/documentation/package release gates without expanding the blueprint catalog.
+
+**Status:** M10 design and task plan approved. Task 1 security closure is next. M9's Windows 11 certification remains accepted environmental debt and neither M9 nor M10 may be marked complete until it is executed.
+
+**Design:** `docs/superpowers/specs/2026-08-26-m10-security-diagnostics-packaging-release-hardening-design.md`
+
+**Detailed plan:** `docs/superpowers/plans/2026-08-26-m10-security-diagnostics-packaging-release-hardening.md`
+
+## Milestone tasks
+
+- [ ] Task 1: security closure and guarded local-data provisioning.
+- [ ] Task 2: structured JSONL diagnostics and bounded retention.
+- [ ] Task 3: privacy-safe support bundle and owned cleanup.
+- [ ] Task 4: Desktop diagnostics, keyboard accessibility, and scaling.
+- [ ] Task 5: self-contained `win-x64` package and upgrade smoke.
+- [ ] Task 6: release documentation, checklist, Windows 11 evidence, and closure.
+
+## Task 1 boundary before code
+
+**Scope:** consolidate the mandatory hostile-input matrix and remove the remaining direct local-data directory creation from `LocalDataRootProvisioner` by extending the guarded filesystem port.
+
+**Expected files:** filesystem contracts/implementation, local-data provisioner and DI composition, focused persistence/security/architecture tests, milestone docs, and changelog.
+
+**Tests:** provisioner delegation/cancellation/failure mapping; traversal/rooted/device/UNC/junction; checksum/trust/action whitelist; shell/admin/registry/firewall/service/download; secret/log-injection/oversized-control cases; zero unsafe recorder calls; architecture scan.
+
+**Exit gate:** all hostile cases fail before unsafe IO/process execution, all summaries remain scrubbed, local-data creation passes through `IFileSystem`, focused and affected suites pass, and exact results are recorded.
+
+---
+
+# Archived Milestone M9 Production Blueprints Implementation Plan
 
 **Goal:** Ship exactly three deterministic, checksummed production blueprints and validate generated projects with their certified Windows toolchains.
 
