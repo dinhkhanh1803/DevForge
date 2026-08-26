@@ -183,6 +183,24 @@ public sealed partial class DesktopPresentationContractTests
         Assert.DoesNotContain("#FFD13438", xaml, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void DoctorAndSettingsUseSemanticStateAndStickyActions()
+    {
+        var doctor = Read("src/DevForge.Desktop/EnvironmentDoctor/EnvironmentDoctorView.xaml");
+        Assert.Contains("Callout.Warning", doctor, StringComparison.Ordinal);
+        Assert.Contains("Scan failed; cached results shown", doctor, StringComparison.Ordinal);
+        Assert.Contains("StatusBadge", doctor, StringComparison.Ordinal);
+        Assert.Contains("CopyDiagnosticsCommand", doctor, StringComparison.Ordinal);
+
+        var settings = Read("src/DevForge.Desktop/Settings/SettingsView.xaml");
+        Assert.Contains("Getting started", settings, StringComparison.Ordinal);
+        Assert.Contains("Project defaults", settings, StringComparison.Ordinal);
+        Assert.Contains("Appearance", settings, StringComparison.Ordinal);
+        Assert.Contains("ActionBar", settings, StringComparison.Ordinal);
+        Assert.Contains("ValidationMessages", settings, StringComparison.Ordinal);
+        Assert.DoesNotContain("#FFD13438", settings, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static HashSet<string> ResourceKeys(string relativePath) =>
         KeyExpression()
             .Matches(Read(relativePath))

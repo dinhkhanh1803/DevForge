@@ -3,66 +3,300 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:theme="clr-namespace:DevForge.Desktop.Theming"
              AutomationProperties.Name="Settings">
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="{StaticResource Page.Padding}" MaxWidth="880" HorizontalAlignment="Left">
-            <TextBlock Style="{StaticResource PageHeading}" Text="Settings" />
-            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource SectionHeading}" Text="Getting started" />
-                    <CheckBox Content="Default project root" IsChecked="{Binding HasProjectRoot, Mode=OneWay}" IsHitTestVisible="False" />
-                    <CheckBox Content="Preferred IDE" IsChecked="{Binding HasIdeSelection, Mode=OneWay}" IsHitTestVisible="False" />
-                    <CheckBox Content="Team standard" IsChecked="{Binding HasTeamProfile, Mode=OneWay}" IsHitTestVisible="False" />
-                    <CheckBox Content="Display language" IsChecked="{Binding HasLanguage, Mode=OneWay}" IsHitTestVisible="False" />
-                </StackPanel>
-            </Border>
-            <Border Style="{StaticResource Card}">
-                <Grid>
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="180" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="Project root" VerticalAlignment="Center" />
-                    <TextBox Grid.Row="0" Grid.Column="1" Margin="0,4" Text="{Binding DefaultProjectRoot, UpdateSourceTrigger=PropertyChanged}"
-                             AutomationProperties.Name="Default project root" />
-                    <TextBlock Grid.Row="1" Text="IDE identifier" VerticalAlignment="Center" />
-                    <ComboBox Grid.Row="1" Grid.Column="1" Margin="0,4"
-                              SelectedValue="{Binding DefaultIdeId}" SelectedValuePath="Tag"
-                              AutomationProperties.Name="Preferred IDE">
-                        <ComboBoxItem Content="None" Tag="none" />
-                        <ComboBoxItem Content="Visual Studio Code" Tag="vscode" />
-                        <ComboBoxItem Content="Visual Studio" Tag="visual-studio" />
-                        <ComboBoxItem Content="JetBrains Rider" Tag="rider" />
-                        <ComboBoxItem Content="Unity" Tag="unity" />
-                    </ComboBox>
-                    <TextBlock Grid.Row="2" Text="Team profile" VerticalAlignment="Center" />
-                    <TextBox Grid.Row="2" Grid.Column="1" Margin="0,4" Text="{Binding DefaultTeamProfileId, UpdateSourceTrigger=PropertyChanged}"
-                             AutomationProperties.Name="Team profile identifier" />
-                    <TextBlock Grid.Row="3" Text="Language" VerticalAlignment="Center" />
-                    <ComboBox Grid.Row="3" Grid.Column="1" Margin="0,4" SelectedValue="{Binding CultureName}" SelectedValuePath="Tag"
-                              AutomationProperties.Name="Display language">
-                        <ComboBoxItem Content="English" Tag="en-US" />
-                        <ComboBoxItem Content="Tiếng Việt" Tag="vi-VN" />
-                    </ComboBox>
-                    <TextBlock Grid.Row="4" Text="Theme" VerticalAlignment="Center" />
-                    <ComboBox Grid.Row="4" Grid.Column="1" Margin="0,4" SelectedValue="{Binding Theme}" SelectedValuePath="Tag"
-                              AutomationProperties.Name="Color theme">
-                        <ComboBoxItem Content="System" Tag="{x:Static theme:ThemePreference.System}" />
-                        <ComboBoxItem Content="Light" Tag="{x:Static theme:ThemePreference.Light}" />
-                        <ComboBoxItem Content="Dark" Tag="{x:Static theme:ThemePreference.Dark}" />
-                    </ComboBox>
-                    <CheckBox Grid.Row="5" Grid.ColumnSpan="2" Margin="0,12,0,4" Content="Onboarding checklist complete"
-                              IsChecked="{Binding OnboardingCompleted}" />
-                    <ItemsControl Grid.Row="6" Grid.ColumnSpan="2" ItemsSource="{Binding ValidationMessages}">
-                        <ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" Foreground="#FFD13438" /></DataTemplate></ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </Grid>
-            </Border>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-                <Button Content="Reset" Command="{Binding ResetCommand}" Margin="0,0,8,0" AutomationProperties.Name="Reset settings" />
-                <Button Style="{StaticResource PrimaryButton}" Content="Save" Command="{Binding SaveCommand}" AutomationProperties.Name="Save settings" />
+    <Grid Margin="{StaticResource Page.Padding}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ScrollViewer Grid.Row="0"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+            <StackPanel MaxWidth="900" HorizontalAlignment="Left">
+                <TextBlock Style="{StaticResource Text.Caption}"
+                           Margin="0,0,0,5"
+                           Foreground="{DynamicResource Brush.Accent}"
+                           FontWeight="SemiBold"
+                           Text="WORKSPACE PREFERENCES" />
+                <TextBlock Style="{StaticResource PageHeading}" Text="Settings" />
+                <TextBlock Style="{StaticResource PageDescription}"
+                           Margin="0,0,0,22"
+                           Text="Choose safe defaults for new projects and personalize your local experience." />
+
+                <Border Style="{StaticResource FormCard}">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,18">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="44" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="38"
+                                    Height="38"
+                                    Background="{DynamicResource Brush.AccentSubtle}"
+                                    CornerRadius="9">
+                                <TextBlock Text="{StaticResource Icon.Success}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           FontFamily="{StaticResource Font.Icon}"
+                                           Foreground="{DynamicResource Brush.Accent}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                <TextBlock Style="{StaticResource Text.CardTitle}" Text="Getting started" />
+                                <TextBlock Style="{StaticResource Text.Caption}"
+                                           Text="Complete the essentials for a faster project workflow." />
+                            </StackPanel>
+                        </Grid>
+
+                        <UniformGrid Columns="2">
+                            <Border Margin="0,0,6,8"
+                                    Padding="12"
+                                    Background="{DynamicResource Brush.SurfaceRaised}"
+                                    CornerRadius="8">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Margin="0,0,9,0"
+                                               FontFamily="{StaticResource Font.Icon}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="{StaticResource Icon.Info}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding HasProjectRoot}" Value="True">
+                                                        <Setter Property="Text" Value="{StaticResource Icon.Success}" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource Brush.Success}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <TextBlock Text="Default project root" />
+                                </StackPanel>
+                            </Border>
+                            <Border Margin="6,0,0,8"
+                                    Padding="12"
+                                    Background="{DynamicResource Brush.SurfaceRaised}"
+                                    CornerRadius="8">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Margin="0,0,9,0"
+                                               FontFamily="{StaticResource Font.Icon}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="{StaticResource Icon.Info}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding HasIdeSelection}" Value="True">
+                                                        <Setter Property="Text" Value="{StaticResource Icon.Success}" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource Brush.Success}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <TextBlock Text="Preferred IDE" />
+                                </StackPanel>
+                            </Border>
+                            <Border Margin="0,0,6,0"
+                                    Padding="12"
+                                    Background="{DynamicResource Brush.SurfaceRaised}"
+                                    CornerRadius="8">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Margin="0,0,9,0"
+                                               FontFamily="{StaticResource Font.Icon}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="{StaticResource Icon.Info}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding HasTeamProfile}" Value="True">
+                                                        <Setter Property="Text" Value="{StaticResource Icon.Success}" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource Brush.Success}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <TextBlock Text="Team standard" />
+                                </StackPanel>
+                            </Border>
+                            <Border Margin="6,0,0,0"
+                                    Padding="12"
+                                    Background="{DynamicResource Brush.SurfaceRaised}"
+                                    CornerRadius="8">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Margin="0,0,9,0"
+                                               FontFamily="{StaticResource Font.Icon}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="{StaticResource Icon.Info}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding HasLanguage}" Value="True">
+                                                        <Setter Property="Text" Value="{StaticResource Icon.Success}" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource Brush.Success}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <TextBlock Text="Display language" />
+                                </StackPanel>
+                            </Border>
+                        </UniformGrid>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource FormCard}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Text.CardTitle}" Text="Project defaults" />
+                        <TextBlock Style="{StaticResource Text.Caption}"
+                                   Margin="0,4,0,18"
+                                   Text="Applied when you start a new project; every value remains reviewable." />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0"
+                                       Style="{StaticResource Text.Label}"
+                                       VerticalAlignment="Center"
+                                       Text="Project root" />
+                            <TextBox Grid.Row="0"
+                                     Grid.Column="1"
+                                     Margin="0,0,0,12"
+                                     Text="{Binding DefaultProjectRoot, UpdateSourceTrigger=PropertyChanged}"
+                                     AutomationProperties.Name="Default project root" />
+                            <TextBlock Grid.Row="1"
+                                       Style="{StaticResource Text.Label}"
+                                       VerticalAlignment="Center"
+                                       Text="Preferred IDE" />
+                            <ComboBox Grid.Row="1"
+                                      Grid.Column="1"
+                                      Margin="0,0,0,12"
+                                      SelectedValue="{Binding DefaultIdeId}"
+                                      SelectedValuePath="Tag"
+                                      AutomationProperties.Name="Preferred IDE">
+                                <ComboBoxItem Content="None" Tag="none" />
+                                <ComboBoxItem Content="Visual Studio Code" Tag="vscode" />
+                                <ComboBoxItem Content="Visual Studio" Tag="visual-studio" />
+                                <ComboBoxItem Content="JetBrains Rider" Tag="rider" />
+                                <ComboBoxItem Content="Unity" Tag="unity" />
+                            </ComboBox>
+                            <TextBlock Grid.Row="2"
+                                       Style="{StaticResource Text.Label}"
+                                       VerticalAlignment="Center"
+                                       Text="Team profile" />
+                            <TextBox Grid.Row="2"
+                                     Grid.Column="1"
+                                     Text="{Binding DefaultTeamProfileId, UpdateSourceTrigger=PropertyChanged}"
+                                     AutomationProperties.Name="Team profile identifier" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource FormCard}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Text.CardTitle}" Text="Appearance" />
+                        <TextBlock Style="{StaticResource Text.Caption}"
+                                   Margin="0,4,0,18"
+                                   Text="Follow Windows or choose an explicit DevForge theme and language." />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0"
+                                       Style="{StaticResource Text.Label}"
+                                       VerticalAlignment="Center"
+                                       Text="Language" />
+                            <ComboBox Grid.Row="0"
+                                      Grid.Column="1"
+                                      Margin="0,0,0,12"
+                                      SelectedValue="{Binding CultureName}"
+                                      SelectedValuePath="Tag"
+                                      AutomationProperties.Name="Display language">
+                                <ComboBoxItem Content="English" Tag="en-US" />
+                                <ComboBoxItem Content="Tiếng Việt" Tag="vi-VN" />
+                            </ComboBox>
+                            <TextBlock Grid.Row="1"
+                                       Style="{StaticResource Text.Label}"
+                                       VerticalAlignment="Center"
+                                       Text="Theme" />
+                            <ComboBox Grid.Row="1"
+                                      Grid.Column="1"
+                                      Margin="0,0,0,12"
+                                      SelectedValue="{Binding Theme}"
+                                      SelectedValuePath="Tag"
+                                      AutomationProperties.Name="Color theme">
+                                <ComboBoxItem Content="System" Tag="{x:Static theme:ThemePreference.System}" />
+                                <ComboBoxItem Content="Light" Tag="{x:Static theme:ThemePreference.Light}" />
+                                <ComboBoxItem Content="Dark" Tag="{x:Static theme:ThemePreference.Dark}" />
+                            </ComboBox>
+                            <CheckBox Grid.Row="2"
+                                      Grid.ColumnSpan="2"
+                                      Margin="0,6,0,0"
+                                      Content="Onboarding checklist complete"
+                                      IsChecked="{Binding OnboardingCompleted}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <ItemsControl ItemsSource="{Binding ValidationMessages}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource Callout.Error}" Margin="0,0,0,8">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{StaticResource Icon.Error}"
+                                               Margin="0,1,10,0"
+                                               FontFamily="{StaticResource Font.Icon}"
+                                               Foreground="{DynamicResource Brush.Error}" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding}"
+                                               TextWrapping="Wrap" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
             </StackPanel>
-        </StackPanel>
-    </ScrollViewer>
+        </ScrollViewer>
+
+        <Border Grid.Row="1" Style="{StaticResource ActionBar}">
+            <Grid MaxWidth="900" HorizontalAlignment="Left">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <ProgressBar Width="120"
+                             Height="3"
+                             VerticalAlignment="Center"
+                             IsIndeterminate="True"
+                             Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}"
+                             AutomationProperties.Name="Saving settings" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button Style="{StaticResource Button.Ghost}"
+                            Margin="0,0,8,0"
+                            Content="Reset"
+                            Command="{Binding ResetCommand}"
+                            AutomationProperties.Name="Reset settings" />
+                    <Button Style="{StaticResource Button.Primary}"
+                            Content="Save changes"
+                            Command="{Binding SaveCommand}"
+                            AutomationProperties.Name="Save settings" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
 </UserControl>
