@@ -151,6 +151,7 @@ internal sealed class M7BlueprintFixture : IAsyncDisposable
                 checkpointStore,
                 new WorkspaceSecretScanner(),
                 new AtomicProjectFinalizer(),
+                new CanonicalProjectEvidenceWriter(),
                 new CanonicalGenerationReportWriter(),
                 TimeProvider.System);
             var orchestrator = new CheckpointedExecutionOrchestrator(

@@ -126,20 +126,22 @@ internal sealed class WpfBlueprintFixture : IAsyncDisposable
             var checkpointStore = new SqliteRunCheckpointStore(dbFactory);
             var staging = new OwnedStagingWorkspaceManager(fileSystem);
             var blueprintSource = new BlueprintExecutionSource([source], metadata);
-            var runner = new RecordingProcessRunner();
+            var runner = new RecordingProcessRunner(targetRoot, blueprintId);
+            var timeProvider = new FixedTimeProvider();
             var completion = new ValidatedRunCompletionCoordinator(
                 checkpointStore,
                 new WorkspaceSecretScanner(),
                 new AtomicProjectFinalizer(),
+                new CanonicalProjectEvidenceWriter(),
                 new CanonicalGenerationReportWriter(),
-                TimeProvider.System);
+                timeProvider);
             var orchestrator = new CheckpointedExecutionOrchestrator(
                 checkpointStore,
                 staging,
                 blueprintSource,
                 new ClosedExecutionHandlerRegistryProvider(runner),
                 completion,
-                TimeProvider.System);
+                timeProvider);
             var workflow = new ProjectCreationWorkflow(
                 catalog,
                 planner,
@@ -147,7 +149,7 @@ internal sealed class WpfBlueprintFixture : IAsyncDisposable
                 targets,
                 new GuidRunIdentityGenerator(),
                 orchestrator,
-                TimeProvider.System);
+                timeProvider);
             return new WpfBlueprintFixture(
                 root,
                 targetRoot,
@@ -196,7 +198,12 @@ internal sealed class WpfBlueprintFixture : IAsyncDisposable
         public PlanningRuntimeContext GetCurrent() => context;
     }
 
-    internal sealed class RecordingProcessRunner : IProcessRunner
+    private sealed class FixedTimeProvider : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => DateTimeOffset.UnixEpoch;
+    }
+
+    internal sealed class RecordingProcessRunner(string targetRoot, string blueprintId) : IProcessRunner
     {
         private readonly List<CommandSpec> _commands = [];
 
@@ -215,6 +222,17 @@ internal sealed class WpfBlueprintFixture : IAsyncDisposable
         {
             cancellationToken.ThrowIfCancellationRequested();
             _commands.Add(command);
+            if (blueprintId == "web.react-vite-ts"
+                && command.ArgumentList.SequenceEqual(["run", "build"]))
+            {
+                var stagingRoot = Path.Combine(targetRoot, ".devforge-staging");
+                var payload = Directory.EnumerateDirectories(stagingRoot)
+                    .Select(path => Path.Combine(path, "payload"))
+                    .Single(Directory.Exists);
+                var dist = Path.Combine(payload, "dist");
+                Directory.CreateDirectory(dist);
+                File.WriteAllText(Path.Combine(dist, "index.html"), "<!doctype html><title>Team Portal</title>\n");
+            }
             return Task.FromResult(ProcessResult.Create(ProcessTerminationReason.Exited, 0, []).Value);
         }
     }

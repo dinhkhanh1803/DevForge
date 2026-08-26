@@ -1,7 +1,7 @@
 # DevForge Studio Implementation Status
 
-**Current milestone:** M9 - Production Blueprints (Task 4 active)
-**Status:** M0-M8 and M9 Tasks 1-3 complete and locally verified
+**Current milestone:** M9 - Production Blueprints (Task 5 active)
+**Status:** M0-M8 and M9 Tasks 1-4 complete and locally verified
 **Last updated:** 2026-08-25
 
 ## M8 final scope and closure
@@ -528,3 +528,22 @@ Fresh Task 4 verification on 2026-08-26 used CPython 3.14.6, uv 0.12.1, and the 
 Independent read-only review approved Task 4 with no remaining Critical, Important, or Minor findings after the composed E2E was strengthened to pin the canonical 21-path output and stable aggregate tree digest. The separately executed real-tool matrix remains intentionally distinct from the always-on recording-runner composition suite; Task 6 will consolidate those release matrices across all three blueprints.
 
 Task 5 is now recommended: shared handoff and engine-owned run evidence across all three production blueprints. Catalog expansion and M10 remain out of scope.
+
+M9 Task 5 implementation is in focused verification. The three production packages now share one truthful seven-document handoff contract with their exact local quality commands and empty-value environment examples. The completion boundary owns `.devforge/project.recipe.yaml`, `devforge.lock.json`, `generation-report.json`, and `policy.snapshot.json`; blueprint output actions cannot target those paths. Canonical evidence binds deterministic engine/blueprint identity, checksum and plan hash, reviewed inputs/features, exact dependencies/tools, typed steps and validators, step outcomes, validation results, generated files, and non-self-referential SHA-256 integrity material. Artifacts, tool statuses, and warnings come from the authoritative persisted preview; the project report captures the immutable `validated-pre-finalization` boundary and excludes mutable checkpoint state. All bytes are built and privacy-checked before atomic staging writes, matching partial state is resumed byte-for-byte, and mismatched existing state fails without overwrite. Coordinator-level fault injection covers interruption after each of zero through four atomic evidence writes and after finalization intent persistence, with exact-byte/digest recovery to `LocalReady`. Legacy four-property evidence is rehydrated only through the persistence-only compatibility API; new runtime evidence is strict and timed. Focused results: Unit 67 passed, evidence/persistence Integration 42 passed, coordinator recovery Integration 1 passed, Blueprint 27 passed, and M9 E2E 3 passed. Full repository gates remain pending. ADR-0019 records the ownership, recovery, and final-tree digest decision.
+
+Fresh focused verification on 2026-08-26 used the workspace-local .NET SDK 10.0.302 with build servers disabled and serial MSBuild. Planner/completion Unit coverage passed 48 tests; evidence/action-policy/package-loader Integration coverage passed 70 tests; production blueprint handoff/checksum coverage passed 16 tests; and deterministic WPF/React/Python composition passed 3 tests, including the observed canonical Python 25-path tree digest. Format verification exited 0 and the Release solution build completed with 0 warnings and 0 errors.
+
+M9 Task 5 is complete locally. The final implementation derives evidence from the authoritative persisted preview, uses a distinct deterministic project-report schema, records exact engine/blueprint/tool/dependency/policy/validation/generated-file evidence, and keeps the established final-tree/publication digest boundary. Blueprint actions and declared artifacts cannot target the four reserved files. Matching partial evidence is adopted byte-for-byte; divergent validator, secret-scan, file, digest, or legacy-shape state fails closed. Coordinator-level guarded fault injection proves recovery after atomic evidence writes zero through four and after finalization-intent persistence. Legacy four-property evidence remains readable only through an internal persistence compatibility boundary. Independent specification and quality/security re-reviews found no remaining Critical, Important, or Minor issues.
+
+Fresh final verification on 2026-08-26 used the workspace-local .NET SDK 10.0.302:
+
+| Gate | Command | Exact result |
+|---|---|---|
+| Locked restore | `dotnet restore DevForge.sln --locked-mode --disable-build-servers -m:1 --verbosity minimal` | Exit 0; all 12 projects up to date from pinned lock files. |
+| Format | `dotnet format DevForge.sln --verify-no-changes --no-restore --verbosity minimal` | Exit 0; no formatting diagnostics. |
+| Release build | `dotnet build DevForge.sln -c Release --no-restore --disable-build-servers -m:1 -nodeReuse:false -p:UseSharedCompilation=false` | Exit 0; all 12 projects built; 0 warnings, 0 errors. |
+| Full tests | `dotnet test DevForge.sln -c Release --no-build --no-restore --disable-build-servers -m:1 -nodeReuse:false -p:UseSharedCompilation=false` | Exit 0; Unit 632, Integration 526, Blueprint 126, E2E 161; total 1,445 passed, 0 failed, 0 skipped. |
+| EF model consistency | local pinned `dotnet-ef.dll migrations has-pending-model-changes ... --configuration Release --no-build` | Exit 0; `No changes have been made to the model since the last migration.` |
+| Integrity/security/diff | scoped added-line shell/process/file/platform scan, empty-value `.env.example` check, package contract tests, and `git diff --check` | Exit 0; 0 shell/direct-process, unguarded file API, or forbidden platform/AI matches; both environment examples have 0 valued assignments; package checksum contracts and whitespace check pass. |
+
+Task 6 is recommended next: cross-blueprint integration and M9 closure, including consolidated real-tool release matrices and final milestone documentation. M10 remains out of scope.

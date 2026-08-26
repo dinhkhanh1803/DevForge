@@ -175,6 +175,10 @@ internal static class RunCheckpointMapper
                 Id = item.Id,
                 Status = item.Status.ToString(),
                 OutputDigest = item.OutputDigest,
+                StartedAt = item.StartedAt,
+                CompletedAt = item.CompletedAt,
+                ErrorCode = item.ErrorCode,
+                ErrorSummary = item.ErrorSummary?.Value,
             }).ToArray();
             var json = JsonSerializer.Serialize(dto, _jsonOptions);
             EnsureUtf8Bound(json, MaximumEvidenceJsonBytes);
@@ -205,11 +209,24 @@ internal static class RunCheckpointMapper
                 ?? throw new PersistenceDataException();
             ImmutableArray<ExecutionEvidence> evidence = [.. dto.Select(item => item is null
                 ? throw new PersistenceDataException()
-                : RequireValid(ExecutionEvidence.Create(
-                    ParseDefined<ExecutionEvidenceKind>(item.Kind),
-                    item.Id,
-                    ParseDefined<ExecutionEvidenceStatus>(item.Status),
-                    item.OutputDigest)))];
+                : RequireValid(item.StartedAt is null
+                    && item.CompletedAt is null
+                    && item.ErrorCode is null
+                    && item.ErrorSummary is null
+                        ? ExecutionEvidence.RehydrateLegacy(
+                            ParseDefined<ExecutionEvidenceKind>(item.Kind),
+                            item.Id,
+                            ParseDefined<ExecutionEvidenceStatus>(item.Status),
+                            item.OutputDigest)
+                        : ExecutionEvidence.Create(
+                            ParseDefined<ExecutionEvidenceKind>(item.Kind),
+                            item.Id,
+                            ParseDefined<ExecutionEvidenceStatus>(item.Status),
+                            item.OutputDigest,
+                            item.StartedAt,
+                            item.CompletedAt,
+                            item.ErrorCode,
+                            item.ErrorSummary)))];
             if (!StringComparer.Ordinal.Equals(json, SerializeEvidence(evidence)))
             {
                 throw new PersistenceDataException();
@@ -357,5 +374,17 @@ internal static class RunCheckpointMapper
         public string? Status { get; set; }
 
         public string? OutputDigest { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public DateTimeOffset? StartedAt { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public DateTimeOffset? CompletedAt { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? ErrorCode { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? ErrorSummary { get; set; }
     }
 }

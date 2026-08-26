@@ -9,9 +9,10 @@ namespace DevForge.E2ETests.M9;
 public sealed class PythonCliBlueprintE2ETests
 {
     private const string ExpectedTreeDigest =
-        "5a44e56c34c1c20fa068368120d4352dbd0e62cb39e9678169c7c8d82cc534f3";
+        "b7ed822c6e08f3ca3aca60df63f92dffd6d4d822a4f10e4cc2268639f7694b4b";
     private static readonly string[] _expectedPaths =
     [
+        ".devforge/project.recipe.yaml",
         ".editorconfig",
         ".env.example",
         ".gitignore",
@@ -23,6 +24,9 @@ public sealed class PythonCliBlueprintE2ETests
         "README.md",
         "TEAM_START_HERE.md",
         "TESTING.md",
+        "devforge.lock.json",
+        "generation-report.json",
+        "policy.snapshot.json",
         "pyproject.toml",
         "src/team_tool/__init__.py",
         "src/team_tool/__main__.py",

@@ -136,6 +136,7 @@ public static class DesktopHostBuilder
         services.AddSingleton<IProjectPublicationCoordinator, ProjectPublicationCoordinator>();
         services.AddSingleton<IProjectPublicationWorkflow, ProjectPublicationWorkflow>();
         services.AddSingleton<IProjectFinalizer, AtomicProjectFinalizer>();
+        services.AddSingleton<IProjectEvidenceWriter, CanonicalProjectEvidenceWriter>();
         services.AddSingleton<IGenerationReportWriter, CanonicalGenerationReportWriter>();
         services.AddSingleton<IRunCompletionCoordinator, ValidatedRunCompletionCoordinator>();
         services.AddSingleton<IExecutionOrchestrator, CheckpointedExecutionOrchestrator>();

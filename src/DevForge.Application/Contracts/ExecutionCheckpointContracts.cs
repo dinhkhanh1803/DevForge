@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using DevForge.Blueprints.Abstractions.Models;
 using DevForge.Domain.Execution;
+using DevForge.Domain.Privacy;
 using DevForge.Domain.Projects;
 using DevForge.Domain.Runs;
 using DevForge.Domain.Validation;
@@ -342,12 +343,20 @@ public sealed record ExecutionEvidence
         ExecutionEvidenceKind kind,
         string id,
         ExecutionEvidenceStatus status,
-        string outputDigest)
+        string outputDigest,
+        DateTimeOffset? startedAt,
+        DateTimeOffset? completedAt,
+        string? errorCode,
+        RedactedText? errorSummary)
     {
         Kind = kind;
         Id = id;
         Status = status;
         OutputDigest = outputDigest;
+        StartedAt = startedAt;
+        CompletedAt = completedAt;
+        ErrorCode = errorCode;
+        ErrorSummary = errorSummary;
     }
 
     public ExecutionEvidenceKind Kind { get; }
@@ -358,11 +367,62 @@ public sealed record ExecutionEvidence
 
     public string OutputDigest { get; }
 
+    public DateTimeOffset? StartedAt { get; }
+
+    public DateTimeOffset? CompletedAt { get; }
+
+    public string? ErrorCode { get; }
+
+    public RedactedText? ErrorSummary { get; }
+
+    /// <summary>
+    /// Rehydrates the exact four-property evidence shape written before timed evidence existed.
+    /// Runtime execution code must use the strict timed <see cref="Create"/> overload.
+    /// </summary>
+    internal static ValidationResult<ExecutionEvidence> RehydrateLegacy(
+        ExecutionEvidenceKind kind,
+        string? id,
+        ExecutionEvidenceStatus status,
+        string? outputDigest) => CreateCore(
+            kind,
+            id,
+            status,
+            outputDigest,
+            null,
+            null,
+            null,
+            null,
+            legacy: true);
+
     public static ValidationResult<ExecutionEvidence> Create(
         ExecutionEvidenceKind kind,
         string? id,
         ExecutionEvidenceStatus status,
-        string? outputDigest)
+        string? outputDigest,
+        DateTimeOffset? startedAt,
+        DateTimeOffset? completedAt,
+        string? errorCode,
+        string? errorSummary) => CreateCore(
+            kind,
+            id,
+            status,
+            outputDigest,
+            startedAt,
+            completedAt,
+            errorCode,
+            errorSummary,
+            legacy: false);
+
+    private static ValidationResult<ExecutionEvidence> CreateCore(
+        ExecutionEvidenceKind kind,
+        string? id,
+        ExecutionEvidenceStatus status,
+        string? outputDigest,
+        DateTimeOffset? startedAt,
+        DateTimeOffset? completedAt,
+        string? errorCode,
+        string? errorSummary,
+        bool legacy)
     {
         var issues = new List<ValidationIssue>();
         if (!Enum.IsDefined(kind))
@@ -405,9 +465,61 @@ public sealed record ExecutionEvidence
                 "status"));
         }
 
+        if ((startedAt is null) != (completedAt is null)
+            || completedAt < startedAt
+            || completedAt - startedAt > TimeSpan.FromDays(1)
+            || !legacy && startedAt is null)
+        {
+            issues.Add(new ValidationIssue(
+                "execution.evidence.duration.invalid",
+                "Execution evidence timestamps must form a bounded completed duration.",
+                "completedAt"));
+        }
+
+        var normalizedErrorCode = errorCode?.Trim();
+        var safeErrorSummary = errorSummary is null
+            ? null
+            : RedactedText.FromTrustedRedaction(errorSummary);
+        if ((errorCode is null) != (errorSummary is null)
+            || normalizedErrorCode is { Length: 0 or > 128 }
+            || normalizedErrorCode is not null && !IsCanonicalErrorCode(errorCode!, normalizedErrorCode)
+            || safeErrorSummary is { IsValid: false }
+            || !legacy && status == ExecutionEvidenceStatus.Passed && errorCode is not null
+            || !legacy && status is ExecutionEvidenceStatus.Warning or ExecutionEvidenceStatus.Failed
+                && errorCode is null)
+        {
+            issues.Add(new ValidationIssue(
+                "execution.evidence.error.invalid",
+                "Execution evidence error metadata must be bounded and redacted.",
+                "error"));
+        }
+
         return issues.Count == 0
-            ? ValidationResult.Success(new ExecutionEvidence(kind, id!, status, outputDigest!))
+            ? ValidationResult.Success(new ExecutionEvidence(
+                kind,
+                id!,
+                status,
+                outputDigest!,
+                startedAt,
+                completedAt,
+                normalizedErrorCode,
+                safeErrorSummary?.Value))
             : ValidationResult.Failure<ExecutionEvidence>(issues);
+    }
+
+    private static bool IsCanonicalErrorCode(string source, string normalized)
+    {
+        if (!StringComparer.Ordinal.Equals(source, normalized)
+            || !normalized.StartsWith("DF-", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var segments = normalized.Split('-');
+        return segments.Length >= 3
+            && segments.All(segment => segment.Length > 0
+                && segment.All(character => character is >= 'A' and <= 'Z'
+                    || character is >= '0' and <= '9'));
     }
 }
 

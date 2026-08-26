@@ -1,5 +1,11 @@
 # Testing
 
+## Test levels
+
+Pytest behavior and unit tests run with `uv run --frozen --no-sync --no-config pytest`. No dedicated integration test suite exists yet. The package build is a packaging smoke check, and `uv run --frozen --no-sync --no-config team-tool --help` is an installed-CLI smoke check.
+
+## Release gate
+
 Run the release gate in order:
 
 ```text

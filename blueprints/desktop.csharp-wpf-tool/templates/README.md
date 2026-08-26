@@ -13,3 +13,15 @@ dotnet test TeamTool.slnx --configuration Release --no-build --no-restore
 ```
 
 No Administrator session, web runtime, embedded browser, or cloud account is required.
+
+## Repository layout
+
+`src` contains the Domain, Application, Infrastructure, and WPF Desktop projects; `tests` contains the unit test project. Solution-wide build policy and exact package versions live at the repository root.
+
+## Local setup
+
+Install the .NET 10 SDK selected by `global.json`, then use the locked restore command above from the repository root.
+
+## Quality gates
+
+Run every command in `TESTING.md` before review or release preparation.

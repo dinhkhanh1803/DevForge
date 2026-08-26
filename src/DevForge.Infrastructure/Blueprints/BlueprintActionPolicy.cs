@@ -104,6 +104,8 @@ internal static class BlueprintActionPolicy
                 || !HasKind(value, parameter.Value)
                 || !VariablesAreValid(value)
                 || parameter.Value == ParameterKind.Path && !IsSafePath(value.StringValue!)
+                || parameter.Value == ParameterKind.Path
+                    && IsEngineOwnedEvidenceTarget(parameter.Key, value.StringValue!)
                 || parameter.Value == ParameterKind.Identifier
                     && !BlueprintIdentifierValidator.IsValid(value.StringValue))
             {
@@ -160,6 +162,18 @@ internal static class BlueprintActionPolicy
         return path.IsValid
             && !path.Value.Value.Split('\\').Any(segment =>
                 segment.Equals(".env", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsEngineOwnedEvidenceTarget(string parameterName, string template)
+    {
+        if (parameterName is "source" or "workingDirectory"
+            || !TryTokenize(template, out var structuralValue))
+        {
+            return false;
+        }
+
+        var path = WorkspaceRelativePath.Create(structuralValue);
+        return path.IsValid && ProjectEvidencePathPolicy.IsReserved(path.Value);
     }
 
     private static bool TryTokenize(string value, out string structuralValue)

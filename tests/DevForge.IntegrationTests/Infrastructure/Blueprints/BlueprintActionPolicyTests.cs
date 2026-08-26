@@ -139,6 +139,20 @@ public sealed class BlueprintActionPolicyTests
         Assert.Empty(issues);
     }
 
+    [Theory]
+    [InlineData(".devforge\\project.recipe.yaml")]
+    [InlineData("devforge.lock.json")]
+    [InlineData("generation-report.json")]
+    [InlineData("policy.snapshot.json")]
+    public void PolicyReservesEngineOwnedProjectEvidenceTargets(string path)
+    {
+        var issues = BlueprintActionPolicy.Validate(
+            Action("render-template", ("source", Text("templates\\document.txt")), ("target", Text(path))),
+            BlueprintTrust.BuiltIn);
+
+        Assert.Equal("DF-BP-003", Assert.Single(issues).Code);
+    }
+
     [Fact]
     public void PolicyRejectsWrongTypedArgumentsAndExitCodes()
     {

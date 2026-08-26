@@ -88,6 +88,10 @@ public sealed class CheckpointedExecutionOrchestratorTests
         Assert.Equal(ExecutionEvidenceKind.Step, evidence.Kind);
         Assert.Equal(ExecutionEvidenceStatus.Passed, evidence.Status);
         Assert.Equal(Fixture.Digest, evidence.OutputDigest);
+        Assert.Equal(attempt.StartedAt, evidence.StartedAt);
+        Assert.Equal(attempt.CompletedAt, evidence.CompletedAt);
+        Assert.Null(evidence.ErrorCode);
+        Assert.Null(evidence.ErrorSummary);
         Assert.Equal(4, fixture.Store.Snapshots.Count);
         Assert.Equal(RunStatus.Planning, fixture.Store.Snapshots[0].Run.Status);
         Assert.Equal(RunStatus.Executing, fixture.Store.Snapshots[1].Run.Status);
@@ -742,7 +746,11 @@ public sealed class CheckpointedExecutionOrchestratorTests
                         ExecutionEvidenceKind.Step,
                         step.Id,
                         ExecutionEvidenceStatus.Passed,
-                        Digest).Value;
+                        Digest,
+                        DateTimeOffset.UnixEpoch,
+                        DateTimeOffset.UnixEpoch.AddSeconds(1),
+                        null,
+                        null).Value;
                 }
             }
             else if (mode == ExecutionMode.ManualRetry)

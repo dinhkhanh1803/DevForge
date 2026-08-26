@@ -5,6 +5,7 @@ using DevForge.Blueprints.Abstractions.Models;
 using DevForge.Domain.Execution;
 using DevForge.Domain.Projects;
 using DevForge.Domain.Runs;
+using DevForge.Domain.Validation;
 
 namespace DevForge.UnitTests.Application;
 
@@ -113,7 +114,11 @@ public sealed class RecoverableExecutionContractTests
             ExecutionEvidenceKind.Step,
             "create",
             ExecutionEvidenceStatus.Passed,
-            $"sha256:{new string('a', 64)}").Value;
+            $"sha256:{new string('a', 64)}",
+            DateTimeOffset.UnixEpoch,
+            DateTimeOffset.UnixEpoch.AddSeconds(1),
+            null,
+            null).Value;
         var source = new SingleUseEnumerable<ExecutionEvidence?>([evidence]);
         var reference = BlueprintReference.Create("desktop.csharp-wpf-tool", "1.0.0").Value;
 
@@ -154,7 +159,11 @@ public sealed class RecoverableExecutionContractTests
             ExecutionEvidenceKind.Step,
             "unknown",
             ExecutionEvidenceStatus.Passed,
-            $"sha256:{new string('b', 64)}").Value;
+            $"sha256:{new string('b', 64)}",
+            DateTimeOffset.UnixEpoch,
+            DateTimeOffset.UnixEpoch.AddSeconds(1),
+            null,
+            null).Value;
         var unknown = RunCheckpoint.Create(
             request.Run,
             request.PlannedProject.Plan,
@@ -213,7 +222,11 @@ public sealed class RecoverableExecutionContractTests
             ExecutionEvidenceKind.Step,
             "build",
             ExecutionEvidenceStatus.Passed,
-            $"sha256:{new string('A', 64)}");
+            $"sha256:{new string('A', 64)}",
+            DateTimeOffset.UnixEpoch,
+            DateTimeOffset.UnixEpoch.AddSeconds(1),
+            null,
+            null);
         var invalidResult = ExecutionHandlerResult.Create(
             ExecutionPhase.Execute,
             ExecutionHandlerOutcome.Succeeded,
@@ -228,6 +241,48 @@ public sealed class RecoverableExecutionContractTests
             typeof(ExecutionHandlerResult).GetProperties(),
             property => property.Name.Contains("Output", StringComparison.OrdinalIgnoreCase)
                 && property.Name != nameof(ExecutionHandlerResult.OutputDigest));
+    }
+
+    [Fact]
+    public void TimedEvidenceRequiresStatusConsistentSafeErrorMetadata()
+    {
+        var startedAt = DateTimeOffset.UnixEpoch;
+        var digest = $"sha256:{new string('1', 64)}";
+
+        Assert.True(ExecutionEvidence.Create(
+            ExecutionEvidenceKind.Validator, "passed", ExecutionEvidenceStatus.Passed, digest,
+            startedAt, startedAt.AddMilliseconds(1), null, null).IsValid);
+        Assert.False(ExecutionEvidence.Create(
+            ExecutionEvidenceKind.Validator, "passed-error", ExecutionEvidenceStatus.Passed, digest,
+            startedAt, startedAt.AddMilliseconds(1), "DF-VAL-001", "Unexpected error.").IsValid);
+        Assert.False(ExecutionEvidence.Create(
+            ExecutionEvidenceKind.Validator, "warning-no-error", ExecutionEvidenceStatus.Warning, digest,
+            startedAt, startedAt.AddMilliseconds(1), null, null).IsValid);
+        Assert.False(ExecutionEvidence.Create(
+            ExecutionEvidenceKind.Validator, "failed-no-error", ExecutionEvidenceStatus.Failed, digest,
+            startedAt, startedAt.AddMilliseconds(1), null, null).IsValid);
+        Assert.False(ExecutionEvidence.Create(
+            ExecutionEvidenceKind.Validator, "failed-bad-code", ExecutionEvidenceStatus.Failed, digest,
+            startedAt, startedAt.AddMilliseconds(1), " invalid-code ", "Validation failed.").IsValid);
+        Assert.True(ExecutionEvidence.Create(
+            ExecutionEvidenceKind.Validator, "warning", ExecutionEvidenceStatus.Warning, digest,
+            startedAt, startedAt.AddMilliseconds(1), "DF-VAL-001", "Validation warning.").IsValid);
+    }
+
+    [Fact]
+    public void PublicEvidenceFactoriesCannotCreateUntimedEvidence()
+    {
+        var factories = typeof(ExecutionEvidence)
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Where(method => method.ReturnType == typeof(ValidationResult<ExecutionEvidence>))
+            .ToArray();
+
+        var factory = Assert.Single(factories);
+        Assert.Equal(nameof(ExecutionEvidence.Create), factory.Name);
+        Assert.Equal(8, factory.GetParameters().Length);
+        Assert.DoesNotContain(
+            typeof(ExecutionEvidence).GetMethods(BindingFlags.Public | BindingFlags.Static),
+            method => method.Name == "RehydrateLegacy");
     }
 
     [Fact]

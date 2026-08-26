@@ -1,4 +1,7 @@
+using System.Buffers;
 using System.Collections.Immutable;
+using System.Text;
+using System.Text.Json;
 using DevForge.Application.Contracts;
 using DevForge.Application.Planning.CompatibilityRules;
 using DevForge.Blueprints.Abstractions.Models;
@@ -87,6 +90,7 @@ public sealed class ProjectPlanner : IProjectPlanner
         var issues = new List<ValidationIssue>();
         ValidateEngine(blueprint, runtime, issues);
         ValidateTools(blueprint, environment, issues);
+        ValidateArtifactPaths(blueprint, issues);
         var configuration = _schemaValidator.Validate(recipe, blueprint, cancellationToken);
         if (!configuration.IsValid)
         {
@@ -124,6 +128,7 @@ public sealed class ProjectPlanner : IProjectPlanner
                         configuration.Value,
                         evaluation.Value,
                         environment,
+                        runtime,
                         cancellationToken);
                 }
             }
@@ -132,12 +137,30 @@ public sealed class ProjectPlanner : IProjectPlanner
         return ValidationResult.Failure<PlannedProject>(issues);
     }
 
+    private static void ValidateArtifactPaths(
+        ResolvedBlueprint blueprint,
+        List<ValidationIssue> issues)
+    {
+        foreach (var artifact in blueprint.Manifest.Artifacts)
+        {
+            var path = WorkspaceRelativePath.Create(artifact.Path);
+            if (!path.IsValid || ProjectEvidencePathPolicy.IsReserved(path.Value))
+            {
+                issues.Add(new ValidationIssue(
+                    "DF-PLAN-002",
+                    "The reviewed blueprint artifact policy is invalid.",
+                    "artifacts"));
+            }
+        }
+    }
+
     private ValidationResult<PlannedProject> BuildPlan(
         ProjectRecipe recipe,
         ResolvedBlueprint blueprint,
         EffectiveRecipeConfiguration configuration,
         CompatibilityRuleEvaluation evaluation,
         EnvironmentSnapshot environment,
+        PlanningRuntimeContext runtime,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -154,7 +177,7 @@ public sealed class ProjectPlanner : IProjectPlanner
                 "recipe");
         }
 
-        var variableContext = CreateVariableContext(recipe, blueprint, configuration);
+        var variableContext = CreateVariableContext(recipe, blueprint, configuration, runtime);
         if (!variableContext.IsValid)
         {
             return ValidationResult.Failure<PlannedProject>(variableContext.Issues);
@@ -168,6 +191,11 @@ public sealed class ProjectPlanner : IProjectPlanner
             if (!inputs.IsValid)
             {
                 return ValidationResult.Failure<PlannedProject>(inputs.Issues);
+            }
+
+            if (ResolvesToEngineOwnedEvidence(action.HandlerId, inputs.Value))
+            {
+                return HashFailure<PlannedProject>();
             }
 
             var step = ExecutionStep.Create(
@@ -212,16 +240,21 @@ public sealed class ProjectPlanner : IProjectPlanner
         cancellationToken.ThrowIfCancellationRequested();
         var stepSnapshot = steps.ToImmutable();
         var validatorSnapshot = validators.ToImmutable();
-        var templateContextResult = stepSnapshot.Any(step => step.Handler == "render-template")
-            ? variableContext.Value.CreateTemplateContext()
-            : ValidationResult.Success(
-                ImmutableSortedDictionary<string, string>.Empty.WithComparers(StringComparer.Ordinal));
+        var templateContextResult = variableContext.Value.CreateTemplateContext();
         if (!templateContextResult.IsValid)
         {
             return ValidationResult.Failure<PlannedProject>(templateContextResult.Issues);
         }
 
-        var templateContext = templateContextResult.Value;
+        var templateContext = templateContextResult.Value
+            .Add("team.snapshot_status", recipe.TeamProfile is null ? "none" : "recorded");
+        if (recipe.TeamProfile is not null)
+        {
+            templateContext = templateContext
+                .Add("team.profile_id", recipe.TeamProfile.Id)
+                .Add("team.profile_name", recipe.TeamProfile.Name)
+                .Add("team.standards_json", SerializeStandards(recipe.TeamProfile.Standards));
+        }
         var hashInput = new PlanHashInput(
             blueprint.Manifest.Id,
             blueprint.Manifest.Version,
@@ -301,6 +334,44 @@ public sealed class ProjectPlanner : IProjectPlanner
             "run-process" or "package-install" => RetryPolicy.Manual(3).Value,
             _ => RetryPolicy.None,
         };
+    }
+
+    private static string SerializeStandards(ImmutableDictionary<string, string> standards)
+    {
+        var buffer = new ArrayBufferWriter<byte>();
+        using (var writer = new Utf8JsonWriter(buffer))
+        {
+            writer.WriteStartObject();
+            foreach (var standard in standards.OrderBy(item => item.Key, StringComparer.Ordinal))
+            {
+                writer.WriteString(standard.Key, standard.Value);
+            }
+
+            writer.WriteEndObject();
+        }
+
+        return Encoding.UTF8.GetString(buffer.WrittenSpan);
+    }
+
+    private static bool ResolvesToEngineOwnedEvidence(
+        string handlerId,
+        ImmutableSortedDictionary<string, PlanValue> inputs)
+    {
+        var outputParameter = handlerId switch
+        {
+            "create-directory" => "path",
+            "render-template" or "copy-overlay" or "patch-json" or "patch-yaml" or "patch-xml" => "target",
+            _ => null,
+        };
+        if (outputParameter is null
+            || !inputs.TryGetValue(outputParameter, out var value)
+            || value.Kind != PlanValueKind.Text)
+        {
+            return false;
+        }
+
+        var path = WorkspaceRelativePath.Create(value.StringValue);
+        return path.IsValid && ProjectEvidencePathPolicy.IsReserved(path.Value);
     }
 
     private static ImmutableArray<PlanPreviewToolStatus> CreateToolStatuses(
@@ -457,7 +528,8 @@ public sealed class ProjectPlanner : IProjectPlanner
     private static ValidationResult<PlanningVariableContext> CreateVariableContext(
         ProjectRecipe recipe,
         ResolvedBlueprint blueprint,
-        EffectiveRecipeConfiguration configuration)
+        EffectiveRecipeConfiguration configuration,
+        PlanningRuntimeContext runtime)
     {
         var values = new List<KeyValuePair<string, PlanningVariableValue?>>
         {
@@ -466,6 +538,7 @@ public sealed class ProjectPlanner : IProjectPlanner
             Variable("project.target-path", PlanningVariableValue.Placeholder("project.target-path").Value),
             Variable("blueprint.id", Text(blueprint.Manifest.Id)),
             Variable("blueprint.version", Text(blueprint.Manifest.Version)),
+            Variable("engine.version", Text(runtime.EngineVersion.Normalized)),
             Variable("git.primary-branch", Text(recipe.Git.PrimaryBranch)),
             Variable("git.develop-branch", Text(recipe.Git.UseDevelopBranch ? "develop" : string.Empty)),
             Variable("runtime.staging-path", PlanningVariableValue.Placeholder("runtime.staging-path").Value),

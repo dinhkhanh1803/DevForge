@@ -23,7 +23,6 @@ internal sealed class BlueprintPackageLoader : IBlueprintPackageLoader
         "inputs.schema.json",
         "rules.yaml",
     ];
-
     public async Task<BlueprintPackageLoadResult> LoadAsync(
         BlueprintPackageSource source,
         WorkspaceRelativePath packageDirectory,

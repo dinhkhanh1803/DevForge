@@ -48,10 +48,12 @@ public sealed class ProjectPlannerTests
             Assert.Single(result.Value.Preview.Validators).ProcessPreview?.Value);
         Assert.StartsWith("sha256:", result.Value.Preview.PlanHash, StringComparison.Ordinal);
         Assert.Equal(
-            "sha256:6c7ebebe7e6a269b7737b469b52e060ea1a636fe66f28f5f37ac8655f1d4f920",
+            "sha256:bc71b235faf2c4bfb01842e960672e7a01f580a294478fd952bfc8e33fd9ad57",
             result.Value.Preview.PlanHash);
         Assert.Equal(result.Value.Preview.PlanHash, result.Value.Plan.Id);
         Assert.Equal("Sample App", result.Value.Plan.TemplateContext["project.name"]);
+        Assert.Equal("1.5.0", result.Value.Plan.TemplateContext["engine.version"]);
+        Assert.Equal("none", result.Value.Plan.TemplateContext["team.snapshot_status"]);
         Assert.Equal("sample-app", result.Value.Plan.TemplateContext["project.safe_name"]);
         Assert.Equal("net10.0", result.Value.Plan.TemplateContext["recipe.input.framework"]);
         Assert.Equal("true", result.Value.Plan.TemplateContext["recipe.feature.tests"]);
@@ -284,6 +286,78 @@ public sealed class ProjectPlannerTests
         Assert.Equal(0, doctor.InspectCalls);
     }
 
+    [Theory]
+    [InlineData("generation-{{ team.root-namespace }}.json", "report")]
+    [InlineData(".devforge\\project.recipe.{{ team.root-namespace }}", "yaml")]
+    public async Task RejectsResolvedActionTargetsThatBecomeEngineOwnedEvidence(
+        string targetTemplate,
+        string rootNamespace)
+    {
+        var blueprint = CreateBlueprint(renderTarget: targetTemplate);
+        var team = TeamProfile.Create(
+            "team",
+            "Team",
+            [KeyValuePair.Create<string, string?>("root-namespace", rootNamespace)]).Value;
+        var recipe = ProjectRecipe.Create(CreateRecipeDraft("C:\\root") with
+        {
+            TeamProfile = team,
+        }).Value;
+
+        var result = await CreatePlanner(
+            new StubCatalog(blueprint),
+            new StubDoctor(Environment("10.0.302", DateTimeOffset.UtcNow)))
+            .CreatePlanAsync(recipe, CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Equal("DF-PLAN-002", Assert.Single(result.Issues).Code);
+    }
+
+    [Theory]
+    [InlineData(".devforge\\project.recipe.yaml")]
+    [InlineData("devforge.lock.json")]
+    [InlineData("generation-report.json")]
+    [InlineData("policy.snapshot.json")]
+    public async Task RejectsManifestArtifactsThatClaimEngineOwnedEvidence(string artifactPath)
+    {
+        var planner = CreatePlanner(
+            new StubCatalog(CreateBlueprint(artifactPath: artifactPath)),
+            new StubDoctor(Environment("10.0.302", DateTimeOffset.UtcNow)));
+
+        var result = await planner.CreatePlanAsync(CreateRecipe("C:\\root"), CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Issues, issue => issue.Code == "DF-PLAN-002");
+    }
+
+    [Fact]
+    public async Task PersistsCanonicalTeamProfileSnapshotInDeterministicPlanContext()
+    {
+        var team = TeamProfile.Create(
+            "platform-team",
+            "Platform Team",
+            [
+                KeyValuePair.Create<string, string?>("root-namespace", "Acme.Tools"),
+                KeyValuePair.Create<string, string?>("company-name", "Acme"),
+            ]).Value;
+        var recipe = ProjectRecipe.Create(CreateRecipeDraft("C:\\root") with
+        {
+            TeamProfile = team,
+        }).Value;
+
+        var result = await CreatePlanner(
+            new StubCatalog(CreateBlueprint()),
+            new StubDoctor(Environment("10.0.302", DateTimeOffset.UtcNow)))
+            .CreatePlanAsync(recipe, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Equal("platform-team", result.Value.Plan.TemplateContext["team.profile_id"]);
+        Assert.Equal("recorded", result.Value.Plan.TemplateContext["team.snapshot_status"]);
+        Assert.Equal("Platform Team", result.Value.Plan.TemplateContext["team.profile_name"]);
+        Assert.Equal(
+            "{\"company-name\":\"Acme\",\"root-namespace\":\"Acme.Tools\"}",
+            result.Value.Plan.TemplateContext["team.standards_json"]);
+    }
+
     [Fact]
     public async Task PropagatesCancellationBetweenPlannerStages()
     {
@@ -391,11 +465,12 @@ public sealed class ProjectPlannerTests
         int validatorTimeoutSeconds = 30,
         int actionTimeoutSeconds = 10,
         bool toolRequired = true,
-        string firstActionHandler = "create-directory")
+        string firstActionHandler = "create-directory",
+        string renderTarget = "src\\App.csproj")
     {
         var text = BlueprintValue.FromString("{{ recipe.input.framework }}").Value;
         var path = BlueprintValue.FromString("src").Value;
-        var target = BlueprintValue.FromString("src\\App.csproj").Value;
+        var target = BlueprintValue.FromString(renderTarget).Value;
         var renderParameters = reverseParameterInsertion
             ? ImmutableDictionary.CreateRange<string, BlueprintValue>(
             [

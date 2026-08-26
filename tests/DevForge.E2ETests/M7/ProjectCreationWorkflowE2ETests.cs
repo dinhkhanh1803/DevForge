@@ -55,7 +55,14 @@ public sealed class ProjectCreationWorkflowE2ETests
             result.Value.Checkpoint.Evidence.Where(item => item.Kind == ExecutionEvidenceKind.Validator),
             item => Assert.Equal(ExecutionEvidenceStatus.Passed, item.Status));
         Assert.Equal(
-            ["README.md", "src\\Program.txt"],
+            [
+                ".devforge\\project.recipe.yaml",
+                "README.md",
+                "devforge.lock.json",
+                "generation-report.json",
+                "policy.snapshot.json",
+                "src\\Program.txt",
+            ],
             Directory.EnumerateFiles(fixture.TargetPath, "*", SearchOption.AllDirectories)
                 .Select(path => Path.GetRelativePath(fixture.TargetPath, path))
                 .Order(StringComparer.Ordinal));
@@ -67,6 +74,13 @@ public sealed class ProjectCreationWorkflowE2ETests
             "safe local content\n",
             (await File.ReadAllTextAsync(Path.Combine(fixture.TargetPath, "src", "Program.txt")))
                 .Replace("\r\n", "\n", StringComparison.Ordinal));
+        using var projectLock = JsonDocument.Parse(await File.ReadAllBytesAsync(
+            Path.Combine(fixture.TargetPath, "devforge.lock.json")));
+        Assert.Equal(plan.Value.PlannedProject.Plan.Id, projectLock.RootElement
+            .GetProperty("planHash").GetString());
+        Assert.Equal("m7.test.local", projectLock.RootElement
+            .GetProperty("blueprint").GetProperty("id").GetString());
+        Assert.Equal(3, projectLock.RootElement.GetProperty("evidenceDigests").GetArrayLength());
         var reportDirectory = Path.GetDirectoryName(fixture.JsonReportPath(plan.Value.RunId))!;
         Assert.Equal(
             [$"{plan.Value.RunId}.json", $"{plan.Value.RunId}.md"],

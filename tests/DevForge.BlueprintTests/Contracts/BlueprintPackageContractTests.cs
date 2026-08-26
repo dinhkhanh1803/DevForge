@@ -302,6 +302,20 @@ public sealed class BlueprintPackageContractTests
     }
 
     [Fact]
+    public void ManifestArtifactsDeclareFilesWithoutRequiringAnExtension()
+    {
+        var result = BlueprintManifest.Create(
+            ValidDraft() with
+            {
+                Artifacts = [new BlueprintArtifact("LICENSE")],
+            },
+            new BlueprintTrustAssignment(BlueprintTrust.BuiltIn));
+
+        Assert.True(result.IsValid);
+        Assert.Equal("LICENSE", Assert.Single(result.Value.Artifacts).Path);
+    }
+
+    [Fact]
     public void ValidatorsCarryTypedParametersAndRequiredPolicy()
     {
         var parameters = ImmutableDictionary<string, BlueprintValue>.Empty

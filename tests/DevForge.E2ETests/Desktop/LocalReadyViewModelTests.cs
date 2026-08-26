@@ -136,7 +136,11 @@ public sealed class LocalReadyViewModelTests
                 ExecutionEvidenceKind.Step,
                 "create",
                 ExecutionEvidenceStatus.Passed,
-                $"sha256:{new string('3', 64)}").Value],
+                $"sha256:{new string('3', 64)}",
+                DateTimeOffset.UnixEpoch,
+                DateTimeOffset.UnixEpoch.AddSeconds(1),
+                null,
+                null).Value],
             FinalizationState.Succeeded,
             ReportPersistenceState.Succeeded).Value;
         return ProjectCreationExecutionSnapshot.Create(planSnapshot, checkpoint).Value;

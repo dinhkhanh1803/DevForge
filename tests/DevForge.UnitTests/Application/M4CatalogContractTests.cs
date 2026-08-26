@@ -177,7 +177,7 @@ public sealed class M4CatalogContractTests
             previewSteps,
             [new ToolRequirement("dotnet", ">=10.0.0 <11.0.0")],
             [new BlueprintDependency("microsoft.extensions.hosting", "10.0.0")],
-            [new BlueprintArtifact("src/App.csproj")],
+            [new BlueprintArtifact("src\\App.csproj")],
             [],
             planHash);
         Assert.True(preview.IsValid);

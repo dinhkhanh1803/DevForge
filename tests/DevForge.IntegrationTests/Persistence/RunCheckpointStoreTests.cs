@@ -384,6 +384,55 @@ public sealed class RunCheckpointStoreTests
     }
 
     [Fact]
+    public async Task ExactLegacyFourPropertyEvidenceLoadsAndSavesWithoutShapeUpgrade()
+    {
+        await using var database = PersistenceTestDatabase.Create();
+        var factory = await CreateMigratedFactoryAsync(database);
+        var store = new SqliteRunCheckpointStore(factory);
+        const string runId = "run-legacy-evidence";
+        await store.SaveAsync(CreateCheckpoint(runId), CancellationToken.None);
+        var legacyJson = "[{\"kind\":\"Step\",\"id\":\"create\",\"status\":\"Passed\","
+            + $"\"outputDigest\":\"sha256:{new string('a', 64)}\"}}]";
+        await using (var context = factory.CreateDbContext())
+        {
+            await context.Database.ExecuteSqlInterpolatedAsync(
+                $"UPDATE ProjectRuns SET EvidenceJson = {legacyJson} WHERE Id = {runId}");
+        }
+
+        var loaded = Assert.IsType<RunCheckpoint>(
+            await store.FindAsync(runId, CancellationToken.None));
+        var evidence = Assert.Single(loaded.Evidence);
+        Assert.Null(evidence.StartedAt);
+        Assert.Null(evidence.CompletedAt);
+
+        await store.SaveAsync(loaded, CancellationToken.None);
+        using var connection = database.OpenConnection(SqliteOpenMode.ReadOnly);
+        Assert.Equal(
+            legacyJson,
+            ReadString(connection, "SELECT EvidenceJson FROM ProjectRuns WHERE Id = 'run-legacy-evidence';"));
+    }
+
+    [Theory]
+    [InlineData("[{\"kind\":\"Step\",\"id\":\"create\",\"status\":\"Passed\",\"outputDigest\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"startedAt\":\"1970-01-01T00:00:00+00:00\"}]")]
+    [InlineData("[{\"kind\":\"Step\",\"id\":\"create\",\"status\":\"Passed\",\"outputDigest\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"startedAt\":null,\"completedAt\":null,\"errorCode\":null,\"errorSummary\":null}]")]
+    public async Task PartiallyUpgradedEvidenceShapesFailClosed(string evidenceJson)
+    {
+        await using var database = PersistenceTestDatabase.Create();
+        var factory = await CreateMigratedFactoryAsync(database);
+        var store = new SqliteRunCheckpointStore(factory);
+        const string runId = "run-partial-evidence";
+        await store.SaveAsync(CreateCheckpoint(runId), CancellationToken.None);
+        await using (var context = factory.CreateDbContext())
+        {
+            await context.Database.ExecuteSqlInterpolatedAsync(
+                $"UPDATE ProjectRuns SET EvidenceJson = {evidenceJson} WHERE Id = {runId}");
+        }
+
+        await Assert.ThrowsAsync<PersistenceDataException>(
+            () => store.FindAsync(runId, CancellationToken.None));
+    }
+
+    [Fact]
     public async Task LegacyJournalCannotDowngradeACompleteCheckpoint()
     {
         await using var database = PersistenceTestDatabase.Create();
@@ -432,7 +481,11 @@ public sealed class RunCheckpointStoreTests
             ExecutionEvidenceKind.Step,
             "alpha",
             ExecutionEvidenceStatus.Passed,
-            digest).Value;
+            digest,
+            DateTimeOffset.UnixEpoch.AddSeconds(2),
+            DateTimeOffset.UnixEpoch.AddSeconds(3),
+            null,
+            null).Value;
         var checkpoint = RunCheckpoint.Create(
             run,
             plan,
@@ -592,7 +645,11 @@ public sealed class RunCheckpointStoreTests
             ExecutionEvidenceKind.Step,
             "create",
             ExecutionEvidenceStatus.Passed,
-            digest).Value;
+            digest,
+            DateTimeOffset.UnixEpoch,
+            DateTimeOffset.UnixEpoch.AddSeconds(1),
+            null,
+            null).Value;
         return RunCheckpoint.Create(
             run,
             plan,

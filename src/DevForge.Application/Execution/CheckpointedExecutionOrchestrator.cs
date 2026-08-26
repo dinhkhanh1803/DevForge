@@ -641,11 +641,12 @@ public sealed class CheckpointedExecutionOrchestrator : IExecutionOrchestrator
                 var runningAttempt = session.Checkpoint.Run.Attempts[^1];
                 if (phaseResult.Failure is null)
                 {
+                    var completedAt = _timeProvider.GetUtcNow();
                     run = Require(session.Checkpoint.Run.CompleteAttempt(
                         step.Id,
                         runningAttempt.AttemptNumber,
                         StepAttemptOutcome.Succeeded,
-                        _timeProvider.GetUtcNow(),
+                        completedAt,
                         phaseResult.Execute.ExitCode,
                         null,
                         phaseResult.Execute.OutputDigest));
@@ -653,7 +654,11 @@ public sealed class CheckpointedExecutionOrchestrator : IExecutionOrchestrator
                         ExecutionEvidenceKind.Step,
                         step.Id,
                         ExecutionEvidenceStatus.Passed,
-                        phaseResult.Execute.OutputDigest);
+                        phaseResult.Execute.OutputDigest,
+                        runningAttempt.StartedAt,
+                        completedAt,
+                        null,
+                        null);
                     if (!evidence.IsValid)
                     {
                         throw new InvalidOperationException(

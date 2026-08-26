@@ -2,7 +2,7 @@
 
 **Goal:** Ship exactly three deterministic, checksummed production blueprints and validate generated projects with their certified Windows toolchains.
 
-**Status:** M9 Tasks 1-4 complete and locally verified; Task 5 is the next implementation slice.
+**Status:** M9 Tasks 1-5 complete and locally verified; Task 6 is the next implementation slice.
 
 **Architecture:** Versioned static packages are shipped as immutable built-in content. Desktop composes a `BuiltIn` source and the existing `Local` source through guarded workspaces. Blueprint actions remain declarative and all external tools pass through a closed `IProcessRunner` vocabulary.
 
@@ -16,6 +16,7 @@
 - Decision: `docs/decisions/0016-closed-production-blueprint-validation.md` (Task 2)
 - Decision: `docs/decisions/0017-static-react-blueprint-and-closed-pnpm.md` (Task 3)
 - Decision: `docs/decisions/0018-static-python-cli-blueprint-and-closed-uv.md` (Task 4)
+- Decision: `docs/decisions/0019-engine-owned-canonical-project-evidence.md` (Task 5)
 
 ## Current scope and progress
 
@@ -25,7 +26,7 @@
 - [x] Task 2: WPF production blueprint.
 - [x] Task 3: closed pnpm vocabulary and React production blueprint.
 - [x] Task 4: Python/uv boundary and Python CLI production blueprint.
-- [ ] Task 5: shared handoff and engine-owned run evidence.
+- [x] Task 5: shared handoff and engine-owned run evidence.
 - [ ] Task 6: cross-blueprint integration and closure.
 
 ## Completed Task 2 boundary
@@ -61,6 +62,18 @@ Task 3 exit is satisfied locally. The package loads through the production check
 **Task 4 exit:** composed generation and deterministic tree gates pass, then a fresh standalone generated project passes frozen uv sync, format check, lint, typecheck, test, and build/package smoke with the certified toolchain before affected/full DevForge gates and a scoped local commit.
 
 Task 4 exit is satisfied locally. Python/uv have typed identities and fixed environment probes; Python raw evaluation/module modes fail closed; package installation and all six uv validators use exact reviewed argument lists. The static package carries exact build/quality pins, the frozen lock, checksums, typed configuration/logging, tests, and handoff documents. Two composed runs prove identical plan hashes and tree digests, while an independent rendered tree passes the certified CPython 3.14.6/uv 0.12.1 matrix. Locked restore, format, Release build, all 1,395 DevForge tests, EF consistency, checksum, security, and diff gates pass.
+
+## Completed Task 5 boundary
+
+**Scope:** enforce one truthful seven-document handoff contract across the three production blueprints and add the smallest engine-owned writer that persists canonical `.devforge/project.recipe.yaml`, `devforge.lock.json`, `generation-report.json`, and `policy.snapshot.json`. Blueprint packages cannot author or overwrite this namespace. M10, additional blueprints, deployment automation, and publication-boundary changes remain out of scope.
+
+**Expected files:** shared BlueprintTests handoff contracts; narrow Application/Infrastructure run-evidence contracts, serializers, and composition changes; completion/recovery/privacy/tamper tests; the three packages' documentation assets only where the shared contract exposes a real gap; one ADR for the evidence ownership and digest boundary.
+
+**Tests:** all seven handoff documents have required truthful sections and blueprint-specific commands; `.env.example` carries names only and `.env` remains ignored; the four evidence files bind blueprint identity/version/checksum, plan hash, selected features, exact dependency/tool policy, validations, and generated artifacts; repeated writes are byte-identical; non-canonical paths, package-forged evidence, overwrite attempts, secret-shaped content, partial-write recovery, and tampering fail closed; the existing final-tree/publication digest stays stable.
+
+**Task 5 exit:** every successful generated run contains the complete handoff set plus integrity-bound engine evidence; recovery produces the same bytes without accepting forged state; focused and full format/restore/build/test gates pass before a scoped local commit.
+
+Task 5 exit is satisfied locally. All three packages meet the shared truthful handoff contract. The completion boundary persists the four canonical engine-owned files from the authoritative persisted preview, uses bounded reviewed generated-file evidence, records explicit engine/project/team legacy provenance, and preserves byte-identical recovery across each atomic evidence write and finalization-intent kill window. Spec and quality/security review report no remaining findings; locked restore, format, Release build, all 1,445 tests, EF consistency, and scoped integrity/security checks pass.
 
 ## M9 exit gate
 

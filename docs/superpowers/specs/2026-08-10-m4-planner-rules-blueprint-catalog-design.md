@@ -117,7 +117,7 @@ The loader never enables arbitrary type construction or reflection-based tags. P
 - declared feature definitions;
 - ordered action steps;
 - ordered validators;
-- predicted artifacts;
+- predicted generated files (workspace-relative paths; extensionless files are valid, directories are not artifacts);
 - declared project dependencies.
 
 `inputs.schema.json` owns the dynamic input definition. M4 supports a deliberate JSON Schema subset:

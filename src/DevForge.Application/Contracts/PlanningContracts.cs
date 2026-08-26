@@ -183,7 +183,7 @@ public sealed class PlanPreview
                 "toolStatuses"));
         }
         AddCollectionIssues(dependencies, dependencySnapshot, "dependencies", "dependencies", issues);
-        AddCollectionIssues(artifacts, artifactSnapshot, "artifacts", "artifacts", issues);
+        ValidateArtifacts(artifacts, artifactSnapshot, issues);
         AddCollectionIssues(warnings, warningSnapshot, "warnings", "warnings", issues);
         ValidateEffectiveInputs(effectiveInputs, inputSnapshot, issues);
         ValidateFeatures(enabledFeatures, featureSnapshot, issues);
@@ -359,6 +359,28 @@ public sealed class PlanPreview
         }
     }
 
+    private static void ValidateArtifacts(
+        IEnumerable<BlueprintArtifact?>? source,
+        ImmutableArray<BlueprintArtifact?> snapshot,
+        List<ValidationIssue> issues)
+    {
+        AddCollectionIssues(source, snapshot, "artifacts", "artifacts", issues);
+        var paths = new HashSet<WorkspaceRelativePath>();
+        for (var index = 0; index < snapshot.Length; index++)
+        {
+            var path = WorkspaceRelativePath.Create(snapshot[index]?.Path);
+            if (!path.IsValid
+                || ProjectEvidencePathPolicy.IsReserved(path.Value)
+                || !paths.Add(path.Value))
+            {
+                issues.Add(new ValidationIssue(
+                    "plan.preview.artifact.invalid",
+                    "A unique guarded non-reserved artifact path is required.",
+                    $"artifacts[{index}]"));
+            }
+        }
+    }
+
     private static void ValidateSteps(
         IEnumerable<PlanPreviewStep?>? source,
         ImmutableArray<PlanPreviewStep?> snapshot,
@@ -420,6 +442,14 @@ public sealed class PlanPreview
             issues.Add(new ValidationIssue(
                 $"plan.preview.{codePart}.required",
                 "A plan preview collection is required.",
+                location));
+        }
+
+        if (snapshot.Length > BlueprintValue.MaximumCollectionItems)
+        {
+            issues.Add(new ValidationIssue(
+                $"plan.preview.{codePart}.count.invalid",
+                "A plan preview collection exceeds the bounded item count.",
                 location));
         }
 

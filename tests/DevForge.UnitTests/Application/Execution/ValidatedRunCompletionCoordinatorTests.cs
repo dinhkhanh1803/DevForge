@@ -1,3 +1,6 @@
+using System.Collections.Immutable;
+using System.Security.Cryptography;
+using System.Text;
 using DevForge.Application.Contracts;
 using DevForge.Application.Execution;
 using DevForge.Blueprints.Abstractions.Models;
@@ -7,6 +10,7 @@ using DevForge.Domain.Privacy;
 using DevForge.Domain.Projects;
 using DevForge.Domain.Reports;
 using DevForge.Domain.Runs;
+using DevForge.Domain.Validation;
 
 namespace DevForge.UnitTests.Application.Execution;
 
@@ -24,6 +28,7 @@ public sealed class ValidatedRunCompletionCoordinatorTests
                 typeof(IRunCheckpointStore),
                 typeof(ISecretScanner),
                 typeof(IProjectFinalizer),
+                typeof(IProjectEvidenceWriter),
                 typeof(IGenerationReportWriter),
                 typeof(TimeProvider),
             ],
@@ -166,6 +171,265 @@ public sealed class ValidatedRunCompletionCoordinatorTests
     }
 
     [Fact]
+    public async Task ResumeRevalidatesPassedEvidenceAndRetainsOriginalTimingsWhenDigestsMatch()
+    {
+        var validator = new ValidatorHandler(ExecutionPhase.Execute, ExecutionHandlerOutcome.Succeeded);
+        var startedAt = new DateTimeOffset(2026, 8, 26, 9, 0, 0, TimeSpan.Zero);
+        var validatorEvidence = ExecutionEvidence.Create(
+            ExecutionEvidenceKind.Validator,
+            "quality-gate",
+            ExecutionEvidenceStatus.Passed,
+            $"sha256:{new string('4', 64)}",
+            startedAt,
+            startedAt.AddMilliseconds(125),
+            null,
+            null).Value;
+        var scanEvidence = ExecutionEvidence.Create(
+            ExecutionEvidenceKind.SecretScan,
+            "secret-scan",
+            ExecutionEvidenceStatus.Passed,
+            "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            startedAt.AddSeconds(1),
+            startedAt.AddSeconds(1).AddMilliseconds(75),
+            null,
+            null).Value;
+        var fixture = Fixture.Create(
+            secretFound: false,
+            validator,
+            initialEvidence: [validatorEvidence, scanEvidence]);
+
+        var result = await fixture.Coordinator.CompleteAsync(
+            fixture.Request,
+            fixture.Checkpoint,
+            fixture.Staging,
+            fixture.Package,
+            fixture.Registry,
+            progress: null,
+            CancellationToken.None);
+
+        Assert.Equal(RunStatus.LocalReady, result.Run.Status);
+        Assert.Equal(
+            [ExecutionPhase.Prepare, ExecutionPhase.Precondition, ExecutionPhase.Execute, ExecutionPhase.Postcondition],
+            validator.Phases);
+        Assert.Contains("secret.scan", fixture.Events);
+        Assert.Collection(
+            result.Evidence,
+            item =>
+            {
+                Assert.Equal(validatorEvidence.Kind, item.Kind);
+                Assert.Equal(validatorEvidence.Id, item.Id);
+                Assert.Equal(validatorEvidence.Status, item.Status);
+                Assert.Equal(validatorEvidence.OutputDigest, item.OutputDigest);
+                Assert.Equal(validatorEvidence.StartedAt, item.StartedAt);
+                Assert.Equal(validatorEvidence.CompletedAt, item.CompletedAt);
+            },
+            item =>
+            {
+                Assert.Equal(scanEvidence.Kind, item.Kind);
+                Assert.Equal(scanEvidence.Id, item.Id);
+                Assert.Equal(scanEvidence.Status, item.Status);
+                Assert.Equal(scanEvidence.OutputDigest, item.OutputDigest);
+                Assert.Equal(scanEvidence.StartedAt, item.StartedAt);
+                Assert.Equal(scanEvidence.CompletedAt, item.CompletedAt);
+            });
+        Assert.Equal(
+            ["quality-gate", "whole-payload-secret-scan"],
+            fixture.EvidenceWriter.LastReport!.Validations.Select(item => item.Id));
+    }
+
+    [Fact]
+    public async Task ResumeFailsClosedWhenPassedValidatorEvidenceDiverges()
+    {
+        var validator = new ValidatorHandler(ExecutionPhase.Execute, ExecutionHandlerOutcome.Succeeded);
+        var prior = ExecutionEvidence.Create(
+            ExecutionEvidenceKind.Validator,
+            "quality-gate",
+            ExecutionEvidenceStatus.Passed,
+            $"sha256:{new string('6', 64)}",
+            DateTimeOffset.UnixEpoch,
+            DateTimeOffset.UnixEpoch.AddMilliseconds(1),
+            null,
+            null).Value;
+        var fixture = Fixture.Create(secretFound: false, validator, initialEvidence: [prior]);
+
+        var result = await fixture.Coordinator.CompleteAsync(
+            fixture.Request, fixture.Checkpoint, fixture.Staging, fixture.Package,
+            fixture.Registry, progress: null, CancellationToken.None);
+
+        Assert.Equal(RunStatus.ValidationFailed, result.Run.Status);
+        Assert.Equal("DF-VALID-002", Assert.Single(result.Run.Errors).Code);
+        Assert.Equal(prior, Assert.Single(result.Evidence));
+        Assert.DoesNotContain("secret.scan", fixture.Events);
+        Assert.DoesNotContain("finalizer.run", fixture.Events);
+    }
+
+    [Fact]
+    public async Task ResumeRevalidatesOptionalWarningAndRetainsOriginalTimingAndErrorEvidence()
+    {
+        var handler = new ValidatorHandler(ExecutionPhase.Execute, ExecutionHandlerOutcome.Failed);
+        var startedAt = new DateTimeOffset(2026, 8, 26, 9, 0, 0, TimeSpan.Zero);
+        var prior = ExecutionEvidence.Create(
+            ExecutionEvidenceKind.Validator,
+            "quality-gate",
+            ExecutionEvidenceStatus.Warning,
+            Digest("validator:quality-gate:Failed:DF-VALID-001"),
+            startedAt,
+            startedAt.AddMilliseconds(225),
+            "DF-VALID-001",
+            "Validation failed.").Value;
+        var fixture = Fixture.Create(
+            secretFound: false,
+            handler,
+            validatorRequired: false,
+            initialEvidence: [prior]);
+
+        var result = await fixture.Coordinator.CompleteAsync(
+            fixture.Request, fixture.Checkpoint, fixture.Staging, fixture.Package,
+            fixture.Registry, progress: null, CancellationToken.None);
+
+        Assert.Equal(RunStatus.LocalReady, result.Run.Status);
+        Assert.Equal(
+            [ExecutionPhase.Prepare, ExecutionPhase.Precondition, ExecutionPhase.Execute],
+            handler.Phases);
+        var retained = Assert.Single(result.Evidence, item => item.Kind == ExecutionEvidenceKind.Validator);
+        Assert.Equal(prior.Status, retained.Status);
+        Assert.Equal(prior.OutputDigest, retained.OutputDigest);
+        Assert.Equal(prior.StartedAt, retained.StartedAt);
+        Assert.Equal(prior.CompletedAt, retained.CompletedAt);
+        Assert.Equal(prior.ErrorCode, retained.ErrorCode);
+        Assert.Equal(prior.ErrorSummary?.Value, retained.ErrorSummary?.Value);
+        var validation = Assert.Single(
+            fixture.EvidenceWriter.LastReport!.Validations,
+            item => item.Id == "quality-gate");
+        Assert.Equal(ValidationCheckStatus.Warning, validation.Status);
+        Assert.Equal(prior.ErrorSummary?.Value, validation.Summary);
+    }
+
+    [Theory]
+    [InlineData(ExecutionHandlerOutcome.Failed, false)]
+    [InlineData(ExecutionHandlerOutcome.Succeeded, true)]
+    public async Task ResumeFailsClosedWhenOptionalWarningStatusOrDigestDiverges(
+        ExecutionHandlerOutcome resumedOutcome,
+        bool retainMatchingDigest)
+    {
+        var handler = new ValidatorHandler(ExecutionPhase.Execute, resumedOutcome);
+        var prior = ExecutionEvidence.Create(
+            ExecutionEvidenceKind.Validator,
+            "quality-gate",
+            ExecutionEvidenceStatus.Warning,
+            retainMatchingDigest
+                ? $"sha256:{new string('4', 64)}"
+                : $"sha256:{new string('6', 64)}",
+            DateTimeOffset.UnixEpoch,
+            DateTimeOffset.UnixEpoch.AddMilliseconds(10),
+            "DF-VALID-001",
+            "Validation failed.").Value;
+        var fixture = Fixture.Create(
+            secretFound: false,
+            handler,
+            validatorRequired: false,
+            initialEvidence: [prior]);
+
+        var result = await fixture.Coordinator.CompleteAsync(
+            fixture.Request, fixture.Checkpoint, fixture.Staging, fixture.Package,
+            fixture.Registry, progress: null, CancellationToken.None);
+
+        Assert.Equal(RunStatus.ValidationFailed, result.Run.Status);
+        Assert.Equal("DF-VALID-002", Assert.Single(result.Run.Errors).Code);
+        Assert.DoesNotContain("secret.scan", fixture.Events);
+        Assert.DoesNotContain("finalizer.run", fixture.Events);
+        var retained = Assert.Single(result.Evidence);
+        Assert.Equal(prior.OutputDigest, retained.OutputDigest);
+        Assert.Equal(prior.StartedAt, retained.StartedAt);
+    }
+
+    [Fact]
+    public async Task ResumeRerunsSecretScanAndBlocksASecretFindingDespitePriorPass()
+    {
+        var prior = ExecutionEvidence.Create(
+            ExecutionEvidenceKind.SecretScan,
+            "secret-scan",
+            ExecutionEvidenceStatus.Passed,
+            "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            DateTimeOffset.UnixEpoch,
+            DateTimeOffset.UnixEpoch.AddMilliseconds(1),
+            null,
+            null).Value;
+        var fixture = Fixture.Create(secretFound: true, initialEvidence: [prior]);
+
+        var result = await fixture.Coordinator.CompleteAsync(
+            fixture.Request, fixture.Checkpoint, fixture.Staging, fixture.Package,
+            fixture.Registry, progress: null, CancellationToken.None);
+
+        Assert.Equal(RunStatus.ValidationFailed, result.Run.Status);
+        Assert.Equal("DF-SECRET-001", Assert.Single(result.Run.Errors).Code);
+        Assert.Contains("secret.scan", fixture.Events);
+        Assert.DoesNotContain("finalizer.run", fixture.Events);
+    }
+
+    [Fact]
+    public async Task ResumeFailsClosedWhenPassedSecretScanDigestDiverges()
+    {
+        var prior = ExecutionEvidence.Create(
+            ExecutionEvidenceKind.SecretScan,
+            "secret-scan",
+            ExecutionEvidenceStatus.Passed,
+            $"sha256:{new string('6', 64)}",
+            DateTimeOffset.UnixEpoch,
+            DateTimeOffset.UnixEpoch.AddMilliseconds(1),
+            null,
+            null).Value;
+        var fixture = Fixture.Create(secretFound: false, initialEvidence: [prior]);
+
+        var result = await fixture.Coordinator.CompleteAsync(
+            fixture.Request, fixture.Checkpoint, fixture.Staging, fixture.Package,
+            fixture.Registry, progress: null, CancellationToken.None);
+
+        Assert.Equal(RunStatus.ValidationFailed, result.Run.Status);
+        Assert.Equal("DF-SECRET-002", Assert.Single(result.Run.Errors).Code);
+        Assert.Equal(prior, Assert.Single(result.Evidence));
+        Assert.Contains("secret.scan", fixture.Events);
+        Assert.DoesNotContain("finalizer.run", fixture.Events);
+    }
+
+    [Fact]
+    public async Task ManualRetryDoesNotReuseFailedRequiredValidatorEvidence()
+    {
+        var validator = new ValidatorHandler(ExecutionPhase.Execute, ExecutionHandlerOutcome.Succeeded);
+        var failedEvidence = ExecutionEvidence.Create(
+            ExecutionEvidenceKind.Validator,
+            "quality-gate",
+            ExecutionEvidenceStatus.Failed,
+            $"sha256:{new string('4', 64)}",
+            DateTimeOffset.UnixEpoch,
+            DateTimeOffset.UnixEpoch.AddMilliseconds(1),
+            "DF-VALID-001",
+            "Validation failed.").Value;
+        var fixture = Fixture.Create(
+            secretFound: false,
+            validator,
+            initialEvidence: [failedEvidence],
+            mode: ExecutionMode.ManualRetry);
+
+        var result = await fixture.Coordinator.CompleteAsync(
+            fixture.Request,
+            fixture.Checkpoint,
+            fixture.Staging,
+            fixture.Package,
+            fixture.Registry,
+            progress: null,
+            CancellationToken.None);
+
+        Assert.Equal(RunStatus.LocalReady, result.Run.Status);
+        Assert.Equal(
+            [ExecutionPhase.Prepare, ExecutionPhase.Precondition, ExecutionPhase.Execute, ExecutionPhase.Postcondition],
+            validator.Phases);
+        Assert.Equal(
+            ExecutionEvidenceStatus.Passed,
+            Assert.Single(result.Evidence, item => item.Kind == ExecutionEvidenceKind.Validator).Status);
+    }
+
+    [Fact]
     public async Task ReportFailureRetainsStagingAndBlocksFinalization()
     {
         var fixture = Fixture.Create(secretFound: false, reportFails: true);
@@ -225,6 +489,71 @@ public sealed class ValidatedRunCompletionCoordinatorTests
         Assert.Equal("checkpoint.save", fixture.Events[^1]);
     }
 
+    [Fact]
+    public async Task CompletionUsesOnlyReviewedArtifactsWithoutEnumeratingPayload()
+    {
+        var fixture = Fixture.Create(secretFound: false, rejectPayloadEnumeration: true);
+
+        var result = await fixture.Coordinator.CompleteAsync(
+            fixture.Request, fixture.Checkpoint, fixture.Staging, fixture.Package,
+            fixture.Registry, progress: null, CancellationToken.None);
+
+        Assert.Equal(RunStatus.LocalReady, result.Run.Status);
+        Assert.Equal(0, fixture.Payload.EnumerationCount);
+        Assert.Equal(
+            "src\\App.csproj",
+            Assert.Single(fixture.EvidenceWriter.LastReport!.GeneratedArtifacts));
+    }
+
+    [Fact]
+    public async Task ResumeUsesPersistedPreviewWhenRequestPreviewHasChangedToolDetectionAndWarnings()
+    {
+        var fixture = Fixture.Create(secretFound: false, changedRequestPreview: true);
+
+        var result = await fixture.Coordinator.CompleteAsync(
+            fixture.Request, fixture.Checkpoint, fixture.Staging, fixture.Package,
+            fixture.Registry, progress: null, CancellationToken.None);
+
+        Assert.Equal(RunStatus.LocalReady, result.Run.Status);
+        var report = Assert.IsType<GenerationReport>(fixture.EvidenceWriter.LastReport);
+        var tool = Assert.Single(report.ToolStatuses);
+        Assert.Equal("persisted-tool", tool.Id);
+        Assert.Equal("1.0.0", tool.DetectedVersion);
+        var warning = Assert.Single(report.Warnings);
+        Assert.Equal("persisted.warning", warning.Code);
+        Assert.Equal("Persisted warning.", warning.Message.Value);
+    }
+
+    [Fact]
+    public async Task MissingReviewedArtifactFailsClosedBeforeEvidenceAndFinalization()
+    {
+        var fixture = Fixture.Create(secretFound: false, missingReviewedArtifact: true);
+
+        var result = await fixture.Coordinator.CompleteAsync(
+            fixture.Request, fixture.Checkpoint, fixture.Staging, fixture.Package,
+            fixture.Registry, progress: null, CancellationToken.None);
+
+        Assert.Equal(RunStatus.Failed, result.Run.Status);
+        Assert.Equal("DF-EVIDENCE-001", Assert.Single(result.Run.Errors).Code);
+        Assert.DoesNotContain("evidence.write", fixture.Events);
+        Assert.DoesNotContain("finalizer.run", fixture.Events);
+    }
+
+    [Fact]
+    public async Task DirectoryAtReviewedArtifactPathFailsClosedBeforeEvidenceAndFinalization()
+    {
+        var fixture = Fixture.Create(secretFound: false, directoryOnlyReviewedArtifact: true);
+
+        var result = await fixture.Coordinator.CompleteAsync(
+            fixture.Request, fixture.Checkpoint, fixture.Staging, fixture.Package,
+            fixture.Registry, progress: null, CancellationToken.None);
+
+        Assert.Equal(RunStatus.Failed, result.Run.Status);
+        Assert.Equal("DF-EVIDENCE-001", Assert.Single(result.Run.Errors).Code);
+        Assert.DoesNotContain("evidence.write", fixture.Events);
+        Assert.DoesNotContain("finalizer.run", fixture.Events);
+    }
+
     private sealed class Fixture
     {
         private Fixture(
@@ -235,6 +564,8 @@ public sealed class ValidatedRunCompletionCoordinatorTests
             IExecutionHandlerRegistry registry,
             ValidatedRunCompletionCoordinator coordinator,
             Store store,
+            EvidenceWriter evidenceWriter,
+            StubWorkspace payload,
             List<string> events)
         {
             Request = request;
@@ -244,6 +575,8 @@ public sealed class ValidatedRunCompletionCoordinatorTests
             Registry = registry;
             Coordinator = coordinator;
             Store = store;
+            EvidenceWriter = evidenceWriter;
+            Payload = payload;
             Events = events;
         }
 
@@ -254,6 +587,8 @@ public sealed class ValidatedRunCompletionCoordinatorTests
         public IExecutionHandlerRegistry Registry { get; }
         public ValidatedRunCompletionCoordinator Coordinator { get; }
         public Store Store { get; }
+        public EvidenceWriter EvidenceWriter { get; }
+        public StubWorkspace Payload { get; }
         public List<string> Events { get; }
 
         public static Fixture Create(
@@ -263,12 +598,25 @@ public sealed class ValidatedRunCompletionCoordinatorTests
             bool reportFails = false,
             bool finalizerFails = false,
             CancellationTokenSource? cancelAfterFinalize = null,
-            bool scannerThrows = false)
+            bool scannerThrows = false,
+            IEnumerable<ExecutionEvidence>? initialEvidence = null,
+            ExecutionMode mode = ExecutionMode.Resume,
+            bool rejectPayloadEnumeration = false,
+            bool missingReviewedArtifact = false,
+            bool directoryOnlyReviewedArtifact = false,
+            bool changedRequestPreview = false)
         {
             var events = new List<string>();
             var target = new StubWorkspace("C:\\target");
             var artifacts = new StubWorkspace("C:\\artifacts");
-            var payload = new StubWorkspace("C:\\target\\.devforge-staging\\run\\payload");
+            var reviewedArtifacts = new[] { new BlueprintArtifact("src\\App.csproj") };
+            var payload = new StubWorkspace(
+                "C:\\target\\.devforge-staging\\run\\payload",
+                missingReviewedArtifact || directoryOnlyReviewedArtifact
+                    ? []
+                    : [Path("src\\App.csproj")],
+                rejectPayloadEnumeration,
+                directoryOnlyReviewedArtifact ? [Path("src\\App.csproj")] : []);
             var validators = validatorHandler is null
                 ? []
                 : new[]
@@ -287,17 +635,72 @@ public sealed class ValidatedRunCompletionCoordinatorTests
                 Path("desktop.csharp-wpf-tool\\1.0.0"),
                 BlueprintTrust.BuiltIn,
                 $"sha256:{new string('2', 64)}").Value;
-            var preview = PlanPreview.Create(
-                blueprint, [], [], [], [], [], [], [], [], [],
+            var requiredTools = new[]
+            {
+                new ToolRequirement("persisted-tool", ">=1.0.0", true),
+            };
+            var persistedPreview = PlanPreview.Create(
+                blueprint,
+                [],
+                validators.Select(item => new PlanPreviewValidator(
+                    item.Id,
+                    item.Handler,
+                    item.Timeout,
+                    item.Required)),
+                requiredTools,
+                [new PlanPreviewToolStatus(
+                    "persisted-tool", ">=1.0.0", true, true, true, "1.0.0")],
+                [],
+                reviewedArtifacts,
+                [new ValidationIssue("persisted.warning", "Persisted warning.", "preview")],
+                [], [],
                 GitOptions.Create().Value,
                 CompletionOptions.Create().Value,
                 plan.Id).Value;
-            var planned = PlannedProject.Create(plan, preview, fingerprint).Value;
+            var requestPreview = changedRequestPreview
+                ? PlanPreview.Create(
+                    blueprint,
+                    [],
+                    validators.Select(item => new PlanPreviewValidator(
+                        item.Id, item.Handler, item.Timeout, item.Required)),
+                    requiredTools,
+                    [new PlanPreviewToolStatus(
+                        "persisted-tool", ">=1.0.0", true, true, true, "9.9.9")],
+                    [],
+                    reviewedArtifacts,
+                    [new ValidationIssue("request.warning", "Changed request warning.", "preview")],
+                    [], [],
+                    GitOptions.Create().Value,
+                    CompletionOptions.Create().Value,
+                    plan.Id).Value
+                : persistedPreview;
+            var planned = PlannedProject.Create(plan, requestPreview, fingerprint).Value;
             var run = ProjectRun.Create("run", "recipe").Value
                 .TransitionTo(RunStatus.Planning).Value
                 .TransitionTo(RunStatus.Executing).Value;
+            if (mode == ExecutionMode.ManualRetry)
+            {
+                var retryableError = DevForgeError.Create(
+                    "DF-VALID-001",
+                    "Validation failed.",
+                    RedactedText.FromTrustedRedaction("Validation failed safely.").Value,
+                    "execute",
+                    "generation",
+                    true,
+                    [],
+                    []).Value;
+                run = run.StartAttempt("generation", DateTimeOffset.UnixEpoch).Value
+                    .CompleteAttempt(
+                        "generation",
+                        1,
+                        StepAttemptOutcome.Failed,
+                        DateTimeOffset.UnixEpoch.AddSeconds(1),
+                        null,
+                        retryableError,
+                        null).Value;
+            }
             var request = ExecutionRequest.Create(
-                planned, run, target, Path("project"), artifacts, ExecutionMode.Resume).Value;
+                planned, run, target, Path("project"), artifacts, mode).Value;
             var descriptor = StagingDescriptor.Create(
                 Path(".devforge-staging\\run"),
                 Path(".devforge-staging\\run\\payload"),
@@ -307,27 +710,31 @@ public sealed class ValidatedRunCompletionCoordinatorTests
             var checkpoint = RunCheckpoint.Create(
                 run,
                 plan,
+                persistedPreview,
                 blueprint,
                 fingerprint,
                 descriptor,
                 TargetDescriptor.Create(target.Root, Path("project"), null).Value,
                 RunArtifactDescriptor.Create(artifacts.Root).Value,
-                [],
+                initialEvidence ?? [],
                 FinalizationState.NotStarted,
                 ReportPersistenceState.NotStarted).Value;
             var manifest = BlueprintManifest.Create(
                 new BlueprintManifestDraft(
-                    blueprint.Id, blueprint.Version, ">=1.0.0 <2.0.0", [], [], [], [], []),
+                    blueprint.Id, blueprint.Version, ">=1.0.0 <2.0.0", [], [], [], [], [],
+                    Artifacts: reviewedArtifacts),
                 new BlueprintTrustAssignment(BlueprintTrust.BuiltIn)).Value;
             var resolved = ResolvedBlueprint.Create(manifest, [], fingerprint).Value;
             var package = BlueprintExecutionPackage.Create(
                 resolved,
                 new StubWorkspace("C:\\blueprint")).Value;
             var store = new Store(events);
+            var evidenceWriter = new EvidenceWriter(events);
             var coordinator = new ValidatedRunCompletionCoordinator(
                 store,
                 new Scanner(events, secretFound, scannerThrows),
                 new Finalizer(events, checkpoint.Target, finalizerFails, cancelAfterFinalize),
+                evidenceWriter,
                 new Writer(events, reportFails),
                 TimeProvider.System);
             return new Fixture(
@@ -340,6 +747,8 @@ public sealed class ValidatedRunCompletionCoordinatorTests
                     : new SingleHandlerRegistry(validatorHandler),
                 coordinator,
                 store,
+                evidenceWriter,
+                payload,
                 events);
         }
     }
@@ -453,6 +862,30 @@ public sealed class ValidatedRunCompletionCoordinatorTests
         }
     }
 
+    private sealed class EvidenceWriter(List<string> events) : IProjectEvidenceWriter
+    {
+        public GenerationReport? LastReport { get; private set; }
+
+        public Task<ExecutionOperationResult<ProjectEvidenceWriteReceipt>> WriteAsync(
+            RunCheckpoint checkpoint,
+            GenerationReport report,
+            IWorkspaceFileSystem payloadWorkspace,
+            CancellationToken cancellationToken)
+        {
+            events.Add("evidence.write");
+            LastReport = report;
+            return Task.FromResult(ExecutionOperationResult.Success(
+                ProjectEvidenceWriteReceipt.Create(
+                [
+                    Path(@".devforge\project.recipe.yaml"),
+                    Path("devforge.lock.json"),
+                    Path("generation-report.json"),
+                    Path("policy.snapshot.json"),
+                ],
+                Enumerable.Repeat($"sha256:{new string('1', 64)}", 4)).Value));
+        }
+    }
+
     private sealed class StagingManager(List<string> events) : IStagingWorkspaceManager
     {
         public Task<ExecutionOperationResult<StagingCleanupReceipt>> CleanupFinalizedAsync(
@@ -547,14 +980,31 @@ public sealed class ValidatedRunCompletionCoordinatorTests
         }
     }
 
-    private sealed class StubWorkspace(string root) : IWorkspaceFileSystem
+    private sealed class StubWorkspace(
+        string root,
+        IEnumerable<WorkspaceRelativePath>? existingFiles = null,
+        bool rejectEnumeration = false,
+        IEnumerable<WorkspaceRelativePath>? existingDirectories = null) : IWorkspaceFileSystem
     {
+        private readonly HashSet<WorkspaceRelativePath> _existingFiles =
+            [.. existingFiles ?? []];
+        private readonly HashSet<WorkspaceRelativePath> _existingDirectories =
+            [.. existingDirectories ?? []];
+
         public WorkspaceRoot Root { get; } = WorkspaceRoot.Create(root).Value;
+        public int EnumerationCount { get; private set; }
         public Task<System.Collections.Immutable.ImmutableArray<WorkspaceRelativePath>> EnumerateAllFilesAsync(
-            CancellationToken cancellationToken) => Task.FromResult(
-                System.Collections.Immutable.ImmutableArray.Create(Path("src\\App.csproj")));
-        public Task<bool> FileExistsAsync(WorkspaceRelativePath path, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<bool> DirectoryExistsAsync(WorkspaceRelativePath path, CancellationToken cancellationToken) => throw new NotSupportedException();
+            CancellationToken cancellationToken)
+        {
+            EnumerationCount++;
+            return rejectEnumeration
+                ? throw new InvalidOperationException("Payload enumeration is forbidden by the test.")
+                : Task.FromResult(_existingFiles.ToImmutableArray());
+        }
+        public Task<bool> FileExistsAsync(WorkspaceRelativePath path, CancellationToken cancellationToken) =>
+            Task.FromResult(_existingFiles.Contains(path));
+        public Task<bool> DirectoryExistsAsync(WorkspaceRelativePath path, CancellationToken cancellationToken) =>
+            Task.FromResult(_existingDirectories.Contains(path));
         public Task CreateDirectoryAsync(WorkspaceRelativePath path, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<Stream> OpenReadAsync(WorkspaceRelativePath path, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<Stream> OpenWriteAsync(WorkspaceRelativePath path, bool overwrite, CancellationToken cancellationToken) => throw new NotSupportedException();
@@ -567,4 +1017,7 @@ public sealed class ValidatedRunCompletionCoordinatorTests
     }
 
     private static WorkspaceRelativePath Path(string value) => WorkspaceRelativePath.Create(value).Value;
+
+    private static string Digest(string value) =>
+        $"sha256:{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)))}";
 }

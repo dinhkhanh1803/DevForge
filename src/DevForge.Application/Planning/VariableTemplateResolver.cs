@@ -374,6 +374,7 @@ internal static class PlanningVariableIdentifierPolicy
             "project.target-path",
             "blueprint.id",
             "blueprint.version",
+            "engine.version",
             "team.company-name",
             "team.root-namespace",
             "team.package-manager",

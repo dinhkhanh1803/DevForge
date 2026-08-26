@@ -4,7 +4,10 @@ using System.Text;
 using System.Text.Json;
 using DevForge.Application.Contracts;
 using DevForge.Blueprints.Abstractions.Models;
+using DevForge.Domain.Diagnostics;
 using DevForge.Domain.Execution;
+using DevForge.Domain.Privacy;
+using DevForge.Domain.Projects;
 using DevForge.Domain.Reports;
 using DevForge.Domain.Runs;
 using DevForge.Infrastructure.Execution;
@@ -14,6 +17,499 @@ namespace DevForge.IntegrationTests.Infrastructure.Execution;
 
 public sealed class CanonicalGenerationReportWriterTests
 {
+    private static readonly WorkspaceRelativePath[] _evidencePaths =
+    [
+        Path(".devforge\\project.recipe.yaml"),
+        Path("devforge.lock.json"),
+        Path("generation-report.json"),
+        Path("policy.snapshot.json"),
+    ];
+
+    [Fact]
+    public void ProjectEvidenceReceiptRequiresCanonicalPathOrderAndDigestCount()
+    {
+        var digests = Enumerable.Range(1, 4)
+            .Select(index => $"sha256:{new string((char)('0' + index), 64)}")
+            .ToArray();
+
+        Assert.False(ProjectEvidenceWriteReceipt.Create(_evidencePaths.Reverse(), digests).IsValid);
+        Assert.False(ProjectEvidenceWriteReceipt.Create(_evidencePaths, digests.Take(3)).IsValid);
+        Assert.True(ProjectEvidenceWriteReceipt.Create(_evidencePaths, digests).IsValid);
+    }
+
+    [Fact]
+    public async Task ProjectEvidenceRetryAdoptsMatchingCanonicalFileAndCompletesMissingFiles()
+    {
+        var rootPath = TestRoot();
+        Directory.CreateDirectory(rootPath);
+        try
+        {
+            var workspace = await new WindowsFileSystem().OpenWorkspaceAsync(
+                WorkspaceRoot.Create(rootPath).Value,
+                CancellationToken.None);
+            var checkpoint = Checkpoint(workspace.Root);
+            var report = EvidenceReport(checkpoint);
+            var writer = new CanonicalProjectEvidenceWriter();
+
+            var first = await writer.WriteAsync(checkpoint, report, workspace, CancellationToken.None);
+            Assert.True(first.IsSuccessful);
+            var canonical = await Task.WhenAll(_evidencePaths.Select(path => ReadAsync(workspace, path)));
+            for (var retainedCount = 0; retainedCount <= _evidencePaths.Length; retainedCount++)
+            {
+                foreach (var path in _evidencePaths)
+                {
+                    File.Delete(System.IO.Path.Combine(rootPath, path.Value));
+                }
+
+                for (var index = 0; index < retainedCount; index++)
+                {
+                    var path = _evidencePaths[index];
+                    var separator = path.Value.LastIndexOf('\\');
+                    if (separator > 0)
+                    {
+                        var directory = Path(path.Value[..separator]);
+                        if (!await workspace.DirectoryExistsAsync(directory, CancellationToken.None))
+                        {
+                            await workspace.CreateDirectoryAsync(directory, CancellationToken.None);
+                        }
+                    }
+
+                    await using var output = await workspace.OpenWriteAsync(
+                        path,
+                        overwrite: false,
+                        CancellationToken.None);
+                    await output.WriteAsync(Encoding.UTF8.GetBytes(canonical[index]), CancellationToken.None);
+                }
+
+                var retry = await writer.WriteAsync(checkpoint, report, workspace, CancellationToken.None);
+
+                Assert.True(retry.IsSuccessful);
+                var recovered = await Task.WhenAll(_evidencePaths.Select(path => ReadAsync(workspace, path)));
+                Assert.Equal(canonical, recovered);
+            }
+        }
+        finally
+        {
+            Directory.Delete(rootPath, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task LegacyCheckpointWithoutEngineVersionWritesDeterministicNotRecordedProvenance()
+    {
+        var rootPath = TestRoot();
+        Directory.CreateDirectory(rootPath);
+        try
+        {
+            var workspace = await new WindowsFileSystem().OpenWorkspaceAsync(
+                WorkspaceRoot.Create(rootPath).Value,
+                CancellationToken.None);
+            var checkpoint = Checkpoint(workspace.Root, includeEngineVersion: false);
+            var report = EvidenceReport(checkpoint);
+            var writer = new CanonicalProjectEvidenceWriter();
+
+            var first = await writer.WriteAsync(checkpoint, report, workspace, CancellationToken.None);
+            Assert.True(first.IsSuccessful, first.Error?.Summary);
+            var firstBytes = await ReadAsync(workspace, Path("generation-report.json"));
+            var retry = await writer.WriteAsync(checkpoint, report, workspace, CancellationToken.None);
+            var retryBytes = await ReadAsync(workspace, Path("generation-report.json"));
+
+            Assert.True(retry.IsSuccessful);
+            Assert.Equal(firstBytes, retryBytes);
+            using var document = JsonDocument.Parse(firstBytes);
+            Assert.Equal(JsonValueKind.Null, document.RootElement.GetProperty("engineVersion").ValueKind);
+            Assert.Equal(
+                "not-recorded",
+                document.RootElement.GetProperty("engineVersionStatus").GetString());
+            using var legacyLock = JsonDocument.Parse(
+                await ReadAsync(workspace, Path("devforge.lock.json")));
+            Assert.Equal(JsonValueKind.Null, legacyLock.RootElement.GetProperty("engineVersion").ValueKind);
+            Assert.Equal(
+                "not-recorded",
+                legacyLock.RootElement.GetProperty("engineVersionStatus").GetString());
+        }
+        finally
+        {
+            Directory.Delete(rootPath, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ProjectEvidenceRejectsSecretShapedBytesBeforePersistingAnyFile()
+    {
+        var rootPath = TestRoot();
+        Directory.CreateDirectory(rootPath);
+        try
+        {
+            var workspace = await new WindowsFileSystem().OpenWorkspaceAsync(
+                WorkspaceRoot.Create(rootPath).Value,
+                CancellationToken.None);
+            var checkpoint = Checkpoint(workspace.Root);
+            var report = GenerationReport.Create(
+                checkpoint.Run.Id,
+                DateTimeOffset.UnixEpoch,
+                [],
+                [],
+                ["github_pat_abcdefghijklmnopqrstuvwxyz"]).Value;
+
+            var result = await new CanonicalProjectEvidenceWriter().WriteAsync(
+                checkpoint,
+                report,
+                workspace,
+                CancellationToken.None);
+
+            Assert.False(result.IsSuccessful);
+            foreach (var path in _evidencePaths)
+            {
+                Assert.False(await workspace.FileExistsAsync(path, CancellationToken.None));
+            }
+        }
+        finally
+        {
+            Directory.Delete(rootPath, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ProjectEvidenceRejectsMismatchedExistingBytesWithoutWritingMissingFiles()
+    {
+        var rootPath = TestRoot();
+        Directory.CreateDirectory(rootPath);
+        try
+        {
+            var workspace = await new WindowsFileSystem().OpenWorkspaceAsync(
+                WorkspaceRoot.Create(rootPath).Value,
+                CancellationToken.None);
+            await using (var output = await workspace.OpenWriteAsync(
+                Path("devforge.lock.json"),
+                overwrite: false,
+                CancellationToken.None))
+            {
+                await output.WriteAsync("tampered"u8.ToArray(), CancellationToken.None);
+            }
+
+            var checkpoint = Checkpoint(workspace.Root);
+            var result = await new CanonicalProjectEvidenceWriter().WriteAsync(
+                checkpoint,
+                EvidenceReport(checkpoint),
+                workspace,
+                CancellationToken.None);
+
+            Assert.False(result.IsSuccessful);
+            Assert.Equal("tampered", await ReadAsync(workspace, Path("devforge.lock.json")));
+            foreach (var path in _evidencePaths.Where(path => path.Value != "devforge.lock.json"))
+            {
+                Assert.False(await workspace.FileExistsAsync(path, CancellationToken.None));
+            }
+        }
+        finally
+        {
+            Directory.Delete(rootPath, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task TargetGenerationReportIncludesVersionStepsArtifactsAndIntegrityEvidence()
+    {
+        var rootPath = TestRoot();
+        Directory.CreateDirectory(rootPath);
+        try
+        {
+            var workspace = await new WindowsFileSystem().OpenWorkspaceAsync(
+                WorkspaceRoot.Create(rootPath).Value,
+                CancellationToken.None);
+            var checkpoint = Checkpoint(workspace.Root);
+
+            var result = await new CanonicalProjectEvidenceWriter().WriteAsync(
+                checkpoint,
+                EvidenceReport(checkpoint),
+                workspace,
+                CancellationToken.None);
+
+            Assert.True(result.IsSuccessful);
+            var json = await ReadAsync(workspace, Path("generation-report.json"));
+            using var projectDocument = JsonDocument.Parse(json);
+            Assert.Equal(
+                "devforge-project-generation-report-v1",
+                projectDocument.RootElement.GetProperty("schema").GetString());
+            Assert.Equal(
+                "validated-pre-finalization",
+                projectDocument.RootElement.GetProperty("capturePhase").GetString());
+            Assert.Equal("1.0.0", projectDocument.RootElement.GetProperty("engineVersion").GetString());
+            Assert.Equal(JsonValueKind.Array, projectDocument.RootElement.GetProperty("warnings").ValueKind);
+            Assert.Equal(JsonValueKind.Array, projectDocument.RootElement.GetProperty("errors").ValueKind);
+            Assert.Contains("\"toolStatuses\"", json, StringComparison.Ordinal);
+            Assert.Contains("\"stepResults\"", json, StringComparison.Ordinal);
+            Assert.Contains("\"artifactSummary\"", json, StringComparison.Ordinal);
+            var lockJson = await ReadAsync(workspace, Path("devforge.lock.json"));
+            Assert.Contains("\"evidenceDigests\"", lockJson, StringComparison.Ordinal);
+            using var lockDocument = JsonDocument.Parse(lockJson);
+            Assert.Equal("1.0.0", lockDocument.RootElement.GetProperty("engineVersion").GetString());
+            Assert.Equal(
+                "recorded",
+                lockDocument.RootElement.GetProperty("engineVersionStatus").GetString());
+            Assert.Equal(4, result.Value.Paths.Length);
+            Assert.Equal(4, result.Value.Digests.Length);
+
+            var runResult = await new CanonicalGenerationReportWriter().WriteAsync(
+                checkpoint,
+                EvidenceReport(checkpoint),
+                workspace,
+                CancellationToken.None);
+            Assert.True(runResult.IsSuccessful);
+            using var runDocument = JsonDocument.Parse(
+                await ReadAsync(workspace, runResult.Value.JsonReport));
+            Assert.Equal(
+                "devforge-generation-report-v1",
+                runDocument.RootElement.GetProperty("schema").GetString());
+            Assert.NotEqual(
+                runDocument.RootElement.GetProperty("schema").GetString(),
+                projectDocument.RootElement.GetProperty("schema").GetString());
+        }
+        finally
+        {
+            Directory.Delete(rootPath, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ProjectReportCapturesImmutablePreFinalizationBoundaryAcrossCheckpointPhases()
+    {
+        var rootPath = TestRoot();
+        Directory.CreateDirectory(rootPath);
+        try
+        {
+            var fileSystem = new WindowsFileSystem();
+            var bundles = new List<string[]>();
+            foreach (var phase in new[]
+            {
+                FinalizationState.NotStarted,
+                FinalizationState.IntentPersisted,
+                FinalizationState.Succeeded,
+            })
+            {
+                var phaseRoot = System.IO.Path.Combine(rootPath, phase.ToString());
+                Directory.CreateDirectory(phaseRoot);
+                var workspace = await fileSystem.OpenWorkspaceAsync(
+                    WorkspaceRoot.Create(phaseRoot).Value,
+                    CancellationToken.None);
+                var checkpoint = Checkpoint(workspace.Root, phase);
+
+                var result = await new CanonicalProjectEvidenceWriter().WriteAsync(
+                    checkpoint,
+                    EvidenceReport(checkpoint),
+                    workspace,
+                    CancellationToken.None);
+
+                Assert.True(result.IsSuccessful, result.Error?.Summary);
+                bundles.Add(await Task.WhenAll(
+                    _evidencePaths.Select(path => ReadAsync(workspace, path))));
+            }
+
+            Assert.All(bundles, bundle =>
+            {
+                var report = bundle[2];
+                using var document = JsonDocument.Parse(report);
+                Assert.Equal(
+                    "validated-pre-finalization",
+                    document.RootElement.GetProperty("capturePhase").GetString());
+                Assert.False(document.RootElement.TryGetProperty("checkpoint", out _));
+            });
+            Assert.All(bundles.Skip(1), bundle => Assert.Equal(bundles[0], bundle));
+        }
+        finally
+        {
+            Directory.Delete(rootPath, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ProjectRecipeEvidenceIncludesExactReviewedGitAndTeamIntent()
+    {
+        var rootPath = TestRoot();
+        Directory.CreateDirectory(rootPath);
+        try
+        {
+            var workspace = await new WindowsFileSystem().OpenWorkspaceAsync(
+                WorkspaceRoot.Create(rootPath).Value,
+                CancellationToken.None);
+            var git = GitOptions.Create(
+                initializeRepository: true,
+                useDevelopBranch: true,
+                publishToGitHub: true,
+                isPrivate: true,
+                githubAccount: "octocat",
+                githubRepository: "team-tool").Value;
+            var checkpoint = Checkpoint(
+                workspace.Root,
+                git: git,
+                teamProfileId: "platform-team",
+                teamProfileName: "Platform Team",
+                teamStandardsJson: "{\"company-name\":\"Acme\",\"root-namespace\":\"Acme.Tools\"}");
+
+            var result = await new CanonicalProjectEvidenceWriter().WriteAsync(
+                checkpoint,
+                EvidenceReport(checkpoint),
+                workspace,
+                CancellationToken.None);
+
+            Assert.True(result.IsSuccessful);
+            var recipe = await ReadAsync(workspace, Path(".devforge\\project.recipe.yaml"));
+            Assert.Contains("projectName: \"project\"", recipe, StringComparison.Ordinal);
+            Assert.Contains("projectNameStatus: recorded", recipe, StringComparison.Ordinal);
+            Assert.Contains("  initializeRepository: true", recipe, StringComparison.Ordinal);
+            Assert.Contains("  primaryBranch: \"main\"", recipe, StringComparison.Ordinal);
+            Assert.Contains("  useDevelopBranch: true", recipe, StringComparison.Ordinal);
+            Assert.Contains("  publishToGitHub: true", recipe, StringComparison.Ordinal);
+            Assert.Contains("  isPrivate: true", recipe, StringComparison.Ordinal);
+            Assert.Contains("  githubAccount: \"octocat\"", recipe, StringComparison.Ordinal);
+            Assert.Contains("  githubRepository: \"team-tool\"", recipe, StringComparison.Ordinal);
+            Assert.Contains("team:\n  id: \"platform-team\"", recipe.Replace("\r\n", "\n"), StringComparison.Ordinal);
+            Assert.Contains("teamSnapshotStatus: recorded", recipe, StringComparison.Ordinal);
+            Assert.Contains("  name: \"Platform Team\"", recipe, StringComparison.Ordinal);
+            Assert.Contains("    \"company-name\": \"Acme\"", recipe, StringComparison.Ordinal);
+            Assert.Contains("    \"root-namespace\": \"Acme.Tools\"", recipe, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(rootPath, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData(true, "recorded", "none")]
+    [InlineData(false, "not-recorded", "not-recorded")]
+    public async Task ProjectRecipeDistinguishesNewNoTeamFromMissingLegacyContext(
+        bool includeProjectContext,
+        string expectedProjectStatus,
+        string expectedTeamStatus)
+    {
+        var rootPath = TestRoot();
+        Directory.CreateDirectory(rootPath);
+        try
+        {
+            var workspace = await new WindowsFileSystem().OpenWorkspaceAsync(
+                WorkspaceRoot.Create(rootPath).Value,
+                CancellationToken.None);
+            var checkpoint = Checkpoint(
+                workspace.Root,
+                includeProjectName: includeProjectContext,
+                includeTeamSnapshotStatus: includeProjectContext);
+
+            var result = await new CanonicalProjectEvidenceWriter().WriteAsync(
+                checkpoint,
+                EvidenceReport(checkpoint),
+                workspace,
+                CancellationToken.None);
+
+            Assert.True(result.IsSuccessful);
+            var recipe = await ReadAsync(workspace, Path(".devforge\\project.recipe.yaml"));
+            Assert.Contains($"projectNameStatus: {expectedProjectStatus}", recipe, StringComparison.Ordinal);
+            Assert.Contains($"teamSnapshotStatus: {expectedTeamStatus}", recipe, StringComparison.Ordinal);
+            Assert.Contains("team: null", recipe, StringComparison.Ordinal);
+            Assert.Contains(
+                includeProjectContext ? "projectName: \"project\"" : "projectName: null",
+                recipe,
+                StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(rootPath, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task TargetReportPersistsExactStepValidationAndCheckpointResultsWithoutTimestamps()
+    {
+        var rootPath = TestRoot();
+        Directory.CreateDirectory(rootPath);
+        try
+        {
+            var workspace = await new WindowsFileSystem().OpenWorkspaceAsync(
+                WorkspaceRoot.Create(rootPath).Value,
+                CancellationToken.None);
+            var step = ExecutionStep.Create(
+                "build", "Build", "run-process", [], TimeSpan.FromMinutes(1), RetryPolicy.None).Value;
+            var validator = ExecutionValidator.Create(
+                "quality", "validate-command", [], TimeSpan.FromMinutes(1), required: false).Value;
+            var stepError = SafeError("DF-EXEC-001", "Build failed.", "private diagnostic omitted");
+            var validationError = SafeError(
+                "DF-VAL-001", "Optional quality check failed.", "private diagnostic omitted");
+            var startedAt = new DateTimeOffset(2026, 8, 26, 10, 0, 0, TimeSpan.Zero);
+            var run = ProjectRun.Create("run-report", "recipe-1").Value
+                .TransitionTo(RunStatus.Planning).Value
+                .TransitionTo(RunStatus.Executing).Value
+                .StartAttempt("build", startedAt).Value
+                .CompleteAttempt(
+                    "build", 1, StepAttemptOutcome.Failed, startedAt.AddMilliseconds(1250),
+                    1, stepError, $"sha256:{new string('4', 64)}").Value;
+            var evidence = new[]
+            {
+                ExecutionEvidence.Create(
+                    ExecutionEvidenceKind.Step,
+                    "build",
+                    ExecutionEvidenceStatus.Failed,
+                    $"sha256:{new string('4', 64)}",
+                    startedAt,
+                    startedAt.AddMilliseconds(1250),
+                    stepError.Code,
+                    stepError.Summary).Value,
+                ExecutionEvidence.Create(
+                    ExecutionEvidenceKind.Validator,
+                    "quality",
+                    ExecutionEvidenceStatus.Warning,
+                    $"sha256:{new string('5', 64)}",
+                    startedAt.AddSeconds(2),
+                    startedAt.AddMilliseconds(2250),
+                    validationError.Code,
+                    validationError.Summary).Value,
+            };
+            var checkpoint = Checkpoint(
+                workspace.Root,
+                run: run,
+                steps: [step],
+                validators: [validator],
+                evidence: evidence);
+            var report = GenerationReport.Create(
+                run.Id,
+                DateTimeOffset.UnixEpoch,
+                [new ValidationCheck("quality", ValidationCheckStatus.Warning, validationError.Summary, null)],
+                [],
+                ["src\\App.csproj"]).Value;
+
+            var result = await new CanonicalProjectEvidenceWriter().WriteAsync(
+                checkpoint, report, workspace, CancellationToken.None);
+
+            Assert.True(result.IsSuccessful);
+            using var document = JsonDocument.Parse(
+                await ReadAsync(workspace, Path("generation-report.json")));
+            var root = document.RootElement;
+            Assert.False(root.TryGetProperty("checkpoint", out _));
+            var stepResult = Assert.Single(root.GetProperty("stepResults").EnumerateArray());
+            Assert.Equal(1250, stepResult.GetProperty("durationMilliseconds").GetInt64());
+            Assert.Equal("Failed", stepResult.GetProperty("checkpointStatus").GetString());
+            Assert.Equal("sha256:" + new string('4', 64), stepResult.GetProperty("outputDigest").GetString());
+            Assert.Equal("DF-EXEC-001", stepResult.GetProperty("error").GetProperty("code").GetString());
+            Assert.Equal("Build failed.", stepResult.GetProperty("error").GetProperty("summary").GetString());
+            Assert.DoesNotContain("private diagnostic omitted", root.GetRawText(), StringComparison.Ordinal);
+            Assert.DoesNotContain("2026-08-26", root.GetRawText(), StringComparison.Ordinal);
+            var validation = Assert.Single(root.GetProperty("validations").EnumerateArray());
+            Assert.Equal(250, validation.GetProperty("durationMilliseconds").GetInt64());
+            Assert.Equal("Warning", validation.GetProperty("checkpointStatus").GetString());
+            Assert.Equal("sha256:" + new string('5', 64), validation.GetProperty("outputDigest").GetString());
+            Assert.Equal("advisory", validation.GetProperty("severity").GetString());
+            Assert.False(validation.GetProperty("required").GetBoolean());
+            Assert.Equal("DF-VAL-001", validation.GetProperty("error").GetProperty("code").GetString());
+            Assert.Equal(
+                "Optional quality check failed.",
+                validation.GetProperty("error").GetProperty("summary").GetString());
+        }
+        finally
+        {
+            Directory.Delete(rootPath, recursive: true);
+        }
+    }
+
     [Fact]
     public void CrossVolumeTreeComparerUsesExactOrdinalPathIdentity()
     {
@@ -351,22 +847,80 @@ public sealed class CanonicalGenerationReportWriterTests
 
     private static RunCheckpoint Checkpoint(
         WorkspaceRoot artifactRoot,
-        FinalizationState finalizationState = FinalizationState.NotStarted)
+        FinalizationState finalizationState = FinalizationState.NotStarted,
+        GitOptions? git = null,
+        string? teamProfileId = null,
+        string? teamProfileName = null,
+        string? teamStandardsJson = null,
+        ProjectRun? run = null,
+        IEnumerable<ExecutionStep?>? steps = null,
+        IEnumerable<ExecutionValidator?>? validators = null,
+        IEnumerable<ExecutionEvidence?>? evidence = null,
+        bool includeEngineVersion = true,
+        bool includeProjectName = true,
+        bool includeTeamSnapshotStatus = true)
     {
         var hash = $"sha256:{new string('1', 64)}";
-        var run = ProjectRun.Create("run-report", "recipe-1").Value
+        var checkpointRun = run ?? ProjectRun.Create("run-report", "recipe-1").Value
             .TransitionTo(RunStatus.Planning).Value
             .TransitionTo(RunStatus.Executing).Value;
-        var plan = ExecutionPlan.Create(hash, [], []).Value;
+        var context = new List<KeyValuePair<string, string?>>();
+        if (includeProjectName)
+        {
+            context.Add(KeyValuePair.Create<string, string?>("project.name", "project"));
+        }
+        if (includeTeamSnapshotStatus)
+        {
+            context.Add(KeyValuePair.Create<string, string?>("team.snapshot_status", "none"));
+        }
+        if (includeEngineVersion)
+        {
+            context.Add(KeyValuePair.Create<string, string?>("engine.version", "1.0.0"));
+        }
+        if (teamProfileId is not null && teamProfileName is not null && teamStandardsJson is not null)
+        {
+            context.RemoveAll(item => item.Key == "team.snapshot_status");
+            context.Add(KeyValuePair.Create<string, string?>("team.snapshot_status", "recorded"));
+            context.Add(KeyValuePair.Create<string, string?>("team.profile_id", teamProfileId));
+            context.Add(KeyValuePair.Create<string, string?>("team.profile_name", teamProfileName));
+            context.Add(KeyValuePair.Create<string, string?>("team.standards_json", teamStandardsJson));
+        }
+
+        var stepSnapshot = steps?.ToArray() ?? [];
+        var validatorSnapshot = validators?.ToArray() ?? [];
+        var plan = ExecutionPlan.Create(
+            hash,
+            stepSnapshot,
+            validatorSnapshot,
+            context).Value;
         var blueprint = BlueprintReference.Create("desktop.csharp-wpf-tool", "1.0.0").Value;
         var fingerprint = BlueprintFingerprint.Create(
             "built-in",
             Path("desktop.csharp-wpf-tool\\1.0.0"),
             BlueprintTrust.BuiltIn,
             $"sha256:{new string('2', 64)}").Value;
+        var preview = PlanPreview.Create(
+            blueprint,
+            stepSnapshot.Select(item => new PlanPreviewStep(item!.Id, item.Handler, item.Timeout)),
+            validatorSnapshot.Select(item => new PlanPreviewValidator(
+                item!.Id,
+                item.Handler,
+                item.Timeout,
+                item.Required)),
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            git ?? GitOptions.Create().Value,
+            CompletionOptions.Create().Value,
+            hash).Value;
         return RunCheckpoint.Create(
-            run,
+            checkpointRun,
             plan,
+            preview,
             blueprint,
             fingerprint,
             StagingDescriptor.Create(
@@ -376,10 +930,30 @@ public sealed class CanonicalGenerationReportWriterTests
                 "run-report").Value,
             TargetDescriptor.Create(artifactRoot, Path("project"), null).Value,
             RunArtifactDescriptor.Create(artifactRoot).Value,
-            [],
+            evidence ?? [],
             finalizationState,
             ReportPersistenceState.NotStarted).Value;
     }
+
+    private static GenerationReport EvidenceReport(RunCheckpoint checkpoint) => GenerationReport.Create(
+        checkpoint.Run.Id,
+        DateTimeOffset.UnixEpoch,
+        [new ValidationCheck("secret-scan", ValidationCheckStatus.Passed, "No secrets detected.", null)],
+        [new ReportToolStatus("dotnet", true, true, true, "10.0.302")],
+        [],
+        [],
+        ["src\\App.csproj"]).Value;
+
+    private static DevForgeError SafeError(string code, string summary, string detail) =>
+        DevForgeError.Create(
+            code,
+            summary,
+            RedactedText.FromTrustedRedaction(detail).Value,
+            "test",
+            null,
+            true,
+            ["Review the safe failure."],
+            []).Value;
 
     private static async Task<string> ReadAsync(
         IWorkspaceFileSystem workspace,

@@ -600,6 +600,14 @@ public sealed class BlueprintManifest
             return;
         }
 
+        if (artifacts.Length > BlueprintValue.MaximumCollectionItems)
+        {
+            issues.Add(new BlueprintValidationIssue(
+                "blueprint.artifact.count.invalid",
+                "The artifact collection exceeds the bounded item count.",
+                "artifacts"));
+        }
+
         var paths = new HashSet<string>(StringComparer.Ordinal);
         for (var index = 0; index < artifacts.Length; index++)
         {
@@ -614,7 +622,9 @@ public sealed class BlueprintManifest
             }
 
             var normalizedPath = artifact.Path?.Trim();
-            if (string.IsNullOrWhiteSpace(normalizedPath) || normalizedPath.Contains('\0'))
+            if (string.IsNullOrWhiteSpace(normalizedPath)
+                || normalizedPath.Length > BlueprintValue.MaximumTextLength
+                || normalizedPath.Contains('\0'))
             {
                 issues.Add(new BlueprintValidationIssue(
                     "blueprint.artifact.path.invalid",

@@ -124,6 +124,43 @@ public sealed class BlueprintPackageLoaderTests
         Assert.DoesNotContain(fixture.RootPath, issue.Summary, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData("templates/generation-report.json")]
+    [InlineData("overlays/base/devforge.lock.json")]
+    [InlineData("overlays/base/.devforge/project.recipe.yaml")]
+    [InlineData("templates/policy.snapshot.json")]
+    public async Task LoadAllowsHarmlessUnusedPackageFilesWithEvidenceBasenames(string packagePath)
+    {
+        await using var fixture = await PackageFixture.CreateAsync(BlueprintSourceProvenance.BuiltIn);
+        var packageDirectory = await fixture.WriteValidPackageAsync(extraPackageFile: packagePath);
+
+        var result = await new BlueprintPackageLoader().LoadAsync(
+            fixture.Source,
+            packageDirectory,
+            CancellationToken.None);
+
+        Assert.True(result.IsValid);
+    }
+
+    [Theory]
+    [InlineData(".devforge/project.recipe.yaml")]
+    [InlineData("devforge.lock.json")]
+    [InlineData("generation-report.json")]
+    [InlineData("policy.snapshot.json")]
+    public async Task LoadRejectsManifestArtifactThatClaimsEngineOwnedEvidence(string artifactPath)
+    {
+        await using var fixture = await PackageFixture.CreateAsync(BlueprintSourceProvenance.BuiltIn);
+        var packageDirectory = await fixture.WriteValidPackageAsync(artifactPath: artifactPath);
+
+        var result = await new BlueprintPackageLoader().LoadAsync(
+            fixture.Source,
+            packageDirectory,
+            CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Equal("DF-BP-003", Assert.Single(result.Inspection.Issues).Code);
+    }
+
     [Fact]
     public async Task PublicCatalogRefreshesARealGuardedPackageThroughTheProductionLoader()
     {
@@ -187,7 +224,7 @@ public sealed class BlueprintPackageLoaderTests
                   path: __ACTION_PATH__
             validators: []
             artifacts:
-              - path: src
+              - path: __ARTIFACT_PATH__
             dependencies: []
             """;
 
@@ -251,20 +288,29 @@ public sealed class BlueprintPackageLoaderTests
             string actionPath = "src",
             bool includeRules = true,
             bool corruptManifestChecksum = false,
-            string? rules = null)
+            string? rules = null,
+            string? extraPackageFile = null,
+            string artifactPath = "src")
         {
             var package = Relative(directoryName);
             await Workspace.CreateDirectoryAsync(package, CancellationToken.None);
             var files = new Dictionary<string, byte[]>(StringComparer.Ordinal)
             {
                 ["manifest.yaml"] = Encoding.UTF8.GetBytes(
-                    (manifest ?? DefaultManifest).Replace("__ACTION_PATH__", actionPath, StringComparison.Ordinal)),
+                    (manifest ?? DefaultManifest)
+                        .Replace("__ACTION_PATH__", actionPath, StringComparison.Ordinal)
+                        .Replace("__ARTIFACT_PATH__", artifactPath, StringComparison.Ordinal)),
                 ["inputs.schema.json"] = Encoding.UTF8.GetBytes(InputSchema),
                 ["templates/app.txt"] = Encoding.UTF8.GetBytes("{{ project.name }}"),
             };
             if (includeRules)
             {
                 files["rules.yaml"] = Encoding.UTF8.GetBytes(rules ?? Rules);
+            }
+
+            if (extraPackageFile is not null)
+            {
+                files[extraPackageFile] = "forged"u8.ToArray();
             }
 
             foreach (var file in files)

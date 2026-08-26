@@ -1,5 +1,7 @@
 # Team start here
 
+## First-day checklist
+
 1. Read `ARCHITECTURE.md` and preserve the inward dependency direction.
 2. Install the .NET 10 SDK and run the commands in `DEVELOPMENT.md`.
 3. Run every gate in `TESTING.md` before opening a review.

@@ -27,6 +27,10 @@ public sealed record BlueprintFeatureDefinition(string Id, bool DefaultEnabled);
 
 public sealed record BlueprintDependency(string Id, string Version);
 
+/// <summary>
+/// Declares one generated file that must exist at the reviewed workspace-relative path.
+/// Extensionless files are supported; directory-only paths do not satisfy artifact evidence.
+/// </summary>
 public sealed record BlueprintArtifact(string Path);
 
 public sealed record BlueprintActionDefinition(

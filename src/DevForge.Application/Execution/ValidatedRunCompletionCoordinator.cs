@@ -14,6 +14,7 @@ public sealed class ValidatedRunCompletionCoordinator : IRunCompletionCoordinato
     private readonly IRunCheckpointStore _checkpointStore;
     private readonly ISecretScanner _secretScanner;
     private readonly IProjectFinalizer _finalizer;
+    private readonly IProjectEvidenceWriter _projectEvidenceWriter;
     private readonly IGenerationReportWriter _reportWriter;
     private readonly TimeProvider _timeProvider;
 
@@ -21,12 +22,15 @@ public sealed class ValidatedRunCompletionCoordinator : IRunCompletionCoordinato
         IRunCheckpointStore checkpointStore,
         ISecretScanner secretScanner,
         IProjectFinalizer finalizer,
+        IProjectEvidenceWriter projectEvidenceWriter,
         IGenerationReportWriter reportWriter,
         TimeProvider timeProvider)
     {
         _checkpointStore = checkpointStore ?? throw new ArgumentNullException(nameof(checkpointStore));
         _secretScanner = secretScanner ?? throw new ArgumentNullException(nameof(secretScanner));
         _finalizer = finalizer ?? throw new ArgumentNullException(nameof(finalizer));
+        _projectEvidenceWriter = projectEvidenceWriter
+            ?? throw new ArgumentNullException(nameof(projectEvidenceWriter));
         _reportWriter = reportWriter ?? throw new ArgumentNullException(nameof(reportWriter));
         _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
@@ -47,6 +51,13 @@ public sealed class ValidatedRunCompletionCoordinator : IRunCompletionCoordinato
             foreach (var validator in checkpoint.Plan.Validators)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                var reusableEvidence = request.Mode == ExecutionMode.Resume
+                    ? FindReusableEvidence(
+                        checkpoint,
+                        ExecutionEvidenceKind.Validator,
+                        validator.Id,
+                        allowWarning: !validator.Required)
+                    : null;
                 var handler = registry.Resolve(validator.Handler)
                     ?? throw new InvalidOperationException("The validator handler is unavailable.");
                 var handlerRequest = ExecutionHandlerRequest.Create(
@@ -55,11 +66,13 @@ public sealed class ValidatedRunCompletionCoordinator : IRunCompletionCoordinato
                     staging,
                     blueprintPackage,
                     checkpoint.Plan).Value;
+                var validatorStartedAt = _timeProvider.GetUtcNow();
                 var result = await ExecuteValidatorAsync(
                     handler,
                     handlerRequest,
                     progress,
                     cancellationToken).ConfigureAwait(false);
+                var validatorCompletedAt = _timeProvider.GetUtcNow();
                 var digest = result.OutputDigest ?? Digest(
                     $"validator:{validator.Id}:{result.Outcome}:{result.Error?.Code}");
                 var status = result.Outcome == ExecutionHandlerOutcome.Succeeded
@@ -67,13 +80,35 @@ public sealed class ValidatedRunCompletionCoordinator : IRunCompletionCoordinato
                     : validator.Required
                         ? ExecutionEvidenceStatus.Failed
                         : ExecutionEvidenceStatus.Warning;
-                checkpoint = WithEvidence(
-                    checkpoint,
-                    ExecutionEvidence.Create(
-                        ExecutionEvidenceKind.Validator,
-                        validator.Id,
-                        status,
-                        digest).Value);
+                if (reusableEvidence is not null
+                    && (status != reusableEvidence.Status
+                        || !StringComparer.Ordinal.Equals(digest, reusableEvidence.OutputDigest)))
+                {
+                    checkpoint = AppendError(checkpoint, Error(
+                        "DF-VALID-002",
+                        "Previously successful validation evidence no longer matches.",
+                        "A resumed validator produced evidence different from the persisted result.",
+                        validator.Id));
+                    await SaveAsync(checkpoint).ConfigureAwait(false);
+                    checkpoint = Transition(checkpoint, RunStatus.ValidationFailed);
+                    await SaveAsync(checkpoint).ConfigureAwait(false);
+                    return checkpoint;
+                }
+
+                if (reusableEvidence is null)
+                {
+                    checkpoint = WithEvidence(
+                        checkpoint,
+                        ExecutionEvidence.Create(
+                            ExecutionEvidenceKind.Validator,
+                            validator.Id,
+                            status,
+                            digest,
+                            validatorStartedAt,
+                            validatorCompletedAt,
+                            result.Error?.Code,
+                            result.Error?.Summary).Value);
+                }
                 validations.Add(new ValidationCheck(
                     validator.Id,
                     status switch
@@ -82,10 +117,16 @@ public sealed class ValidatedRunCompletionCoordinator : IRunCompletionCoordinato
                         ExecutionEvidenceStatus.Warning => ValidationCheckStatus.Warning,
                         _ => ValidationCheckStatus.Failed,
                     },
-                    result.Outcome == ExecutionHandlerOutcome.Succeeded
-                        ? "Validation passed."
-                        : result.Error!.Summary,
-                    result.Error?.TechnicalDetail));
+                    reusableEvidence?.Status switch
+                    {
+                        ExecutionEvidenceStatus.Passed => "Validation passed.",
+                        ExecutionEvidenceStatus.Warning => reusableEvidence.ErrorSummary?.Value
+                            ?? "Validation completed with a warning.",
+                        _ => result.Outcome == ExecutionHandlerOutcome.Succeeded
+                            ? "Validation passed."
+                            : result.Error!.Summary,
+                    },
+                    reusableEvidence is null ? result.Error?.TechnicalDetail : null));
                 if (result.Outcome == ExecutionHandlerOutcome.Failed && validator.Required)
                 {
                     checkpoint = AppendError(checkpoint, result.Error!);
@@ -98,7 +139,15 @@ public sealed class ValidatedRunCompletionCoordinator : IRunCompletionCoordinato
                 await SaveAsync(checkpoint).ConfigureAwait(false);
             }
 
+            var reusableScanEvidence = request.Mode == ExecutionMode.Resume
+                ? FindReusableEvidence(
+                    checkpoint,
+                    ExecutionEvidenceKind.SecretScan,
+                    "secret-scan",
+                    allowWarning: false)
+                : null;
             SecretScanResult scan;
+            var scanStartedAt = _timeProvider.GetUtcNow();
             try
             {
                 scan = await _secretScanner.ScanAsync(
@@ -116,13 +165,21 @@ public sealed class ValidatedRunCompletionCoordinator : IRunCompletionCoordinato
                     "The generated project could not be scanned safely.",
                     "The whole staged payload scan could not be completed.",
                     "secret-scan");
-                checkpoint = WithEvidence(
-                    AppendError(checkpoint, error),
-                    ExecutionEvidence.Create(
-                        ExecutionEvidenceKind.SecretScan,
-                        "secret-scan",
-                        ExecutionEvidenceStatus.Failed,
-                        Digest("secret-scan:operational-failure")).Value);
+                checkpoint = AppendError(checkpoint, error);
+                if (reusableScanEvidence is null)
+                {
+                    checkpoint = WithEvidence(
+                        checkpoint,
+                        ExecutionEvidence.Create(
+                            ExecutionEvidenceKind.SecretScan,
+                            "secret-scan",
+                            ExecutionEvidenceStatus.Failed,
+                            Digest("secret-scan:operational-failure"),
+                            scanStartedAt,
+                            _timeProvider.GetUtcNow(),
+                            error.Code,
+                            error.Summary).Value);
+                }
                 await SaveAsync(checkpoint).ConfigureAwait(false);
                 checkpoint = Transition(checkpoint, RunStatus.ValidationFailed);
                 await SaveAsync(checkpoint).ConfigureAwait(false);
@@ -139,13 +196,21 @@ public sealed class ValidatedRunCompletionCoordinator : IRunCompletionCoordinato
                     "Potential credential material was found in the generated project.",
                     "The whole staged payload scan found blocked credential-shaped content.",
                     "secret-scan");
-                checkpoint = WithEvidence(
-                    AppendError(checkpoint, error),
-                    ExecutionEvidence.Create(
-                        ExecutionEvidenceKind.SecretScan,
-                        "secret-scan",
-                        ExecutionEvidenceStatus.Failed,
-                        scanDigest).Value);
+                checkpoint = AppendError(checkpoint, error);
+                if (reusableScanEvidence is null)
+                {
+                    checkpoint = WithEvidence(
+                        checkpoint,
+                        ExecutionEvidence.Create(
+                            ExecutionEvidenceKind.SecretScan,
+                            "secret-scan",
+                            ExecutionEvidenceStatus.Failed,
+                            scanDigest,
+                            scanStartedAt,
+                            _timeProvider.GetUtcNow(),
+                            error.Code,
+                            error.Summary).Value);
+                }
                 validations.Add(new ValidationCheck(
                     "whole-payload-secret-scan",
                     ValidationCheckStatus.Failed,
@@ -157,25 +222,77 @@ public sealed class ValidatedRunCompletionCoordinator : IRunCompletionCoordinato
                 return checkpoint;
             }
 
-            checkpoint = WithEvidence(
-                checkpoint,
-                ExecutionEvidence.Create(
-                    ExecutionEvidenceKind.SecretScan,
-                    "secret-scan",
-                    ExecutionEvidenceStatus.Passed,
-                    scanDigest).Value);
-            validations.Add(new ValidationCheck(
-                "whole-payload-secret-scan",
-                ValidationCheckStatus.Passed,
-                "No credential-shaped content was found.",
-                null));
-            await SaveAsync(checkpoint).ConfigureAwait(false);
-            var report = await CreateReportAsync(
+            if (reusableScanEvidence is not null
+                && !StringComparer.Ordinal.Equals(scanDigest, reusableScanEvidence.OutputDigest))
+            {
+                checkpoint = AppendError(checkpoint, Error(
+                    "DF-SECRET-002",
+                    "Previously passed secret-scan evidence no longer matches.",
+                    "A resumed whole-payload scan produced evidence different from the persisted pass.",
+                    "secret-scan"));
+                await SaveAsync(checkpoint).ConfigureAwait(false);
+                checkpoint = Transition(checkpoint, RunStatus.ValidationFailed);
+                await SaveAsync(checkpoint).ConfigureAwait(false);
+                return checkpoint;
+            }
+
+            if (reusableScanEvidence is null)
+            {
+                checkpoint = WithEvidence(
+                    checkpoint,
+                    ExecutionEvidence.Create(
+                        ExecutionEvidenceKind.SecretScan,
+                        "secret-scan",
+                        ExecutionEvidenceStatus.Passed,
+                        scanDigest,
+                        scanStartedAt,
+                        _timeProvider.GetUtcNow(),
+                        null,
+                        null).Value);
+                validations.Add(new ValidationCheck(
+                    "whole-payload-secret-scan",
+                    ValidationCheckStatus.Passed,
+                    "No credential-shaped content was found.",
+                    null));
+                await SaveAsync(checkpoint).ConfigureAwait(false);
+            }
+            else
+            {
+                validations.Add(new ValidationCheck(
+                    "whole-payload-secret-scan",
+                    ValidationCheckStatus.Passed,
+                    "No credential-shaped content was found.",
+                    null));
+            }
+            var reportResult = await CreateReportAsync(
                 request,
                 checkpoint,
                 staging,
                 validations,
                 cancellationToken).ConfigureAwait(false);
+            if (!reportResult.IsSuccessful)
+            {
+                checkpoint = AppendError(checkpoint, reportResult.Error!);
+                await SaveAsync(checkpoint).ConfigureAwait(false);
+                checkpoint = Transition(checkpoint, RunStatus.Failed);
+                await SaveAsync(checkpoint).ConfigureAwait(false);
+                return checkpoint;
+            }
+
+            var report = reportResult.Value;
+            var evidence = await _projectEvidenceWriter.WriteAsync(
+                checkpoint,
+                report,
+                staging.PayloadWorkspace,
+                cancellationToken).ConfigureAwait(false);
+            if (!evidence.IsSuccessful)
+            {
+                checkpoint = AppendError(checkpoint, evidence.Error!);
+                await SaveAsync(checkpoint).ConfigureAwait(false);
+                checkpoint = Transition(checkpoint, RunStatus.Failed);
+                await SaveAsync(checkpoint).ConfigureAwait(false);
+                return checkpoint;
+            }
 
             checkpoint = Recreate(checkpoint, finalizationState: FinalizationState.IntentPersisted);
             await SaveAsync(checkpoint).ConfigureAwait(false);
@@ -251,33 +368,53 @@ public sealed class ValidatedRunCompletionCoordinator : IRunCompletionCoordinato
         return checkpoint;
     }
 
-    private async Task<GenerationReport> CreateReportAsync(
+    private async Task<ExecutionOperationResult<GenerationReport>> CreateReportAsync(
         ExecutionRequest request,
         RunCheckpoint checkpoint,
         StagingWorkspace staging,
         IReadOnlyCollection<ValidationCheck> validations,
         CancellationToken cancellationToken)
     {
-        var artifacts = await staging.PayloadWorkspace.EnumerateAllFilesAsync(
-            cancellationToken).ConfigureAwait(false);
-        return GenerationReport.Create(
+        var preview = checkpoint.Preview ?? request.PlannedProject.Preview;
+        var artifacts = new List<WorkspaceRelativePath>(preview.Artifacts.Length);
+        foreach (var declared in preview.Artifacts)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var path = WorkspaceRelativePath.Create(declared.Path);
+            if (!path.IsValid
+                || ProjectEvidencePathPolicy.IsReserved(path.Value)
+                || !await staging.PayloadWorkspace.FileExistsAsync(path.Value, cancellationToken)
+                    .ConfigureAwait(false))
+            {
+                return ExecutionOperationResult.Failure<GenerationReport>(Error(
+                    "DF-EVIDENCE-001",
+                    "Reviewed generated artifact evidence is incomplete.",
+                    "A reviewed artifact was missing or reserved before evidence capture.",
+                    "project-evidence"));
+            }
+
+            artifacts.Add(path.Value);
+        }
+
+        var report = GenerationReport.Create(
             checkpoint.Run.Id,
             _timeProvider.GetUtcNow(),
             validations,
-            request.PlannedProject.Preview.ToolStatuses.Select(status =>
+            preview.ToolStatuses.Select(status =>
                 new ReportToolStatus(
                     status.Id,
                     status.Required,
                     status.IsAvailable,
                     status.IsCompatible,
                     status.DetectedVersion)),
-            request.PlannedProject.Preview.Warnings.Select(warning =>
+            preview.Warnings.Select(warning =>
                 new ReportWarning(
                     warning.Code,
                     RedactedText.FromTrustedRedaction(warning.Message).Value)),
             checkpoint.Run.Errors,
             artifacts.OrderBy(path => path.Value, StringComparer.Ordinal)
                 .Select(path => path.Value)).Value;
+        return ExecutionOperationResult.Success(report);
     }
 
     private static async Task<ExecutionHandlerResult> ExecuteValidatorAsync(
@@ -361,6 +498,16 @@ public sealed class ValidatedRunCompletionCoordinator : IRunCompletionCoordinato
             .ToImmutableArray();
         return Recreate(checkpoint, evidence: items);
     }
+
+    private static ExecutionEvidence? FindReusableEvidence(
+        RunCheckpoint checkpoint,
+        ExecutionEvidenceKind kind,
+        string id,
+        bool allowWarning) => checkpoint.Evidence.FirstOrDefault(item =>
+            item.Kind == kind
+            && (item.Status == ExecutionEvidenceStatus.Passed
+                || allowWarning && item.Status == ExecutionEvidenceStatus.Warning)
+            && StringComparer.Ordinal.Equals(item.Id, id));
 
     private static RunCheckpoint Recreate(
         RunCheckpoint checkpoint,
