@@ -139,6 +139,20 @@ public sealed partial class DesktopPresentationContractTests
             key => Assert.Contains(key, components));
     }
 
+    [Fact]
+    public void ShellUsesAdaptiveNavigationSafeModeAndSemanticToasts()
+    {
+        var xaml = Read("src/DevForge.Desktop/MainWindow.xaml");
+
+        Assert.Contains("EqualityMultiConverter", xaml, StringComparison.Ordinal);
+        Assert.Contains("DoubleLessThanConverter", xaml, StringComparison.Ordinal);
+        Assert.Contains("NavigationButton", xaml, StringComparison.Ordinal);
+        Assert.Contains("Safe mode", xaml, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("NotificationSeverity.Warning", xaml, StringComparison.Ordinal);
+        Assert.Contains("NotificationSeverity.Error", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.HelpText", xaml, StringComparison.Ordinal);
+    }
+
     private static HashSet<string> ResourceKeys(string relativePath) =>
         KeyExpression()
             .Matches(Read(relativePath))

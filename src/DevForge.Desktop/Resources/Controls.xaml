@@ -144,15 +144,76 @@
            TargetType="Button"
            BasedOn="{StaticResource Button.Primary}" />
 
-    <Style x:Key="NavigationButton"
-           TargetType="Button"
-           BasedOn="{StaticResource Button.Ghost}">
+    <Style x:Key="NavigationButton" TargetType="ToggleButton">
         <Setter Property="MinHeight" Value="44" />
         <Setter Property="HorizontalContentAlignment" Value="Left" />
         <Setter Property="Padding" Value="12,8" />
         <Setter Property="Margin" Value="0,2" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual.Primary}" />
         <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
         <Setter Property="AutomationProperties.HelpText" Value="{Binding DisabledReason}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="Chrome"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="8"
+                            Padding="{TemplateBinding Padding}">
+                        <Grid>
+                            <Border x:Name="SelectionIndicator"
+                                    Width="3"
+                                    Height="20"
+                                    Margin="-9,0,0,0"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Center"
+                                    Background="{DynamicResource Brush.Accent}"
+                                    CornerRadius="2"
+                                    Opacity="0" />
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome"
+                                    Property="Background"
+                                    Value="{DynamicResource Brush.SurfaceHover}" />
+                            <Setter Property="Foreground"
+                                    Value="{DynamicResource Brush.TextPrimary}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Chrome"
+                                    Property="Background"
+                                    Value="{DynamicResource Brush.AccentSubtle}" />
+                            <Setter TargetName="Chrome"
+                                    Property="BorderBrush"
+                                    Value="{DynamicResource Brush.AccentSubtle}" />
+                            <Setter TargetName="SelectionIndicator" Property="Opacity" Value="1" />
+                            <Setter Property="Foreground" Value="{DynamicResource Brush.Accent}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Chrome" Property="Opacity" Value="0.82" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Chrome"
+                                    Property="BorderBrush"
+                                    Value="{DynamicResource Brush.Focus}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground"
+                                    Value="{DynamicResource Brush.DisabledText}" />
+                            <Setter TargetName="Chrome" Property="Opacity" Value="0.72" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <ControlTemplate x:Key="TextBox.Template" TargetType="TextBox">
