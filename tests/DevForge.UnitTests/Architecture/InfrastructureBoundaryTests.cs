@@ -33,6 +33,27 @@ public sealed class InfrastructureBoundaryTests
     }
 
     [Fact]
+    public void AnalyzerReportsDirectFileReadsAndEnumerationOutsideInfrastructure()
+    {
+        var sources = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["src/DevForge.Application/UnsafeReader.cs"] =
+                "class UnsafeReader { string Read() => File.ReadAllText(\"recipe.json\"); }",
+            ["src/DevForge.Desktop/UnsafeBrowser.cs"] =
+                "class UnsafeBrowser { object Browse() => Directory.EnumerateFiles(\"C:\\\"); }",
+        };
+
+        var violations = InfrastructureBoundary.FindViolationsFromSources(sources);
+
+        Assert.Equal(
+            [
+                "src/DevForge.Application/UnsafeReader.cs: forbidden direct file read outside Infrastructure",
+                "src/DevForge.Desktop/UnsafeBrowser.cs: forbidden direct directory enumeration outside Infrastructure",
+            ],
+            violations);
+    }
+
+    [Fact]
     public void ProductionSourcesKeepOperatingSystemEffectsInsideInfrastructure()
     {
         var repositoryRoot = FindRepositoryRoot(AppContext.BaseDirectory);
@@ -80,11 +101,14 @@ internal static class InfrastructureBoundary
         ("new ProcessStartInfo", "forbidden ProcessStartInfo outside Infrastructure"),
         ("UseShellExecute = true", "forbidden shell execution"),
         ("File.WriteAll", "forbidden direct file write outside Infrastructure"),
+        ("File.ReadAll", "forbidden direct file read outside Infrastructure"),
+        ("File.Open", "forbidden direct file open outside Infrastructure"),
         ("File.Delete(", "forbidden direct file delete outside Infrastructure"),
         ("File.Move(", "forbidden direct file move outside Infrastructure"),
         ("Directory.CreateDirectory(", "forbidden direct directory creation outside Infrastructure"),
         ("Directory.Delete(", "forbidden direct directory delete outside Infrastructure"),
         ("Directory.Move(", "forbidden direct directory move outside Infrastructure"),
+        ("Directory.Enumerate", "forbidden direct directory enumeration outside Infrastructure"),
         ("cmd /c", "forbidden command shell text"),
         ("powershell.exe", "forbidden PowerShell execution"),
         ("pwsh.exe", "forbidden PowerShell execution"),

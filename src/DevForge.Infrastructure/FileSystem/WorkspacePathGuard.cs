@@ -30,6 +30,26 @@ internal sealed class WorkspacePathGuard
         return new WorkspacePathGuard(rootPath);
     }
 
+    public static void RejectExistingAncestorReparsePoints(
+        WorkspaceRoot root,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(root);
+        var current = Path.TrimEndingDirectorySeparator(
+            Path.GetFullPath(root.RevealForFileSystem()));
+
+        while (!string.IsNullOrEmpty(current))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (File.Exists(current) || Directory.Exists(current))
+            {
+                RejectReparsePoint(current);
+            }
+
+            current = Path.GetDirectoryName(current);
+        }
+    }
+
     public string Resolve(WorkspaceRelativePath path)
     {
         ArgumentNullException.ThrowIfNull(path);

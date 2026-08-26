@@ -47,7 +47,7 @@
 - Modify: `tests/DevForge.UnitTests/Architecture/InfrastructureBoundaryTests.cs`
 - Modify: `docs/implementation-plan.md`, `docs/implementation-status.md`, `CHANGELOG.md`
 
-- [ ] **Step 1: Add RED tests for provisioning through the filesystem port**
+- [x] **Step 1: Add RED tests for provisioning through the filesystem port**
 
 Use a recording `IFileSystem` and require the provisioner to call the typed method once, propagate cancellation, and map containment/IO failures to `DF-FS-001` without exposing a path:
 
@@ -70,7 +70,7 @@ public async Task ProvisionerDelegatesValidatedRootToFileSystemPort()
 }
 ```
 
-- [ ] **Step 2: Run the focused test and confirm RED**
+- [x] **Step 2: Run the focused test and confirm RED**
 
 Run:
 
@@ -80,7 +80,7 @@ Run:
 
 Expected: compile failure because `IFileSystem.EnsureWorkspaceExistsAsync` and the injected provisioner constructor do not exist.
 
-- [ ] **Step 3: Implement the minimal guarded bootstrap operation**
+- [x] **Step 3: Implement the minimal guarded bootstrap operation**
 
 Add the method above. In `WindowsFileSystem`, validate the typed root, create only that canonical directory, immediately open `WorkspacePathGuard`, and map expected failures to `InfrastructureOperationException`. Change `LocalDataRootProvisioner` to depend on `IFileSystem`; remove its direct `Directory.CreateDirectory`. Register it through DI without a factory escape.
 
@@ -103,7 +103,7 @@ public sealed class LocalDataRootProvisioner(IFileSystem fileSystem) : ILocalDat
 }
 ```
 
-- [ ] **Step 4: Add the hostile-input release matrix RED tests**
+- [x] **Step 4: Add the hostile-input release matrix RED tests**
 
 Create theory cases that load/validate a malicious package and assert failure occurs before a recording process runner or mutating workspace method is called. Include traversal, rooted/device/UNC path, `.env`, reserved evidence, checksum mismatch, untrusted/quarantined trust, arbitrary handler, PowerShell/cmd/bash identity, registry/firewall/service/admin/download intent, nested secret-shaped map key, malformed/duplicate/oversized controls, log control characters, junction escape, and secret corpus. Assertions compare error codes and safe summaries, never echo the hostile value.
 
@@ -118,15 +118,15 @@ public void HostileActionsFailClosed(BlueprintActionDefinition action)
 }
 ```
 
-- [ ] **Step 5: Run RED and implement only exposed gaps**
+- [x] **Step 5: Run RED and implement only exposed gaps**
 
 Run filters `M10HostileInputMatrixTests|BlueprintActionPolicyTests|BlueprintPackageLoaderTests|BlueprintControlReaderTests|WorkspaceSecretScannerTests|InfrastructureBoundaryTests`. If a case already passes, retain it as release coverage. For a failure, harden the narrow parser/policy/guard and add the exact regression; do not add a general script or executable denylist as a substitute for the existing allowlist.
 
-- [ ] **Step 6: Run Task 1 GREEN and regressions**
+- [x] **Step 6: Run Task 1 GREEN and regressions**
 
 Expected: all focused tests pass, no unsafe-effect recorder call occurs, and source scan finds no direct filesystem mutation outside Infrastructure.
 
-- [ ] **Step 7: Update docs and commit**
+- [x] **Step 7: Update docs and commit**
 
 Record exact test counts and remaining Windows 11 debt, then:
 

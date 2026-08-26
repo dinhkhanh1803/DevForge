@@ -99,7 +99,16 @@ public sealed class FileSystemContractTests
     [Fact]
     public void FileSystemOpensAValidatedRootAndScopedPathOperationsUseOnlyGuardedPaths()
     {
-        var openMethod = Assert.Single(typeof(IFileSystem).GetMethods());
+        var fileSystemMethods = typeof(IFileSystem).GetMethods();
+        var ensureMethod = Assert.Single(
+            fileSystemMethods,
+            method => method.Name == nameof(IFileSystem.EnsureWorkspaceExistsAsync));
+        var openMethod = Assert.Single(
+            fileSystemMethods,
+            method => method.Name == nameof(IFileSystem.OpenWorkspaceAsync));
+
+        Assert.Equal(typeof(WorkspaceRoot), ensureMethod.GetParameters()[0].ParameterType);
+        Assert.Equal(typeof(Task), ensureMethod.ReturnType);
         Assert.Equal(typeof(WorkspaceRoot), openMethod.GetParameters()[0].ParameterType);
         Assert.Equal(typeof(Task<IWorkspaceFileSystem>), openMethod.ReturnType);
 

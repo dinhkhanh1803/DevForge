@@ -3,29 +3,23 @@ using DevForge.Application.Contracts.Persistence;
 
 namespace DevForge.Infrastructure.Persistence;
 
-public sealed class LocalDataRootProvisioner : ILocalDataRootProvisioner
+public sealed class LocalDataRootProvisioner(IFileSystem fileSystem) : ILocalDataRootProvisioner
 {
+    private readonly IFileSystem _fileSystem =
+        fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+
     public Task EnsureExistsAsync(DatabaseLocation location, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(location);
         cancellationToken.ThrowIfCancellationRequested();
-        try
-        {
-            Directory.CreateDirectory(location.LocalDataRoot);
-            return Task.CompletedTask;
-        }
-        catch (Exception exception) when (IsExpectedFailure(exception))
+        var root = WorkspaceRoot.Create(location.LocalDataRoot);
+        if (!root.IsValid)
         {
             throw new InfrastructureOperationException(
                 "DF-FS-001",
-                "The local application data root could not be prepared.");
+                "The local application data root is invalid.");
         }
-    }
 
-    private static bool IsExpectedFailure(Exception exception) =>
-        exception is IOException
-            or UnauthorizedAccessException
-            or System.Security.SecurityException
-            or ArgumentException
-            or NotSupportedException;
+        return _fileSystem.EnsureWorkspaceExistsAsync(root.Value, cancellationToken);
+    }
 }

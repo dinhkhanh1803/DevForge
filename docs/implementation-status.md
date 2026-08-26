@@ -1,7 +1,7 @@
 # DevForge Studio Implementation Status
 
-**Current milestone:** M10 - Security, diagnostics, packaging, and release hardening (design/plan approved; Task 1 next)
-**Status:** M0-M8 complete; M9 implementation and Windows 10 matrix complete; M9 Windows 11 certification is accepted carry-forward environmental debt; M10 implementation has not yet started
+**Current milestone:** M10 - Security, diagnostics, packaging, and release hardening (Task 1 implemented; Task 2 next)
+**Status:** M0-M8 complete; M9 implementation and Windows 10 matrix complete; M9 Windows 11 certification is accepted carry-forward environmental debt; M10 Task 1 affected gates are green
 **Last updated:** 2026-08-26
 
 ## M10 entry and current scope
@@ -10,7 +10,11 @@ The owner explicitly requested M10 after the outstanding M9 Windows 11 certifica
 
 The approved design is `docs/superpowers/specs/2026-08-26-m10-security-diagnostics-packaging-release-hardening-design.md`; the executable TDD plan is `docs/superpowers/plans/2026-08-26-m10-security-diagnostics-packaging-release-hardening.md`. M10 is limited to security closure, structured local diagnostics and retention, privacy-safe support bundles/cleanup, Desktop accessibility/scaling, self-contained `win-x64` packaging/upgrade, documentation, and release evidence. M11 catalog expansion remains excluded.
 
-Task 1 is next. Before code, its boundary is: consolidate the mandatory hostile-input release matrix and route local-data root creation through the guarded `IFileSystem` abstraction. Expected changes and exact tests are recorded in `docs/implementation-plan.md`. No M10 production behavior or passing test is claimed yet.
+M10 Task 1 is complete locally. Root provisioning is now a typed `IFileSystem` operation; `LocalDataRootProvisioner` delegates without direct IO. The Windows implementation rejects reparse points throughout every existing ancestor before `Directory.CreateDirectory`, rechecks after creation, and maps containment failures without disclosing the root. Blueprint action policy now validates `executable` and `packageManager` against `ExecutableIdentity`, so PowerShell, cmd, bash, curl, msiexec, and every unknown identity fail during package inspection rather than reaching a handler or runner. The release matrix adds traversal/device/UNC/GLOBALROOT/reserved-path, forbidden-handler, trust, and secret-key coverage. Architecture scans now include direct file reads/opens/enumeration outside Infrastructure.
+
+Task 1 TDD evidence observed the missing injected provisioner/port as compile RED, six untrusted executable cases as behavioral RED, and a junction-ancestor provisioning escape that created outside the requested root as RED. The final focused gates pass: filesystem/application contracts 24 Unit tests, Infrastructure boundary 4 Unit tests, repository/WPF-temporary regression 9 Unit tests, consolidated blueprint/security/provisioning selection 125 Integration tests, and junction/provisioning selection 3 Integration tests. A clean Release build completed with all 12 projects, 0 warnings, and 0 errors. Fresh full project results are Unit 634 passed, Integration 557 passed, Blueprint 127 passed, all with 0 failed/skipped.
+
+The authoritative full format/E2E gate is currently blocked by concurrent untracked Desktop presentation work not owned by Task 1. During verification, `DesktopPresentationContractTests.cs` appeared intermittently with one `IDE1006` violation and three intentionally RED resource tests; `PresentationValueConverterTests.cs` then appeared with LF line endings and references to converters not yet present. These files are preserved unmodified and excluded from the Task 1 commit. When the first file was compiled, E2E reported the prior 173 tests passed plus its 3 unrelated failures. Task 2 should start only after the concurrent presentation change is completed or removed by its owner.
 
 ## M8 final scope and closure
 

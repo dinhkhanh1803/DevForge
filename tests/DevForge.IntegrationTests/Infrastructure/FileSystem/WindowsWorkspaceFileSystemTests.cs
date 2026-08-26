@@ -12,6 +12,47 @@ namespace DevForge.IntegrationTests.Infrastructure.FileSystem;
 public sealed partial class WindowsWorkspaceFileSystemTests
 {
     [Fact]
+    public async Task WorkspaceProvisioningRejectsJunctionAncestorWithoutOutsideMutation()
+    {
+        var fixtureId = Guid.NewGuid().ToString("N");
+        var container = Path.Combine(Path.GetTempPath(), "DevForge-M3-Provision-" + fixtureId);
+        var outside = Path.Combine(Path.GetTempPath(), "DevForge-M3-ProvisionOutside-" + fixtureId);
+        var junction = Path.Combine(container, "linked");
+        Directory.CreateDirectory(container);
+        Directory.CreateDirectory(outside);
+        JunctionFixture.Create(junction, outside);
+
+        try
+        {
+            var requestedPath = Path.Combine(junction, "devforge-data");
+            var exception = await Assert.ThrowsAsync<InfrastructureOperationException>(() =>
+                new WindowsFileSystem().EnsureWorkspaceExistsAsync(
+                    WorkspaceRoot.Create(requestedPath).Value,
+                    CancellationToken.None));
+
+            Assert.Equal("DF-FS-003", exception.Code);
+            Assert.False(Directory.Exists(Path.Combine(outside, "devforge-data")));
+        }
+        finally
+        {
+            if (Directory.Exists(junction))
+            {
+                Directory.Delete(junction);
+            }
+
+            if (Directory.Exists(container))
+            {
+                Directory.Delete(container, recursive: true);
+            }
+
+            if (Directory.Exists(outside))
+            {
+                Directory.Delete(outside, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task AtomicDirectoryCreationReportsExclusiveOwnership()
     {
         await using var fixture = await WorkspaceFixture.CreateAsync();

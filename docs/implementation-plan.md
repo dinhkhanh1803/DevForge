@@ -2,7 +2,7 @@
 
 **Goal:** close the MVP security/recovery/diagnostics/documentation/package release gates without expanding the blueprint catalog.
 
-**Status:** M10 design and task plan approved. Task 1 security closure is next. M9's Windows 11 certification remains accepted environmental debt and neither M9 nor M10 may be marked complete until it is executed.
+**Status:** M10 Task 1 is implemented and its affected gates are green. Task 2 structured diagnostics/retention is next after the concurrent untracked Desktop presentation work is reconciled. M9's Windows 11 certification remains accepted environmental debt and neither M9 nor M10 may be marked complete until it is executed.
 
 **Design:** `docs/superpowers/specs/2026-08-26-m10-security-diagnostics-packaging-release-hardening-design.md`
 
@@ -10,7 +10,7 @@
 
 ## Milestone tasks
 
-- [ ] Task 1: security closure and guarded local-data provisioning.
+- [x] Task 1: security closure and guarded local-data provisioning.
 - [ ] Task 2: structured JSONL diagnostics and bounded retention.
 - [ ] Task 3: privacy-safe support bundle and owned cleanup.
 - [ ] Task 4: Desktop diagnostics, keyboard accessibility, and scaling.
@@ -26,6 +26,8 @@
 **Tests:** provisioner delegation/cancellation/failure mapping; traversal/rooted/device/UNC/junction; checksum/trust/action whitelist; shell/admin/registry/firewall/service/download; secret/log-injection/oversized-control cases; zero unsafe recorder calls; architecture scan.
 
 **Exit gate:** all hostile cases fail before unsafe IO/process execution, all summaries remain scrubbed, local-data creation passes through `IFileSystem`, focused and affected suites pass, and exact results are recorded.
+
+Task 1 satisfied this boundary. `IFileSystem` now owns validated root provisioning, rejects an existing junction anywhere in the root ancestry before mutation, and rechecks after creation. `LocalDataRootProvisioner` contains no direct file operation. Blueprint action inspection rejects executable/package-manager identifiers outside the typed trusted tool catalog before planning/execution. The consolidated M10 matrix covers traversal, drive/device/UNC/GLOBALROOT paths, reserved devices and `.env`, shell/download/installer identities, privileged handler intent, trust, and secret-shaped nested keys without echoing hostile values. Architecture discovery also ignores transient WPF compiler `_wpftmp` projects, eliminating a build/test race exposed by the Task 1 full gate.
 
 ---
 

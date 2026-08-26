@@ -97,6 +97,20 @@ public sealed class RepositoryModelRegressionTests
     }
 
     [Fact]
+    public void ProjectDiscoveryIgnoresTransientWpfCompilerProjects()
+    {
+        using var fixture = RepositoryFixture.Create();
+        fixture.WriteProject("src/DevForge.Desktop/DevForge.Desktop.csproj", MinimalProject);
+        fixture.WriteProject(
+            "src/DevForge.Desktop/DevForge.Desktop_fixture_wpftmp.csproj",
+            MinimalProject);
+
+        var repository = RepositoryModel.LoadFrom(fixture.RootDirectory);
+
+        Assert.Equal(["DevForge.Desktop"], repository.ProductionProjects.Keys);
+    }
+
+    [Fact]
     public void ProjectPathSortingNormalizesAndUsesWindowsCaseInsensitiveOrder()
     {
         using var fixture = RepositoryFixture.Create();

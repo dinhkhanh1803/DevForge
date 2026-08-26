@@ -334,6 +334,10 @@ public interface IExclusiveLeaseWorkspaceFileSystem : IWorkspaceFileSystem
 
 public interface IFileSystem
 {
+    Task EnsureWorkspaceExistsAsync(
+        WorkspaceRoot allowedRoot,
+        CancellationToken cancellationToken);
+
     Task<IWorkspaceFileSystem> OpenWorkspaceAsync(
         WorkspaceRoot allowedRoot,
         CancellationToken cancellationToken);

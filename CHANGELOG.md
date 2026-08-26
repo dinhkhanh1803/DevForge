@@ -52,11 +52,15 @@ All notable DevForge Studio changes are documented here.
 - Engine-owned canonical recipe, lock, generation report, and policy snapshot evidence with integrity binding, tamper refusal, atomic recovery, and exact final-tree/publication digest preservation.
 - Consolidated cross-blueprint release contracts for actual Desktop discovery, changed reviewed inputs, deterministic output snapshots, failure recovery, no-overwrite targets, forbidden execution surfaces, and production local-Git verification without remote contact.
 - React production-output policy that commits integrity-bound deterministic `dist` artifacts, excludes only engine-owned evidence from Prettier, and remains clean after a repeated real Vite build.
+- M10 hostile-input release matrix covering traversal/device/UNC/GLOBALROOT/reserved paths, shell/download/installer identities, privileged handler intent, non-executable trust, and secret-shaped nested keys.
+- Guarded local-data root provisioning through `IFileSystem` with pre-mutation and post-creation ancestor reparse checks.
 
 ### Fixed
 
 - Desktop Release startup no longer lets a built-in blueprint `App.xaml` shadow DevForge's WPF application resource, and read-only Settings checklist indicators now use explicit one-way bindings.
+- Blueprint inspection now rejects executable and package-manager identities outside the typed trusted tool catalog before planning or execution.
+- Architecture discovery ignores transient WPF compiler `_wpftmp` projects so release build/test sequencing cannot report a generated project as production source.
 
 ### Known release gates
 
-- M9 implementation and the real Windows 10 matrix are green. The approved Windows 11 WPF/React/Python release matrix is still required before starting M10.
+- M9 implementation and the real Windows 10 matrix are green. The approved Windows 11 WPF/React/Python release matrix is accepted carry-forward environmental debt while M10 is implemented, but both milestone release gates remain open until it passes.

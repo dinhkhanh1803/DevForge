@@ -104,6 +104,8 @@ internal sealed class RepositoryModel
     {
         return SortProjectPaths(
             Directory.GetFiles(directory, "*.csproj", SearchOption.AllDirectories)
+                .Where(path => !Path.GetFileNameWithoutExtension(path)
+                    .EndsWith("_wpftmp", StringComparison.OrdinalIgnoreCase))
                 .Where(path => !Path.GetRelativePath(directory, path)
                     .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                     .Any(segment => segment is "bin" or "obj")));

@@ -107,7 +107,10 @@ internal static class BlueprintActionPolicy
                 || parameter.Value == ParameterKind.Path
                     && IsEngineOwnedEvidenceTarget(parameter.Key, value.StringValue!)
                 || parameter.Value == ParameterKind.Identifier
-                    && !BlueprintIdentifierValidator.IsValid(value.StringValue))
+                    && !BlueprintIdentifierValidator.IsValid(value.StringValue)
+                || parameter.Value == ParameterKind.Identifier
+                    && IsExecutableParameter(parameter.Key)
+                    && !ExecutableIdentity.Create(value.StringValue).IsValid)
             {
                 return [Issue("DF-BP-003", "A blueprint action parameter is invalid or unsafe.")];
             }
@@ -115,6 +118,9 @@ internal static class BlueprintActionPolicy
 
         return [];
     }
+
+    private static bool IsExecutableParameter(string parameterName) =>
+        parameterName is "executable" or "packageManager";
 
     private static bool HasKind(BlueprintValue value, ParameterKind kind)
     {

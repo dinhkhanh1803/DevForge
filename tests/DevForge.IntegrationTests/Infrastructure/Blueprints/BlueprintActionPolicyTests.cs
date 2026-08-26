@@ -113,6 +113,35 @@ public sealed class BlueprintActionPolicyTests
     }
 
     [Theory]
+    [InlineData("powershell")]
+    [InlineData("pwsh")]
+    [InlineData("cmd")]
+    [InlineData("bash")]
+    [InlineData("curl")]
+    [InlineData("msiexec")]
+    public void PolicyRejectsExecutableIdentitiesOutsideTheTrustedToolCatalog(string executable)
+    {
+        var runProcess = Action(
+            "run-process",
+            ("executable", Text(executable)),
+            ("arguments", Sequence(Text("ignored"))),
+            ("workingDirectory", Text(".")),
+            ("allowedExitCodes", Sequence(BlueprintValue.FromInteger(0))));
+        var packageInstall = Action(
+            "package-install",
+            ("packageManager", Text(executable)),
+            ("arguments", Sequence(Text("ignored"))),
+            ("workingDirectory", Text(".")));
+
+        Assert.All(
+            [
+                BlueprintActionPolicy.Validate(runProcess, BlueprintTrust.BuiltIn),
+                BlueprintActionPolicy.Validate(packageInstall, BlueprintTrust.TrustedLocal),
+            ],
+            issues => Assert.Equal("DF-BP-003", Assert.Single(issues).Code));
+    }
+
+    [Theory]
     [InlineData("..\\outside")]
     [InlineData("C:\\outside")]
     [InlineData("\\\\server\\share")]
