@@ -9,10 +9,10 @@
             <Border Style="{StaticResource Card}" Margin="0,0,0,16">
                 <StackPanel>
                     <TextBlock Style="{StaticResource SectionHeading}" Text="Getting started" />
-                    <CheckBox Content="Default project root" IsChecked="{Binding HasProjectRoot}" IsHitTestVisible="False" />
-                    <CheckBox Content="Preferred IDE" IsChecked="{Binding HasIdeSelection}" IsHitTestVisible="False" />
-                    <CheckBox Content="Team standard" IsChecked="{Binding HasTeamProfile}" IsHitTestVisible="False" />
-                    <CheckBox Content="Display language" IsChecked="{Binding HasLanguage}" IsHitTestVisible="False" />
+                    <CheckBox Content="Default project root" IsChecked="{Binding HasProjectRoot, Mode=OneWay}" IsHitTestVisible="False" />
+                    <CheckBox Content="Preferred IDE" IsChecked="{Binding HasIdeSelection, Mode=OneWay}" IsHitTestVisible="False" />
+                    <CheckBox Content="Team standard" IsChecked="{Binding HasTeamProfile, Mode=OneWay}" IsHitTestVisible="False" />
+                    <CheckBox Content="Display language" IsChecked="{Binding HasLanguage, Mode=OneWay}" IsHitTestVisible="False" />
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource Card}">

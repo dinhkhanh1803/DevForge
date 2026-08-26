@@ -7,11 +7,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="..\..\blueprints\**\*">
+    <None Include="..\..\blueprints\**\*">
       <Link>blueprints\built-in\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-    </Content>
+    </None>
   </ItemGroup>
 
   <ItemGroup>

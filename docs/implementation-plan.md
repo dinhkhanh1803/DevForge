@@ -87,6 +87,14 @@ Task 5 exit is satisfied locally. All three packages meet the shared truthful ha
 
 Task 6 implementation and the available-host matrix are satisfied locally. The consolidated production test discovers exactly three built-in packages and proves deterministic review, planning, execution, evidence, recovery, exact command vocabulary, no-overwrite finalization, and production local-Git verification without a remote. Fresh generated WPF, React, and Python projects pass their real pinned toolchains on Windows 10 build 19045. The React matrix also proves its integrity-bound `dist` output is byte-stable across a second real build and leaves Git clean. The final Windows 11 WPF/React/Python certification required by the approved M9 design has not been executed on this host, so the milestone release gate remains open and M10 is not yet authorized.
 
+## Post-Task 6 Desktop launch regression
+
+**Scope:** correct only the WPF build-item classification that makes a shipped blueprint `App.xaml` collide with DevForge Desktop's own application resource. Blueprint bytes and output layout, catalog behavior, M9 packages, and M10 remain unchanged.
+
+**Expected files:** `src/DevForge.Desktop/DevForge.Desktop.csproj`, one Desktop runtime-packaging regression test, this plan, and implementation status.
+
+**Test and exit gate:** first prove the built Desktop assembly incorrectly advertises root `app.xaml`/`app.xaml.cs` content; then require blueprint payload to copy as non-WPF `None` items, rebuild, run the focused regression and full suite, and launch the Release executable long enough to confirm the WPF process remains alive without an unhandled startup exception.
+
 ## M9 exit gate
 
 M9 exits only when Desktop discovers exactly the three MVP packages, package/schema/rule/action/checksum/handoff contracts pass, planning and expected trees are deterministic, every generated project passes its real certified toolchain matrix, Git cleanliness is proven, and locked restore/format/build/full tests/EF/security/privacy gates pass. M10 remains untouched.

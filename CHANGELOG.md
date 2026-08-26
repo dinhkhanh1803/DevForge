@@ -53,6 +53,10 @@ All notable DevForge Studio changes are documented here.
 - Consolidated cross-blueprint release contracts for actual Desktop discovery, changed reviewed inputs, deterministic output snapshots, failure recovery, no-overwrite targets, forbidden execution surfaces, and production local-Git verification without remote contact.
 - React production-output policy that commits integrity-bound deterministic `dist` artifacts, excludes only engine-owned evidence from Prettier, and remains clean after a repeated real Vite build.
 
+### Fixed
+
+- Desktop Release startup no longer lets a built-in blueprint `App.xaml` shadow DevForge's WPF application resource, and read-only Settings checklist indicators now use explicit one-way bindings.
+
 ### Known release gates
 
 - M9 implementation and the real Windows 10 matrix are green. The approved Windows 11 WPF/React/Python release matrix is still required before starting M10.
