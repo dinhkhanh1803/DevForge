@@ -2,77 +2,308 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              AutomationProperties.Name="Dashboard">
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="{StaticResource Page.Padding}">
-            <DockPanel Margin="0,0,0,20">
-                <Button DockPanel.Dock="Right"
-                        Style="{StaticResource PrimaryButton}"
-                        Content="Create Project"
-                        Command="{Binding CreateProjectCommand}"
-                        AutomationProperties.Name="Create Project"
-                        AutomationProperties.HelpText="Available in M7" />
+            <DockPanel Margin="0,0,0,22" LastChildFill="True">
+                <StackPanel DockPanel.Dock="Right"
+                            Margin="20,0,0,0"
+                            Orientation="Horizontal">
+                    <Button Style="{StaticResource Button.Icon}"
+                            Margin="0,0,8,0"
+                            Content="{StaticResource Icon.Refresh}"
+                            Command="{Binding RefreshCommand}"
+                            ToolTip="Refresh dashboard"
+                            AutomationProperties.Name="Refresh dashboard" />
+                    <Button Style="{StaticResource Button.Primary}"
+                            Command="{Binding CreateProjectCommand}"
+                            AutomationProperties.Name="Create Project">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Margin="0,0,8,0"
+                                       FontFamily="{StaticResource Font.Icon}"
+                                       Foreground="White"
+                                       Text="{StaticResource Icon.Create}" />
+                            <TextBlock Foreground="White" Text="Create Project" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
                 <StackPanel>
                     <TextBlock Style="{StaticResource PageHeading}" Text="Dashboard" />
-                    <TextBlock Text="Your projects, presets, and environment at a glance."
-                               Foreground="{DynamicResource Brush.MutedForeground}" />
+                    <TextBlock Style="{StaticResource PageDescription}"
+                               Text="Projects, recovery work, presets, and toolchain health at a glance." />
                 </StackPanel>
             </DockPanel>
+
+            <ProgressBar Height="2"
+                         Margin="0,0,0,14"
+                         IsIndeterminate="True"
+                         Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}"
+                         AutomationProperties.Name="Loading dashboard" />
+
             <UniformGrid Columns="2">
-                <Border Style="{StaticResource Card}" Margin="0,0,8,16">
+                <Border Style="{StaticResource Card}" MinHeight="214" Margin="0,0,8,16">
                     <StackPanel>
-                        <TextBlock Style="{StaticResource SectionHeading}" Text="Recent Projects" />
-                        <TextBlock Text="No recent projects yet."
-                                   Visibility="{Binding HasNoRecentProjects, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <Grid Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="40" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="36"
+                                    Height="36"
+                                    Background="{DynamicResource Brush.AccentSubtle}"
+                                    CornerRadius="9">
+                                <TextBlock Text="{StaticResource Icon.Folder}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           FontFamily="{StaticResource Font.Icon}"
+                                           Foreground="{DynamicResource Brush.Accent}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                <TextBlock Style="{StaticResource Text.CardTitle}" Text="Recent projects" />
+                                <TextBlock Style="{StaticResource Text.Caption}"
+                                           Text="Continue from a validated local workspace." />
+                            </StackPanel>
+                        </Grid>
+                        <Border>
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource EmptyState}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasNoRecentProjects}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Style="{StaticResource EmptyStateIcon}"
+                                           Text="{StaticResource Icon.Folder}" />
+                                <TextBlock HorizontalAlignment="Center"
+                                           FontWeight="SemiBold"
+                                           Text="No recent projects" />
+                                <TextBlock Style="{StaticResource Text.Caption}"
+                                           HorizontalAlignment="Center"
+                                           Text="Created projects will appear here." />
+                            </StackPanel>
+                        </Border>
                         <ItemsControl ItemsSource="{Binding Snapshot.RecentProjects}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid Margin="0,6">
-                                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                    <Grid Margin="0,7">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
                                         <StackPanel>
-                                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
-                                            <TextBlock Text="{Binding ProjectPath}" ToolTip="{Binding ProjectPath}"
-                                                       Foreground="{DynamicResource Brush.MutedForeground}" />
+                                            <TextBlock FontWeight="SemiBold" Text="{Binding DisplayName}" />
+                                            <TextBlock Style="{StaticResource Text.Caption}"
+                                                       MaxWidth="280"
+                                                       Text="{Binding ProjectPath}"
+                                                       ToolTip="{Binding ProjectPath}" />
                                         </StackPanel>
-                                        <TextBlock Grid.Column="1" Text="{Binding LocationStatus}" Margin="12,0,0,0" />
+                                        <Border Grid.Column="1"
+                                                Margin="12,0,0,0"
+                                                VerticalAlignment="Center"
+                                                Style="{StaticResource StatusBadge}">
+                                            <TextBlock FontSize="12" Text="{Binding LocationStatus}" />
+                                        </Border>
                                     </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </StackPanel>
                 </Border>
-                <Border Style="{StaticResource Card}" Margin="8,0,0,16">
+
+                <Border Style="{StaticResource Card}" MinHeight="214" Margin="8,0,0,16">
                     <StackPanel>
-                        <TextBlock Style="{StaticResource SectionHeading}" Text="Action Needed" />
-                        <TextBlock Text="No runs need attention."
-                                   Visibility="{Binding HasNoActionNeededRuns, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <Grid Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="40" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="36"
+                                    Height="36"
+                                    Background="{DynamicResource Brush.WarningSurface}"
+                                    CornerRadius="9">
+                                <TextBlock Text="{StaticResource Icon.Warning}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           FontFamily="{StaticResource Font.Icon}"
+                                           Foreground="{DynamicResource Brush.Warning}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                <TextBlock Style="{StaticResource Text.CardTitle}" Text="Action needed" />
+                                <TextBlock Style="{StaticResource Text.Caption}"
+                                           Text="Recover interrupted or publish-pending runs." />
+                            </StackPanel>
+                        </Grid>
+                        <Border>
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource EmptyState}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasNoActionNeededRuns}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Style="{StaticResource EmptyStateIcon}"
+                                           Foreground="{DynamicResource Brush.Success}"
+                                           Text="{StaticResource Icon.Success}" />
+                                <TextBlock HorizontalAlignment="Center"
+                                           FontWeight="SemiBold"
+                                           Text="Everything is clear" />
+                                <TextBlock Style="{StaticResource Text.Caption}"
+                                           HorizontalAlignment="Center"
+                                           Text="No runs need your attention." />
+                            </StackPanel>
+                        </Border>
                         <ItemsControl ItemsSource="{Binding Snapshot.ActionNeededRuns}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <TextBlock Margin="0,6" Text="{Binding RunId}" ToolTip="{Binding Status}" />
+                                    <Grid Margin="0,7">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock FontWeight="SemiBold"
+                                                       Text="{Binding RunId}"
+                                                       ToolTip="{Binding RunId}" />
+                                            <TextBlock Style="{StaticResource Text.Caption}"
+                                                       Text="{Binding RecipeId}"
+                                                       ToolTip="{Binding RecipeId}" />
+                                        </StackPanel>
+                                        <Border Grid.Column="1"
+                                                Margin="12,0,0,0"
+                                                VerticalAlignment="Center"
+                                                Style="{StaticResource StatusBadge.Warning}">
+                                            <TextBlock FontSize="12" Text="{Binding Status}" />
+                                        </Border>
+                                    </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </StackPanel>
                 </Border>
-                <Border Style="{StaticResource Card}" Margin="0,0,8,0">
+
+                <Border Style="{StaticResource Card}" MinHeight="214" Margin="0,0,8,0">
                     <StackPanel>
-                        <TextBlock Style="{StaticResource SectionHeading}" Text="Saved Presets" />
-                        <TextBlock Text="No saved presets yet."
-                                   Visibility="{Binding HasNoSavedPresets, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                        <ItemsControl ItemsSource="{Binding Snapshot.SavedPresets}" DisplayMemberPath="Name" />
+                        <Grid Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="40" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="36"
+                                    Height="36"
+                                    Background="{DynamicResource Brush.InfoSurface}"
+                                    CornerRadius="9">
+                                <TextBlock Text="{StaticResource Icon.Catalog}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           FontFamily="{StaticResource Font.Icon}"
+                                           Foreground="{DynamicResource Brush.Info}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                <TextBlock Style="{StaticResource Text.CardTitle}" Text="Saved presets" />
+                                <TextBlock Style="{StaticResource Text.Caption}"
+                                           Text="Reusable project configuration profiles." />
+                            </StackPanel>
+                        </Grid>
+                        <Border>
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource EmptyState}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasNoSavedPresets}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Style="{StaticResource EmptyStateIcon}"
+                                           Text="{StaticResource Icon.Catalog}" />
+                                <TextBlock HorizontalAlignment="Center"
+                                           FontWeight="SemiBold"
+                                           Text="No saved presets" />
+                                <TextBlock Style="{StaticResource Text.Caption}"
+                                           HorizontalAlignment="Center"
+                                           Text="Your reusable configurations will appear here." />
+                            </StackPanel>
+                        </Border>
+                        <ItemsControl ItemsSource="{Binding Snapshot.SavedPresets}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,7">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock FontWeight="SemiBold" Text="{Binding Name}" />
+                                            <TextBlock Style="{StaticResource Text.Caption}" Text="{Binding Id}" />
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1"
+                                                   Style="{StaticResource Text.Caption}"
+                                                   Margin="12,0,0,0"
+                                                   VerticalAlignment="Center"
+                                                   Text="{Binding UpdatedAt, StringFormat={}{0:g}}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
                 </Border>
-                <Border Style="{StaticResource Card}" Margin="8,0,0,0">
-                    <StackPanel>
-                        <DockPanel>
-                            <Button DockPanel.Dock="Right" Content="Open Doctor"
-                                    Command="{Binding OpenEnvironmentDoctorCommand}"
-                                    AutomationProperties.Name="Open Environment Doctor" />
-                            <TextBlock Style="{StaticResource SectionHeading}" Text="Environment Health" />
-                        </DockPanel>
-                        <TextBlock Text="{Binding Snapshot.EnvironmentHealth.ScannedAt, StringFormat=Last scan: {0:g}}" />
-                        <TextBlock Text="{Binding Snapshot.EnvironmentHealth.Tools.Length, StringFormat=Tools checked: {0}}" />
-                    </StackPanel>
+
+                <Border Style="{StaticResource Card}" MinHeight="214" Margin="8,0,0,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="40" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="36"
+                                    Height="36"
+                                    Background="{DynamicResource Brush.SuccessSurface}"
+                                    CornerRadius="9">
+                                <TextBlock Text="{StaticResource Icon.Health}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           FontFamily="{StaticResource Font.Icon}"
+                                           Foreground="{DynamicResource Brush.Success}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                <TextBlock Style="{StaticResource Text.CardTitle}" Text="Environment health" />
+                                <TextBlock Style="{StaticResource Text.Caption}"
+                                           Text="Trusted local toolchain snapshot." />
+                            </StackPanel>
+                        </Grid>
+                        <StackPanel Grid.Row="1" Margin="0,22,0,20">
+                            <TextBlock Style="{StaticResource Text.Caption}" Text="LAST SCAN" />
+                            <TextBlock Margin="0,4,0,14"
+                                       FontWeight="SemiBold"
+                                       Text="{Binding Snapshot.EnvironmentHealth.ScannedAt, StringFormat={}{0:g}, TargetNullValue=Not scanned yet}" />
+                            <TextBlock Style="{StaticResource Text.Caption}" Text="TOOLS CHECKED" />
+                            <TextBlock Margin="0,4,0,0"
+                                       FontSize="22"
+                                       FontWeight="SemiBold"
+                                       Text="{Binding Snapshot.EnvironmentHealth.Tools.Length, TargetNullValue=0}" />
+                        </StackPanel>
+                        <Button Grid.Row="2"
+                                Style="{StaticResource Button.Secondary}"
+                                HorizontalAlignment="Left"
+                                Content="Open Environment Doctor"
+                                Command="{Binding OpenEnvironmentDoctorCommand}"
+                                AutomationProperties.Name="Open Environment Doctor" />
+                    </Grid>
                 </Border>
             </UniformGrid>
         </StackPanel>

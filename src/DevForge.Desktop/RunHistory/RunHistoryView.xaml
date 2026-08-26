@@ -3,40 +3,191 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              AutomationProperties.Name="Run History">
     <Grid Margin="{StaticResource Page.Padding}">
-        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-        <DockPanel>
-            <Button DockPanel.Dock="Right" Content="Refresh" Command="{Binding RefreshCommand}" />
-            <TextBlock Style="{StaticResource PageHeading}" Text="Run History" />
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <DockPanel Margin="0,0,0,22" LastChildFill="True">
+            <Button DockPanel.Dock="Right"
+                    Style="{StaticResource Button.Secondary}"
+                    Margin="20,0,0,0"
+                    Command="{Binding RefreshCommand}"
+                    AutomationProperties.Name="Refresh run history">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Margin="0,0,8,0"
+                               FontFamily="{StaticResource Font.Icon}"
+                               Text="{StaticResource Icon.Refresh}" />
+                    <TextBlock Text="Refresh" />
+                </StackPanel>
+            </Button>
+            <StackPanel>
+                <TextBlock Style="{StaticResource PageHeading}" Text="Run History" />
+                <TextBlock Style="{StaticResource PageDescription}"
+                           Text="Inspect durable run state and continue only the actions the application has proven safe." />
+            </StackPanel>
         </DockPanel>
-        <ListBox Grid.Row="1" Margin="0,16,0,0" ItemsSource="{Binding Items}"
-                 VirtualizingStackPanel.IsVirtualizing="True">
-            <ListBox.ItemTemplate>
-                <DataTemplate>
-                    <Grid Margin="0,8">
-                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                        <StackPanel>
-                            <TextBlock Text="{Binding RunId}" FontWeight="SemiBold" />
-                            <TextBlock><Run Text="{Binding StatusGlyph}" /><Run Text="{Binding StatusLabel}" /></TextBlock>
-                            <TextBlock Text="{Binding ErrorCode}" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="1" Orientation="Horizontal">
-                            <Button Content="Resume" IsEnabled="{Binding CanResume}"
-                                    Command="{Binding DataContext.ResumeCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                    CommandParameter="{Binding}" />
-                            <Button Content="Retry" IsEnabled="{Binding CanRetry}" Margin="8,0,0,0"
-                                    Command="{Binding DataContext.RetryCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                    CommandParameter="{Binding}" />
-                            <Button Content="Cleanup" IsEnabled="{Binding CanCleanup}" Margin="8,0,0,0"
-                                    Command="{Binding DataContext.CleanupCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                    CommandParameter="{Binding}" />
-                            <Button Content="Retry Publish" IsEnabled="{Binding CanRetryPublish}" Margin="8,0,0,0"
-                                    Command="{Binding DataContext.RetryPublishCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                    CommandParameter="{Binding}"
-                                    AutomationProperties.Name="Retry Publish" />
-                        </StackPanel>
-                    </Grid>
-                </DataTemplate>
-            </ListBox.ItemTemplate>
-        </ListBox>
+
+        <Grid Grid.Row="1">
+            <ListBox ItemsSource="{Binding Items}"
+                     BorderThickness="0"
+                     VirtualizingStackPanel.IsVirtualizing="True"
+                     VirtualizingStackPanel.VirtualizationMode="Recycling"
+                     AutomationProperties.Name="Project run history">
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="Margin" Value="0,0,0,12" />
+                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="BorderThickness" Value="0" />
+                    </Style>
+                </ListBox.ItemContainerStyle>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Border Style="{StaticResource Card}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="48" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Width="42"
+                                            Height="42"
+                                            Background="{DynamicResource Brush.SurfaceRaised}"
+                                            CornerRadius="10">
+                                        <TextBlock Text="{StaticResource Icon.History}"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"
+                                                   FontFamily="{StaticResource Font.Icon}"
+                                                   FontSize="18"
+                                                   Foreground="{DynamicResource Brush.Accent}" />
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Margin="10,0,16,0">
+                                        <TextBlock Style="{StaticResource Text.Caption}" Text="RUN ID" />
+                                        <TextBlock Margin="0,4,0,0"
+                                                   FontFamily="{StaticResource Font.Mono}"
+                                                   FontWeight="SemiBold"
+                                                   Text="{Binding RunId}"
+                                                   ToolTip="{Binding RunId}" />
+                                        <TextBlock Style="{StaticResource Text.Caption}"
+                                                   Margin="0,6,0,0"
+                                                   Text="{Binding CurrentStep, StringFormat=Current step: {0}, TargetNullValue=No active step}" />
+                                    </StackPanel>
+                                    <Border Grid.Column="2"
+                                            VerticalAlignment="Top"
+                                            Style="{StaticResource StatusBadge}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Margin="0,0,6,0" Text="{Binding StatusGlyph}" />
+                                            <TextBlock FontSize="12"
+                                                       FontWeight="SemiBold"
+                                                       Text="{Binding StatusLabel}" />
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+
+                                <Grid Grid.Row="1" Margin="58,16,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Margin="0,0,16,0"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Center">
+                                        <Border.Style>
+                                            <Style TargetType="Border" BasedOn="{StaticResource Callout.Error}">
+                                                <Setter Property="Padding" Value="10,6" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding ErrorCode}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <TextBlock FontFamily="{StaticResource Font.Mono}"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource Brush.Error}"
+                                                   Text="{Binding ErrorCode}" />
+                                    </Border>
+                                    <WrapPanel Grid.Column="1" HorizontalAlignment="Right">
+                                        <Button Style="{StaticResource Button.Secondary}"
+                                                Content="Resume"
+                                                IsEnabled="{Binding CanResume}"
+                                                Command="{Binding DataContext.ResumeCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                CommandParameter="{Binding}" />
+                                        <Button Style="{StaticResource Button.Secondary}"
+                                                Margin="8,0,0,0"
+                                                Content="Retry"
+                                                IsEnabled="{Binding CanRetry}"
+                                                Command="{Binding DataContext.RetryCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                CommandParameter="{Binding}" />
+                                        <Button Style="{StaticResource Button.Ghost}"
+                                                Margin="8,0,0,0"
+                                                Content="Cleanup"
+                                                IsEnabled="{Binding CanCleanup}"
+                                                Command="{Binding DataContext.CleanupCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                CommandParameter="{Binding}" />
+                                        <Button Style="{StaticResource Button.Primary}"
+                                                Margin="8,0,0,0"
+                                                Content="Retry publish"
+                                                IsEnabled="{Binding CanRetryPublish}"
+                                                Command="{Binding DataContext.RetryPublishCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                CommandParameter="{Binding}"
+                                                AutomationProperties.Name="Retry Publish" />
+                                    </WrapPanel>
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <Border HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource EmptyState}">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Items.Length}" Value="0">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel Width="330" HorizontalAlignment="Center">
+                    <TextBlock Style="{StaticResource EmptyStateIcon}"
+                               Text="{StaticResource Icon.History}" />
+                    <TextBlock HorizontalAlignment="Center"
+                               FontSize="16"
+                               FontWeight="SemiBold"
+                               Text="No project runs yet" />
+                    <TextBlock Style="{StaticResource Text.Caption}"
+                               Margin="0,6,0,14"
+                               HorizontalAlignment="Center"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap"
+                               Text="Create and validate a project to build a durable run history." />
+                    <Button Style="{StaticResource Button.Secondary}"
+                            HorizontalAlignment="Center"
+                            Content="Refresh history"
+                            Command="{Binding RefreshCommand}" />
+                </StackPanel>
+            </Border>
+
+            <Border Background="{DynamicResource Brush.AppBackground}"
+                    Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}"
+                    AutomationProperties.Name="Loading run history">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <ProgressBar Width="180" Height="3" IsIndeterminate="True" />
+                    <TextBlock Style="{StaticResource Text.Caption}"
+                               Margin="0,10,0,0"
+                               Text="Loading durable run state…" />
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </UserControl>

@@ -7,34 +7,168 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <DockPanel>
-            <Button DockPanel.Dock="Right" Content="Refresh" Command="{Binding RefreshCommand}" />
-            <TextBlock Style="{StaticResource PageHeading}" Text="Blueprint Catalog" />
+
+        <DockPanel Margin="0,0,0,22" LastChildFill="True">
+            <Button DockPanel.Dock="Right"
+                    Style="{StaticResource Button.Secondary}"
+                    Margin="20,0,0,0"
+                    Command="{Binding RefreshCommand}"
+                    AutomationProperties.Name="Refresh blueprint catalog">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Margin="0,0,8,0"
+                               FontFamily="{StaticResource Font.Icon}"
+                               Text="{StaticResource Icon.Refresh}" />
+                    <TextBlock Text="Refresh" />
+                </StackPanel>
+            </Button>
+            <StackPanel>
+                <TextBlock Style="{StaticResource Text.Caption}"
+                           Margin="0,0,0,5"
+                           Foreground="{DynamicResource Brush.Accent}"
+                           FontWeight="SemiBold"
+                           Text="TRUSTED STARTING POINTS" />
+                <TextBlock Style="{StaticResource PageHeading}" Text="Blueprint Catalog" />
+                <TextBlock Style="{StaticResource PageDescription}"
+                           Text="Choose a versioned local blueprint and review its trust state before creation." />
+            </StackPanel>
         </DockPanel>
-        <ListBox Grid.Row="1" Margin="0,16,0,0" ItemsSource="{Binding Items}"
-                 VirtualizingStackPanel.IsVirtualizing="True">
-            <ListBox.ItemTemplate>
-                <DataTemplate>
-                    <Grid Margin="0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="2*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel>
-                            <TextBlock Text="{Binding Id}" FontWeight="SemiBold" />
-                            <TextBlock Text="{Binding Version}" />
-                        </StackPanel>
-                        <TextBlock Grid.Column="1" Text="{Binding TrustLabel}" />
-                        <StackPanel Grid.Column="2">
-                            <TextBlock Text="{Binding Issue}" TextWrapping="Wrap" />
-                            <Button Content="Create" IsEnabled="{Binding CanCreate}"
-                                    Command="{Binding DataContext.CreateCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                    CommandParameter="{Binding}" />
-                        </StackPanel>
-                    </Grid>
-                </DataTemplate>
-            </ListBox.ItemTemplate>
-        </ListBox>
+
+        <Grid Grid.Row="1">
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding Items}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <UniformGrid Columns="2" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource Card}"
+                                    MinHeight="230"
+                                    Margin="0,0,14,14">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="48" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border Width="42"
+                                                Height="42"
+                                                Background="{DynamicResource Brush.AccentSubtle}"
+                                                CornerRadius="10">
+                                            <TextBlock Text="{StaticResource Icon.Code}"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       FontFamily="{StaticResource Font.Icon}"
+                                                       FontSize="18"
+                                                       Foreground="{DynamicResource Brush.Accent}" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Margin="10,0,10,0">
+                                            <TextBlock Style="{StaticResource Text.CardTitle}"
+                                                       Text="{Binding Id}"
+                                                       ToolTip="{Binding Id}" />
+                                            <TextBlock Style="{StaticResource Text.Caption}"
+                                                       Margin="0,3,0,0"
+                                                       Text="{Binding Version, StringFormat=Version {0}}" />
+                                        </StackPanel>
+                                        <Border Grid.Column="2"
+                                                VerticalAlignment="Top"
+                                                Style="{StaticResource StatusBadge.Success}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Margin="0,0,5,0"
+                                                           FontFamily="{StaticResource Font.Icon}"
+                                                           FontSize="11"
+                                                           Foreground="{DynamicResource Brush.Success}"
+                                                           Text="{StaticResource Icon.Success}" />
+                                                <TextBlock FontSize="12" Text="{Binding TrustLabel}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
+
+                                    <StackPanel Grid.Row="1" Margin="0,20,0,16">
+                                        <TextBlock Style="{StaticResource Text.Caption}" Text="BLUEPRINT ID" />
+                                        <TextBlock Margin="0,5,0,0"
+                                                   FontFamily="{StaticResource Font.Mono}"
+                                                   Text="{Binding Id}"
+                                                   ToolTip="{Binding Id}" />
+                                        <Border Margin="0,16,0,0">
+                                            <Border.Style>
+                                                <Style TargetType="Border" BasedOn="{StaticResource Callout.Warning}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Issue}" Value="{x:Null}">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <TextBlock Text="{Binding Issue}" TextWrapping="Wrap" />
+                                        </Border>
+                                    </StackPanel>
+
+                                    <Button Grid.Row="2"
+                                            Style="{StaticResource Button.Primary}"
+                                            HorizontalAlignment="Left"
+                                            Content="Use blueprint"
+                                            IsEnabled="{Binding CanCreate}"
+                                            Command="{Binding DataContext.CreateCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}"
+                                            AutomationProperties.Name="Create project from blueprint" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <Border HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource EmptyState}">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Items.Length}" Value="0">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel Width="330" HorizontalAlignment="Center">
+                    <TextBlock Style="{StaticResource EmptyStateIcon}"
+                               Text="{StaticResource Icon.Catalog}" />
+                    <TextBlock HorizontalAlignment="Center"
+                               FontSize="16"
+                               FontWeight="SemiBold"
+                               Text="No blueprints available" />
+                    <TextBlock Style="{StaticResource Text.Caption}"
+                               Margin="0,6,0,14"
+                               HorizontalAlignment="Center"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap"
+                               Text="Refresh the trusted local catalog or review safe-mode status." />
+                    <Button Style="{StaticResource Button.Secondary}"
+                            HorizontalAlignment="Center"
+                            Content="Refresh catalog"
+                            Command="{Binding RefreshCommand}" />
+                </StackPanel>
+            </Border>
+
+            <Border Background="{DynamicResource Brush.AppBackground}"
+                    Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}"
+                    AutomationProperties.Name="Loading blueprint catalog">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <ProgressBar Width="180" Height="3" IsIndeterminate="True" />
+                    <TextBlock Style="{StaticResource Text.Caption}"
+                               Margin="0,10,0,0"
+                               HorizontalAlignment="Center"
+                               Text="Loading trusted blueprints…" />
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </UserControl>

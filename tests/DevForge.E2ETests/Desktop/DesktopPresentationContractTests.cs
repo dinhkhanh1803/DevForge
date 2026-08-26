@@ -153,6 +153,36 @@ public sealed partial class DesktopPresentationContractTests
         Assert.Contains("AutomationProperties.HelpText", xaml, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(
+        "src/DevForge.Desktop/Dashboard/DashboardView.xaml",
+        "Create Project",
+        "EmptyState",
+        "RefreshCommand")]
+    [InlineData(
+        "src/DevForge.Desktop/BlueprintCatalog/BlueprintCatalogView.xaml",
+        "TrustLabel",
+        "EmptyState",
+        "CreateCommand")]
+    [InlineData(
+        "src/DevForge.Desktop/RunHistory/RunHistoryView.xaml",
+        "StatusBadge",
+        "EmptyState",
+        "RetryPublishCommand")]
+    public void DataPagesExposeHierarchyEmptyStateAndBackedActions(
+        string path,
+        string hierarchyMarker,
+        string emptyStateMarker,
+        string commandMarker)
+    {
+        var xaml = Read(path);
+
+        Assert.Contains(hierarchyMarker, xaml, StringComparison.Ordinal);
+        Assert.Contains(emptyStateMarker, xaml, StringComparison.Ordinal);
+        Assert.Contains(commandMarker, xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("#FFD13438", xaml, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static HashSet<string> ResourceKeys(string relativePath) =>
         KeyExpression()
             .Matches(Read(relativePath))
