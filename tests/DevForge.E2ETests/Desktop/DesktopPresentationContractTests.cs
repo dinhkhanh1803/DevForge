@@ -101,6 +101,44 @@ public sealed partial class DesktopPresentationContractTests
             key => Assert.Contains(key, keys));
     }
 
+    [Fact]
+    public void ControlsAndComponentsExposeTheAcceptedInteractionPrimitives()
+    {
+        var controls = ResourceKeys("src/DevForge.Desktop/Resources/Controls.xaml");
+        Assert.All(
+            [
+                "Button.Template",
+                "Button.Primary",
+                "Button.Secondary",
+                "Button.Ghost",
+                "Button.Danger",
+                "Button.Icon",
+                "NavigationButton",
+            ],
+            key => Assert.Contains(key, controls));
+
+        var components = ResourceKeys("src/DevForge.Desktop/Resources/Components.xaml");
+        Assert.All(
+            [
+                "Card",
+                "Card.Raised",
+                "StatusBadge",
+                "Callout.Info",
+                "Callout.Warning",
+                "Callout.Error",
+                "Callout.Success",
+                "ActionBar",
+                "ConsolePanel",
+                "EmptyState",
+                "EmptyStateIcon",
+                "FormCard",
+                "WorkflowStepper",
+                "TimelineList",
+                "ToastCard",
+            ],
+            key => Assert.Contains(key, components));
+    }
+
     private static HashSet<string> ResourceKeys(string relativePath) =>
         KeyExpression()
             .Matches(Read(relativePath))
