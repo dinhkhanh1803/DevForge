@@ -108,25 +108,59 @@ internal static class DiagnosticLogLease
 
     private const int MaximumAttempts = 200;
     private static readonly TimeSpan _retryDelay = TimeSpan.FromMilliseconds(10);
+    private static readonly SemaphoreSlim _processGate = new(1, 1);
 
     internal static async Task<IWorkspaceExclusiveLease?> AcquireAsync(
         IExclusiveLeaseWorkspaceFileSystem leases,
         CancellationToken cancellationToken)
     {
-        for (var attempt = 0; attempt < MaximumAttempts; attempt++)
+        await _processGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var lease = await leases.TryAcquireExclusiveLeaseAsync(
-                LeasePath,
-                cancellationToken).ConfigureAwait(false);
-            if (lease is not null)
+            for (var attempt = 0; attempt < MaximumAttempts; attempt++)
             {
-                return lease;
+                cancellationToken.ThrowIfCancellationRequested();
+                var lease = await leases.TryAcquireExclusiveLeaseAsync(
+                    LeasePath,
+                    cancellationToken).ConfigureAwait(false);
+                if (lease is not null)
+                {
+                    return new ProcessScopedLease(lease);
+                }
+
+                await Task.Delay(_retryDelay, cancellationToken).ConfigureAwait(false);
             }
 
-            await Task.Delay(_retryDelay, cancellationToken).ConfigureAwait(false);
+            _processGate.Release();
+            return null;
         }
+        catch
+        {
+            _processGate.Release();
+            throw;
+        }
+    }
 
-        return null;
+    private sealed class ProcessScopedLease(IWorkspaceExclusiveLease inner) : IWorkspaceExclusiveLease
+    {
+        private IWorkspaceExclusiveLease? _inner = inner;
+
+        public async ValueTask DisposeAsync()
+        {
+            var owned = Interlocked.Exchange(ref _inner, null);
+            if (owned is null)
+            {
+                return;
+            }
+
+            try
+            {
+                await owned.DisposeAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                _processGate.Release();
+            }
+        }
     }
 }

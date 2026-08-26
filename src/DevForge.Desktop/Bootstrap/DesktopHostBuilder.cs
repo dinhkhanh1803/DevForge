@@ -2,6 +2,7 @@ using System.IO;
 using DevForge.Application.Contracts;
 using DevForge.Application.Contracts.Persistence;
 using DevForge.Application.Creation;
+using DevForge.Application.Diagnostics;
 using DevForge.Application.Execution;
 using DevForge.Application.Planning;
 using DevForge.Application.Planning.CompatibilityRules;
@@ -96,6 +97,12 @@ public static class DesktopHostBuilder
         services.AddSingleton(workspaceRoot.Value);
         services.AddSingleton<IDiagnosticSink, JsonLinesDiagnosticSink>();
         services.AddSingleton<IDiagnosticRetentionService, DiagnosticRetentionService>();
+        services.AddSingleton<SupportBundleWriter>();
+        services.AddSingleton<ISupportBundleWriter>(provider =>
+            provider.GetRequiredService<SupportBundleWriter>());
+        services.AddSingleton<ISupportBundleCleanupService>(provider =>
+            provider.GetRequiredService<SupportBundleWriter>());
+        services.AddSingleton<ISupportBundleCoordinator, SupportBundleCoordinator>();
         services.AddSingleton<DesktopBlueprintSourceRegistry>();
         services.AddSingleton<IEnumerable<BlueprintPackageSource>>(provider =>
             provider.GetRequiredService<DesktopBlueprintSourceRegistry>());

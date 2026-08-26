@@ -12,7 +12,7 @@ M10 requires useful production diagnostics without cloud telemetry, secret persi
 - Application owns bounded immutable diagnostic events, retention policies, and redacted partial results.
 - Infrastructure revalidates every structured value and message immediately before fixed-order UTF-8 JSONL serialization. Secret-shaped values are replaced and oversized messages are rejected before proportional allocation.
 - Daily and run-specific logs are created only through guarded workspaces. Each log requires an exact canonical sidecar ownership marker.
-- Writers and retention share one OS-exclusive workspace lease. Contention is bounded and cancellable; it does not silently drop an event.
+- Writers and retention share one process-wide fairness gate wrapped around one OS-exclusive workspace lease. Contention is bounded and cancellable; same-process instances cannot starve one another and cross-process contention does not silently drop an event.
 - Retention considers only canonical JSONL paths with a matching marker, preserves the active day, deletes deterministically, and stops between candidates on cancellation or the first failed delete.
 - Desktop applies the persisted retention policy during normal startup and emits a bounded startup-ready event. Diagnostic failures remain best-effort and do not make an otherwise usable Desktop fail startup.
 - No external telemetry, cloud logging, token capture, raw process output, database cleanup, or customer-project traversal is introduced.

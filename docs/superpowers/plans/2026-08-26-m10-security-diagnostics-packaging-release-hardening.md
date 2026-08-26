@@ -197,7 +197,7 @@ Run Unit diagnostics, Integration diagnostics/file guards, Desktop settings/host
 - Test: `tests/DevForge.IntegrationTests/Infrastructure/Diagnostics/SupportBundleWriterTests.cs`
 - Test: `tests/DevForge.IntegrationTests/Infrastructure/Diagnostics/SupportBundleSecurityTests.cs`
 
-- [ ] **Step 1: Write RED canonical request/result tests**
+- [x] **Step 1: Write RED canonical request/result tests**
 
 ```csharp
 public sealed record SupportBundleRequest(string RunId, bool IncludeEnvironmentSnapshot);
@@ -211,19 +211,19 @@ public sealed record SupportBundleReceipt(
 
 Reject missing/noncanonical IDs and safe-mode requests that would need mutation outside `support-bundles`.
 
-- [ ] **Step 2: Write RED allowlist/privacy/archive tests**
+- [x] **Step 2: Write RED allowlist/privacy/archive tests**
 
 Require only scrubbed recipe, plan, journal/checkpoint, step results, manifest/checksum, generation report, tool status, redacted logs, error-catalog excerpt, and `inventory.json`. Assert ZIP names are canonical forward-slash relative names with no `..`, drive, UNC, duplicate, NTFS ADS, `.env`, database, source-tree, credential, or executable entry.
 
-- [ ] **Step 3: Implement canonical inventory and deterministic ZIP**
+- [x] **Step 3: Implement canonical inventory and deterministic ZIP**
 
 Use fixed entry ordering, normalized UTF-8, SHA-256 per entry, bounded entry/aggregate limits, and a generated schema/version. Write to a run-owned temporary directory, scan every byte, then atomically move one completed archive into `support-bundles` without overwrite.
 
-- [ ] **Step 4: Add kill-window and cleanup tests**
+- [x] **Step 4: Add kill-window and cleanup tests**
 
 Inject failure before/after every entry and before atomic publish. Retry must produce the same final bytes; no partial archive is claimed. Cleanup must verify bundle/staging markers and remain idempotent.
 
-- [ ] **Step 5: Run GREEN, security regressions, docs, commit**
+- [x] **Step 5: Run GREEN, security regressions, docs, commit**
 
 Commit as `feat(m10): export privacy-safe support bundles`.
 

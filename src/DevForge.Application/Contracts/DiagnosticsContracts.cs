@@ -233,3 +233,152 @@ public sealed record DiagnosticRetentionResult(
     public static DiagnosticRetentionResult Empty { get; } =
         new(0, 0, 0, false, []);
 }
+
+public sealed record SupportBundleRequest
+{
+    private SupportBundleRequest(string runId, bool includeEnvironmentSnapshot)
+    {
+        RunId = runId;
+        IncludeEnvironmentSnapshot = includeEnvironmentSnapshot;
+    }
+
+    public string RunId { get; }
+
+    public bool IncludeEnvironmentSnapshot { get; }
+
+    public static ValidationResult<SupportBundleRequest> Create(
+        string? runId,
+        bool includeEnvironmentSnapshot)
+    {
+        if (!IsCanonicalIdentifier(runId, 128))
+        {
+            return ValidationResult.Failure<SupportBundleRequest>(
+                [new ValidationIssue(
+                    "support-bundle.run-id.invalid",
+                    "A canonical non-secret run identifier is required.",
+                    "runId")]);
+        }
+
+        return ValidationResult.Success(
+            new SupportBundleRequest(runId!, includeEnvironmentSnapshot));
+    }
+
+    internal static bool IsCanonicalIdentifier(string? value, int maximumLength) =>
+        !string.IsNullOrWhiteSpace(value)
+        && value.Length <= maximumLength
+        && value == value.Trim()
+        && value.All(character =>
+            char.IsAsciiLetterOrDigit(character) || character is '.' or '-' or '_')
+        && !RedactedText.IsSecretShapedKey(value)
+        && !RedactedText.IsSecretShapedValue(value);
+}
+
+public sealed record SupportBundleReceipt
+{
+    private SupportBundleReceipt(
+        string bundleId,
+        WorkspaceRelativePath relativePath,
+        string sha256,
+        long length,
+        DateTimeOffset createdAtUtc)
+    {
+        BundleId = bundleId;
+        RelativePath = relativePath;
+        Sha256 = sha256;
+        Length = length;
+        CreatedAtUtc = createdAtUtc;
+    }
+
+    public string BundleId { get; }
+
+    public WorkspaceRelativePath RelativePath { get; }
+
+    public string Sha256 { get; }
+
+    public long Length { get; }
+
+    public DateTimeOffset CreatedAtUtc { get; }
+
+    public static ValidationResult<SupportBundleReceipt> Create(
+        string? bundleId,
+        WorkspaceRelativePath? relativePath,
+        string? sha256,
+        long length,
+        DateTimeOffset createdAtUtc)
+    {
+        var issues = new List<ValidationIssue>();
+        if (!SupportBundleRequest.IsCanonicalIdentifier(bundleId, 128))
+        {
+            issues.Add(new ValidationIssue(
+                "support-bundle.bundle-id.invalid",
+                "A canonical non-secret bundle identifier is required.",
+                "bundleId"));
+        }
+
+        var expectedPath = bundleId is null ? null : $"support-bundles\\{bundleId}.zip";
+        if (relativePath is null
+            || !StringComparer.Ordinal.Equals(relativePath.Value, expectedPath))
+        {
+            issues.Add(new ValidationIssue(
+                "support-bundle.path.invalid",
+                "The bundle path must use the owned support-bundles directory.",
+                "relativePath"));
+        }
+
+        if (sha256 is null
+            || sha256.Length != 64
+            || sha256.Any(character => character is not (>= '0' and <= '9')
+                and not (>= 'a' and <= 'f')))
+        {
+            issues.Add(new ValidationIssue(
+                "support-bundle.sha256.invalid",
+                "A lowercase SHA-256 digest is required.",
+                "sha256"));
+        }
+
+        if (length <= 0)
+        {
+            issues.Add(new ValidationIssue(
+                "support-bundle.length.invalid",
+                "A positive bundle length is required.",
+                "length"));
+        }
+
+        if (createdAtUtc.Offset != TimeSpan.Zero)
+        {
+            issues.Add(new ValidationIssue(
+                "support-bundle.created-at.utc",
+                "A UTC creation timestamp is required.",
+                "createdAtUtc"));
+        }
+
+        return issues.Count == 0
+            ? ValidationResult.Success(new SupportBundleReceipt(
+                bundleId!, relativePath!, sha256!, length, createdAtUtc))
+            : ValidationResult.Failure<SupportBundleReceipt>(issues);
+    }
+}
+
+public interface ISupportBundleWriter
+{
+    Task<ExecutionOperationResult<SupportBundleReceipt>> WriteAsync(
+        RunCheckpoint checkpoint,
+        bool includeEnvironmentSnapshot,
+        CancellationToken cancellationToken);
+}
+
+public interface ISupportBundleCoordinator
+{
+    Task<ExecutionOperationResult<SupportBundleReceipt>> ExportAsync(
+        SupportBundleRequest request,
+        CancellationToken cancellationToken);
+}
+
+public sealed record SupportBundleCleanupReceipt(string BundleId, bool WasPresent);
+
+public interface ISupportBundleCleanupService
+{
+    Task<ExecutionOperationResult<SupportBundleCleanupReceipt>> CleanupAsync(
+        SupportBundleReceipt receipt,
+        CancellationToken cancellationToken);
+}

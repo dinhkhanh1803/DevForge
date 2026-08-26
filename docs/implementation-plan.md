@@ -2,7 +2,7 @@
 
 **Goal:** close the MVP security/recovery/diagnostics/documentation/package release gates without expanding the blueprint catalog.
 
-**Status:** M10 Tasks 1-2 are implemented and their affected gates are green. Task 2 review findings are closed and Task 3 is active. M9's Windows 11 certification remains accepted environmental debt and neither M9 nor M10 may be marked complete until it is executed.
+**Status:** M10 Tasks 1-3 are implemented and their affected gates are green. Task 4 is active. M9's Windows 11 certification remains accepted environmental debt and neither M9 nor M10 may be marked complete until it is executed.
 
 **Design:** `docs/superpowers/specs/2026-08-26-m10-security-diagnostics-packaging-release-hardening-design.md`
 
@@ -12,7 +12,7 @@
 
 - [x] Task 1: security closure and guarded local-data provisioning.
 - [x] Task 2: structured JSONL diagnostics and bounded retention.
-- [ ] Task 3: privacy-safe support bundle and owned cleanup.
+- [x] Task 3: privacy-safe support bundle and owned cleanup.
 - [ ] Task 4: Desktop diagnostics, keyboard accessibility, and scaling.
 - [ ] Task 5: self-contained `win-x64` package and upgrade smoke.
 - [ ] Task 6: release documentation, checklist, Windows 11 evidence, and closure.
@@ -38,6 +38,16 @@ Task 1 satisfied this boundary. `IFileSystem` now owns validated root provisioni
 **Tests and exit gate:** satisfied. Validation and serialization reject secret-shaped values in every structured field at both factory and serialization boundaries; messages are bounded before proportional allocation. Daily/run writers share one bounded cancellable cross-process lease with retention, exact sidecar markers prove ownership, and cancellation/delete failure returns a scrubbed partial result without continuing through later candidates. Normal Desktop startup applies persisted retention and emits a bounded startup-ready event. Fresh Release build passes 12 projects with 0 warnings/errors; Unit 648, Integration 593, Blueprint 127, and E2E 196 pass with 0 failed/skipped.
 
 ADR-0020 records the owned local diagnostics, shared lease, marker verification, and best-effort startup decision.
+
+## Task 3 boundary and exit
+
+**Scope:** add canonical support-bundle request/receipt/cleanup contracts, authoritative checkpoint coordination, a closed privacy-safe entry catalog, deterministic integrity-inventoried ZIP export, marker-owned staging/final publication, exact retry recovery, and marker-plus-digest-authorized cleanup. Desktop commands, arbitrary attachment paths, customer source, database export, raw environment properties, and cloud upload remain excluded.
+
+**Files:** Application support contracts/coordinator; Infrastructure deterministic writer/cleanup; Desktop host composition; focused Unit/Integration/E2E tests; ADR-0021, milestone docs, and changelog.
+
+**Tests and exit gate:** satisfied. Requests reject traversal, oversized, and secret-shaped IDs. Export uses strict normalized UTF-8, exact sorted forward-slash names, per-entry/aggregate bounds, SHA-256 inventory and receipt, marker-verified logs, and optional tool status without raw properties. Tests prove deterministic retry bytes, secret-shaped report refusal, unknown marker refusal, two atomic ZIP kill windows, recovery, oversized tool refusal, marker-required idempotent cleanup, ignored `.env`/source files, and production DI resolution. Fresh Release build passes all 12 projects with 0 warnings/errors; Unit 651, Integration 601, Blueprint 127, and E2E 197 pass with 0 failed/skipped.
+
+ADR-0021 records deterministic entry policy, marker-owned staging/publication, and marker-plus-digest cleanup authority.
 
 ---
 
