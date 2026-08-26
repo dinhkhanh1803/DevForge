@@ -26,3 +26,15 @@ Evidence timestamp for this local checkpoint: `2026-08-26T16:30:00+07:00`. Local
 ## Remaining release-host commands
 
 On a real Windows 11 x64 release host, execute the locked restore/format/build/four-suite gate, `ProductionBlueprintReleaseMatrixE2ETests`, real keyboard and 100/125/150% Desktop smoke, fixed-profile publish/audit, and `ReleaseUpgradeTests`. Separately observe the pinned `release-package` GitHub Actions job. Record exact host/build, timestamps, commands, counts, and artifact digest before changing any Pending row.
+
+## External evidence audit
+
+At `2026-08-26T17:11:08+07:00`, the release controller performed a read-only external-closure audit from commit `10087b023bc47a4b9e86af594ea22f3f58d25046` on branch `codex/m4-m11-completion`:
+
+- the branch has no configured upstream;
+- `origin` is `https://github.com/dinhkhanh1803/DevForge.git`;
+- `git ls-remote --heads` advertised no matching `codex/m4-m11-completion`, `main`, or `master` head;
+- GitHub CLI 2.97.0 reported the active `dinhkhanh1803` credential invalid, so no authenticated workflow evidence could be read;
+- the available host remained Microsoft Windows 10.0.19045 and exposed no Hyper-V, VirtualBox, or VMware CLI with which to run the required Windows 11 matrix.
+
+This audit changes no gate to Pass. Remote publication is not part of this closure attempt, and no branch or repository was pushed or created. External closure still requires a real Windows 11 x64 release host plus an authenticated, observed pinned `release-package` workflow run for the exact reviewed commit.

@@ -25,6 +25,8 @@
 
 **Local exit:** documentation contracts pass; safe mode now visibly disables Resume, Retry, Cleanup, and Retry Publish in both Execution Center/Run History while the underlying workflow remains read-only. Locked restore and scoped format verification pass. All 12 Release projects build with 0 warnings/errors; Unit 651, Integration 601, Blueprint 127, and E2E 216 pass with zero failed/skipped. EF schema consistency passes 1/1. Republished self-contained output including all six release guides audits at 565 files/3 roots and all packaged startup scenarios pass. Checklist rows Build, Recovery, Security, Data, and Documentation are Pass; Blueprints, UX, and Packaging remain Pending for real Windows 11 and remote CI evidence. M10 is not closed and M11 is not recommended.
 
+**External closure audit:** the 2026-08-26 read-only audit confirmed that the current Windows 10 host has no available Hyper-V, VirtualBox, or VMware CLI; the local branch has no upstream; the reviewed commit is not advertised under the checked release/main heads; and the active GitHub CLI credential is invalid. No remote mutation was authorized or performed. Task 6 therefore remains open until the exact reviewed commit is exercised on Windows 11 x64 and its pinned remote package job is observed.
+
 ## Task 4 boundary and automated exit
 
 **Scope:** expose support-bundle export/copy from authoritative Execution Center and Run History state, keep support-bundle cleanup typed and safe-mode aware, expose persisted diagnostic retention settings, and harden keyboard/accessibility/scaling presentation contracts without adding shell or filesystem access to ViewModels.
