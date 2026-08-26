@@ -2,7 +2,7 @@
 
 **Goal:** close the MVP security/recovery/diagnostics/documentation/package release gates without expanding the blueprint catalog.
 
-**Status:** M10 Tasks 1-3 are implemented and their affected gates are green. Task 4 is active. M9's Windows 11 certification remains accepted environmental debt and neither M9 nor M10 may be marked complete until it is executed.
+**Status:** M10 Tasks 1-3 are complete. Task 4 implementation and automated gates are green; its real-display 100/125/150% certification is carried to the Task 6 release matrix. Task 5 is active. M9's Windows 11 certification remains accepted environmental debt and neither M9 nor M10 may be marked complete until it is executed.
 
 **Design:** `docs/superpowers/specs/2026-08-26-m10-security-diagnostics-packaging-release-hardening-design.md`
 
@@ -13,9 +13,19 @@
 - [x] Task 1: security closure and guarded local-data provisioning.
 - [x] Task 2: structured JSONL diagnostics and bounded retention.
 - [x] Task 3: privacy-safe support bundle and owned cleanup.
-- [ ] Task 4: Desktop diagnostics, keyboard accessibility, and scaling.
+- [ ] Task 4: Desktop diagnostics, keyboard accessibility, and scaling (implementation/automated gates complete; real-display certification outstanding).
 - [ ] Task 5: self-contained `win-x64` package and upgrade smoke.
 - [ ] Task 6: release documentation, checklist, Windows 11 evidence, and closure.
+
+## Task 4 boundary and automated exit
+
+**Scope:** expose support-bundle export/copy from authoritative Execution Center and Run History state, keep support-bundle cleanup typed and safe-mode aware, expose persisted diagnostic retention settings, and harden keyboard/accessibility/scaling presentation contracts without adding shell or filesystem access to ViewModels.
+
+**Files:** Desktop diagnostics coordinator and host composition; Execution Center, Run History, and Settings ViewModels/XAML; focused Desktop diagnostics/accessibility/E2E tests; ADR-0022 and milestone docs.
+
+**Tests:** typed relative receipt export/copy, safe-mode cleanup refusal, authoritative run identity, capability-driven command state, redacted notifications, DI graph resolution, automation names, icon-plus-text and explicit one-way status projection, failed-step selection, virtualized output/history, and WPF measure/arrange at 960x640, 1200x800, and 1440x960 in Light/Dark themes.
+
+**Automated exit:** locked restore passed; scoped format verification exited 0; all 12 Release projects built with 0 warnings/errors; Unit 651, Integration 601, Blueprint 127, and E2E 205 passed with zero failed/skipped. No ViewModel uses `Process`, `File`, `Directory`, shell strings, or an absolute staging path. The intentionally disabled `Open staging` action remains fail-closed because no verified typed folder-launch boundary exists. Real Windows display checks at 100/125/150% remain release-host evidence, not an automated proxy, and are carried to Task 6. Task 5 is the next implementation task.
 
 ## Task 1 boundary before code
 

@@ -240,25 +240,27 @@ Commit as `feat(m10): export privacy-safe support bundles`.
 - Test: `tests/DevForge.E2ETests/Desktop/*Diagnostics*Tests.cs`
 - Test: `tests/DevForge.E2ETests/Desktop/DesktopAccessibilityTests.cs`
 
-- [ ] **Step 1: Add RED ViewModel capability tests**
+- [x] **Step 1: Add RED ViewModel capability tests**
 
 Assert support export/open/copy actions are enabled only from authoritative snapshots, disabled while busy, refuse mutation in safe mode, return redacted notifications, and never expose a raw staging path as cleanup authority.
 
-- [ ] **Step 2: Implement commands through coordinators**
+- [x] **Step 2: Implement commands through coordinators**
 
 Use `IAsyncRelayCommand`, cancellation, single-flight guards, and typed receipts. Interactive folder/IDE launch remains behind the existing launcher boundary; ViewModels do not use `Process`, `Directory`, `File`, or shell APIs.
 
-- [ ] **Step 3: Add RED XAML accessibility/scaling contracts**
+- [x] **Step 3: Add RED XAML accessibility/scaling contracts**
 
 Parse all Desktop XAML and require automation names for actionable controls, icon plus text for statuses, no fixed content heights that clip at 150%, virtualization for logs, logical tab order, visible focus, text wrapping, and explicit one-way binding for read-only indicators.
 
-- [ ] **Step 4: Implement minimal XAML/resource changes and failure focus**
+- [x] **Step 4: Implement minimal XAML/resource changes and failure focus**
 
 Use shared resource tokens and grid/star/auto sizing. Selection/focus moves to the first failed step through ViewModel state; code-behind remains presentation-only and contains no IO/process logic.
 
 - [ ] **Step 5: Run Desktop E2E, manual 100/125/150 smoke, docs, commit**
 
 Record the exact host/display evidence separately from automated contracts. Commit as `feat(desktop): enable hardened diagnostics ux`.
+
+Automated implementation is green on 2026-08-26: scoped format, 12-project Release build, Unit 651, Integration 601, Blueprint 127, and E2E 205 all pass with zero warnings/failures/skips. The WPF contract measured Light/Dark views at 960x640, 1200x800, and 1440x960, but this is not recorded as real-display 100/125/150% evidence. That release-host check remains open and is consolidated with Task 6's required Windows 11 matrix.
 
 ### Task 5: Self-contained win-x64 package and upgrade smoke
 

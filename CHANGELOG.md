@@ -8,6 +8,7 @@ All notable DevForge Studio changes are documented here.
 
 - M10 canonical bounded JSONL diagnostics with guarded atomic daily/run streams, credential revalidation at serialization, exact ownership markers, a shared bounded cross-process writer/retention lease, validated 30-day/256-MiB defaults, typed partial cleanup results, and normal-startup lifecycle composition.
 - Deterministic privacy-safe support bundles with a closed evidence catalog, normalized bounded UTF-8, per-entry SHA-256 inventory, marker-owned staging and atomic publication, exact kill-window recovery, and marker-plus-digest-authorized idempotent cleanup.
+- Native Desktop diagnostics actions backed by authoritative run identity and typed relative receipts, safe-mode cleanup refusal, redacted user notifications, exposed retention settings, failed-step selection, named keyboard actions, explicit read-only status bindings, and virtualized scaling contracts.
 
 - Native WPF/.NET 10 solution with seven production projects and four test projects.
 - Clean Architecture project-reference graph and executable architecture tests.

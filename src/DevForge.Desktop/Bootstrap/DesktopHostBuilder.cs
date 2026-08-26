@@ -10,6 +10,7 @@ using DevForge.Application.Publication;
 using DevForge.Desktop.BlueprintCatalog;
 using DevForge.Desktop.CreateProject;
 using DevForge.Desktop.Dashboard;
+using DevForge.Desktop.Diagnostics;
 using DevForge.Desktop.EnvironmentDoctor;
 using DevForge.Desktop.Execution;
 using DevForge.Desktop.Navigation;
@@ -169,6 +170,7 @@ public static class DesktopHostBuilder
         services.AddSingleton<NavigationService>();
         services.AddSingleton<ProjectCreationSelection>();
         services.AddSingleton<NotificationService>();
+        services.AddSingleton<DesktopDiagnosticsCoordinator>();
         services.AddSingleton<ShellViewModel>();
         services.AddSingleton<DashboardViewModel>();
         services.AddSingleton<SettingsViewModel>();

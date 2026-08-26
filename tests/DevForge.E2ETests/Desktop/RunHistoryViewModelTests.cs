@@ -1,5 +1,8 @@
 using DevForge.Application.Contracts;
 using DevForge.Desktop.RunHistory;
+using DevForge.Desktop.Diagnostics;
+using DevForge.Desktop.EnvironmentDoctor;
+using DevForge.Desktop.Notifications;
 using DevForge.Domain.Diagnostics;
 using DevForge.Domain.Privacy;
 using DevForge.Domain.Runs;
@@ -8,6 +11,32 @@ namespace DevForge.E2ETests.Desktop;
 
 public sealed class RunHistoryViewModelTests
 {
+    [Fact]
+    public async Task HistoryDiagnosticsUsesOnlyTheSelectedAuthoritativeRunIdentity()
+    {
+        var receipt = SupportBundleReceipt.Create(
+            "bundle-001",
+            WorkspaceRelativePath.Create("support-bundles\\bundle-001.zip").Value,
+            new string('a', 64),
+            123,
+            DateTimeOffset.UnixEpoch).Value;
+        var exporter = new RecordingBundleExporter(receipt);
+        var diagnostics = new DesktopDiagnosticsCoordinator(
+            exporter,
+            new UnusedBundleCleanup(),
+            new RecordingClipboard(),
+            new NotificationService());
+        var actions = new RunHistoryActionCoordinator(
+            new UnusedRecoveryWorkflow(),
+            new RecordingPublication(),
+            diagnostics);
+
+        var result = await actions.ExportSupportBundleAsync("run-001", CancellationToken.None);
+
+        Assert.True(result.IsSuccessful);
+        Assert.Equal("run-001", exporter.RunId);
+    }
+
     [Fact]
     public async Task SafeModeIsForwardedToApplicationPublicationBoundary()
     {
@@ -105,5 +134,33 @@ public sealed class RunHistoryViewModelTests
 
         public Task CleanupAsync(string runId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
+    }
+
+    private sealed class RecordingBundleExporter(SupportBundleReceipt receipt)
+        : ISupportBundleCoordinator
+    {
+        public string? RunId { get; private set; }
+
+        public Task<ExecutionOperationResult<SupportBundleReceipt>> ExportAsync(
+            SupportBundleRequest request,
+            CancellationToken cancellationToken)
+        {
+            RunId = request.RunId;
+            return Task.FromResult(ExecutionOperationResult.Success(receipt));
+        }
+    }
+
+    private sealed class UnusedBundleCleanup : ISupportBundleCleanupService
+    {
+        public Task<ExecutionOperationResult<SupportBundleCleanupReceipt>> CleanupAsync(
+            SupportBundleReceipt receipt,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+
+    private sealed class RecordingClipboard : IClipboardService
+    {
+        public void SetText(string text)
+        {
+        }
     }
 }

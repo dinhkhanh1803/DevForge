@@ -4,6 +4,7 @@ using DevForge.Desktop.BlueprintCatalog;
 using DevForge.Desktop.Bootstrap;
 using DevForge.Desktop.CreateProject;
 using DevForge.Desktop.Dashboard;
+using DevForge.Desktop.Diagnostics;
 using DevForge.Desktop.EnvironmentDoctor;
 using DevForge.Desktop.Execution;
 using DevForge.Desktop.Navigation;
@@ -71,6 +72,7 @@ public partial class App : System.Windows.Application, IDisposable
                 _host.Services.GetRequiredService<BlueprintCatalogViewModel>().EnterReadOnlyMode();
                 _host.Services.GetRequiredService<ExecutionSessionCoordinator>().EnterReadOnlyMode();
                 _host.Services.GetRequiredService<RunHistoryViewModel>().EnterReadOnlyMode();
+                _host.Services.GetRequiredService<DesktopDiagnosticsCoordinator>().EnterReadOnlyMode();
             }
 
             _host.Services.GetRequiredService<NavigationService>()

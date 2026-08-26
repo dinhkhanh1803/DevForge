@@ -1,6 +1,9 @@
 using DevForge.Application.Contracts;
 using DevForge.Blueprints.Abstractions.Models;
 using DevForge.Desktop.Execution;
+using DevForge.Desktop.Diagnostics;
+using DevForge.Desktop.EnvironmentDoctor;
+using DevForge.Desktop.Notifications;
 using DevForge.Domain.Diagnostics;
 using DevForge.Domain.Execution;
 using DevForge.Domain.Privacy;
@@ -12,6 +15,41 @@ namespace DevForge.E2ETests.Desktop;
 
 public sealed class ExecutionCenterViewModelTests
 {
+    [Fact]
+    public async Task AuthoritativeCheckpointEnablesSingleFlightSupportExportAndCopy()
+    {
+        var plan = CreatePlan();
+        var execution = CreateExecution(plan);
+        var receipt = SupportBundleReceipt.Create(
+            "bundle-001",
+            WorkspaceRelativePath.Create("support-bundles\\bundle-001.zip").Value,
+            new string('a', 64),
+            123,
+            DateTimeOffset.UnixEpoch).Value;
+        var clipboard = new RecordingClipboard();
+        var diagnostics = new DesktopDiagnosticsCoordinator(
+            new SuccessfulBundleCoordinator(receipt),
+            new UnusedBundleCleanup(),
+            clipboard,
+            new NotificationService());
+        var sut = new ExecutionCenterViewModel(
+            new ExecutionSessionCoordinator(
+                new SequencedWorkflow(execution),
+                new UnsupportedRecovery()),
+            diagnostics);
+
+        Assert.False(sut.CreateSupportBundleCommand.CanExecute(null));
+        sut.ApplyRecovered(plan.PlannedProject, execution.Checkpoint);
+        Assert.True(sut.CreateSupportBundleCommand.CanExecute(null));
+
+        await sut.CreateSupportBundleCommand.ExecuteAsync(null);
+
+        Assert.Equal(receipt, sut.LastSupportBundleReceipt);
+        Assert.True(sut.CopySupportBundleReceiptCommand.CanExecute(null));
+        sut.CopySupportBundleReceiptCommand.Execute(null);
+        Assert.Contains(receipt.RelativePath.Value, clipboard.Text, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task FailedNewExecutionCannotReusePreviousSuccessfulSnapshot()
     {
@@ -301,5 +339,28 @@ public sealed class ExecutionCenterViewModelTests
             CleanupRunId = runId;
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class SuccessfulBundleCoordinator(SupportBundleReceipt receipt)
+        : ISupportBundleCoordinator
+    {
+        public Task<ExecutionOperationResult<SupportBundleReceipt>> ExportAsync(
+            SupportBundleRequest request,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(ExecutionOperationResult.Success(receipt));
+    }
+
+    private sealed class UnusedBundleCleanup : ISupportBundleCleanupService
+    {
+        public Task<ExecutionOperationResult<SupportBundleCleanupReceipt>> CleanupAsync(
+            SupportBundleReceipt receipt,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+
+    private sealed class RecordingClipboard : IClipboardService
+    {
+        public string Text { get; private set; } = string.Empty;
+
+        public void SetText(string text) => Text = text;
     }
 }

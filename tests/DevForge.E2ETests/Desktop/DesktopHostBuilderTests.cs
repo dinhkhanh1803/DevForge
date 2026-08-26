@@ -7,6 +7,7 @@ using DevForge.Desktop.BlueprintCatalog;
 using DevForge.Desktop.Bootstrap;
 using DevForge.Desktop.CreateProject;
 using DevForge.Desktop.Dashboard;
+using DevForge.Desktop.Diagnostics;
 using DevForge.Desktop.EnvironmentDoctor;
 using DevForge.Desktop.Execution;
 using DevForge.Desktop.RunHistory;
@@ -116,6 +117,7 @@ public sealed class DesktopHostBuilderTests
         Assert.NotNull(host.Services.GetRequiredService<ISupportBundleWriter>());
         Assert.NotNull(host.Services.GetRequiredService<ISupportBundleCleanupService>());
         Assert.NotNull(host.Services.GetRequiredService<ISupportBundleCoordinator>());
+        Assert.NotNull(host.Services.GetRequiredService<DesktopDiagnosticsCoordinator>());
         Assert.NotNull(host.Services.GetRequiredService<IStagingWorkspaceManager>());
         Assert.NotNull(host.Services.GetRequiredService<IExecutionOrchestrator>());
         Assert.NotNull(host.Services.GetRequiredService<IRunRecoveryService>());

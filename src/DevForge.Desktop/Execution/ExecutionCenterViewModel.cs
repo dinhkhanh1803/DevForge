@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DevForge.Application.Contracts;
+using DevForge.Desktop.Diagnostics;
 using DevForge.Domain.Runs;
 using DevForge.Domain.Validation;
 
@@ -12,13 +13,16 @@ public sealed record RunStatusProjection(string Label, string Glyph);
 public sealed partial class ExecutionCenterViewModel : ObservableObject, IDisposable
 {
     private readonly ExecutionSessionCoordinator _coordinator;
-    private readonly bool _m10ActionsEnabled;
+    private readonly DesktopDiagnosticsCoordinator? _diagnostics;
 
     [ObservableProperty]
     private ProjectCreationExecutionSnapshot? _snapshot;
 
     [ObservableProperty]
     private ImmutableArray<ExecutionStepViewModel> _steps = [];
+
+    [ObservableProperty]
+    private ExecutionStepViewModel? _selectedStep;
 
     [ObservableProperty]
     private ImmutableArray<ExecutionProgressItem> _progressLines = [];
@@ -33,6 +37,10 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
     private RunCheckpoint? _recoveredCheckpoint;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanCopySupportBundleReceipt))]
+    private SupportBundleReceipt? _lastSupportBundleReceipt;
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanRetry))]
     [NotifyPropertyChangedFor(nameof(CanResume))]
     [NotifyPropertyChangedFor(nameof(CanCleanup))]
@@ -41,9 +49,16 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
     private string? _recoveryRunId;
 
     public ExecutionCenterViewModel(ExecutionSessionCoordinator coordinator)
+        : this(coordinator, diagnostics: null)
+    {
+    }
+
+    public ExecutionCenterViewModel(
+        ExecutionSessionCoordinator coordinator,
+        DesktopDiagnosticsCoordinator? diagnostics)
     {
         _coordinator = coordinator ?? throw new ArgumentNullException(nameof(coordinator));
-        _m10ActionsEnabled = false;
+        _diagnostics = diagnostics;
         _coordinator.ProgressChanged += OnProgressChanged;
         CancelCommand = new RelayCommand(
             () => _coordinator.Cancel(),
@@ -57,6 +72,12 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
         CleanupCommand = new AsyncRelayCommand(
             CleanupAsync,
             () => !IsBusy && CanCleanup);
+        CreateSupportBundleCommand = new AsyncRelayCommand(
+            CreateSupportBundleAsync,
+            () => CanCreateSupportBundle);
+        CopySupportBundleReceiptCommand = new RelayCommand(
+            CopySupportBundleReceipt,
+            () => CanCopySupportBundleReceipt);
     }
 
     public IRelayCommand CancelCommand { get; }
@@ -67,15 +88,23 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
 
     public IAsyncRelayCommand CleanupCommand { get; }
 
+    public IAsyncRelayCommand CreateSupportBundleCommand { get; }
+
+    public IRelayCommand CopySupportBundleReceiptCommand { get; }
+
     public bool CanResume => _recoveryRunId is not null && RecoveryEligibility.CanResume;
 
     public bool CanRetry => _recoveryRunId is not null && RecoveryEligibility.CanRetry;
 
     public bool CanCleanup => _recoveryRunId is not null && RecoveryEligibility.CanCleanup;
 
-    public bool CanOpenStaging => _m10ActionsEnabled;
+    public bool CanOpenStaging { get; }
 
-    public bool CanCreateSupportBundle => _m10ActionsEnabled;
+    public bool CanCreateSupportBundle =>
+        _diagnostics is not null && !IsBusy && CurrentRunId is not null;
+
+    public bool CanCopySupportBundleReceipt =>
+        _diagnostics is not null && !IsBusy && LastSupportBundleReceipt is not null;
 
     public RunStatusProjection Status => ProjectStatus(
         Snapshot?.Checkpoint.Run.Status ?? RecoveredCheckpoint?.Run.Status ?? RunStatus.Draft);
@@ -88,6 +117,7 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
         ArgumentNullException.ThrowIfNull(plannedProject);
         ArgumentNullException.ThrowIfNull(checkpoint);
         RecoveredCheckpoint = checkpoint;
+        LastSupportBundleReceipt = null;
         ApplyRecoveryEligibility(checkpoint.Run.Id, eligibility ?? ProjectRecoveryEligibility.None);
         Snapshot = null;
         ValidationIssues = [];
@@ -100,6 +130,7 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
                     checkpoint.Run.Attempts.LastOrDefault(
                         attempt => StringComparer.Ordinal.Equals(attempt.StepId, step.Id)))),
         ];
+        SelectedStep = Steps.FirstOrDefault(step => step.StatusLabel == "FAILED");
         OnPropertyChanged(nameof(Status));
     }
 
@@ -114,8 +145,10 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
 
         Snapshot = null;
         RecoveredCheckpoint = null;
+        LastSupportBundleReceipt = null;
         ValidationIssues = [];
         Steps = [];
+        SelectedStep = null;
         ProgressLines = [];
         OnPropertyChanged(nameof(Status));
         SetBusy(true);
@@ -168,11 +201,13 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
         ResumeCommand.NotifyCanExecuteChanged();
         RetryCommand.NotifyCanExecuteChanged();
         CleanupCommand.NotifyCanExecuteChanged();
+        NotifyDiagnosticCommands();
     }
 
     private void ApplySnapshot(ProjectCreationExecutionSnapshot snapshot)
     {
         Snapshot = snapshot;
+        LastSupportBundleReceipt = null;
         ValidationIssues = [];
         Steps =
         [
@@ -183,7 +218,9 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
                     snapshot.Checkpoint.Run.Attempts.LastOrDefault(
                         attempt => StringComparer.Ordinal.Equals(attempt.StepId, step.Id)))),
         ];
+        SelectedStep = Steps.FirstOrDefault(step => step.StatusLabel == "FAILED");
         OnPropertyChanged(nameof(Status));
+        NotifyDiagnosticCommands();
     }
 
     private void OnProgressChanged(object? sender, EventArgs args)
@@ -239,11 +276,45 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
         try
         {
             await _coordinator.CleanupAsync(_recoveryRunId, cancellationToken).ConfigureAwait(true);
+            RecoveredCheckpoint = null;
+            LastSupportBundleReceipt = null;
             ApplyRecoveryEligibility(runId: null, ProjectRecoveryEligibility.None);
         }
         finally
         {
             SetBusy(false);
+        }
+    }
+
+    private async Task CreateSupportBundleAsync(CancellationToken cancellationToken)
+    {
+        var runId = CurrentRunId;
+        if (_diagnostics is null || runId is null || IsBusy)
+        {
+            return;
+        }
+
+        SetBusy(true);
+        try
+        {
+            var result = await _diagnostics.ExportAsync(runId, cancellationToken)
+                .ConfigureAwait(true);
+            if (result.IsSuccessful)
+            {
+                LastSupportBundleReceipt = result.Value;
+            }
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
+    private void CopySupportBundleReceipt()
+    {
+        if (_diagnostics is not null && LastSupportBundleReceipt is not null && !IsBusy)
+        {
+            _diagnostics.CopyReceipt(LastSupportBundleReceipt);
         }
     }
 
@@ -266,5 +337,20 @@ public sealed partial class ExecutionCenterViewModel : ObservableObject, IDispos
         ResumeCommand.NotifyCanExecuteChanged();
         RetryCommand.NotifyCanExecuteChanged();
         CleanupCommand.NotifyCanExecuteChanged();
+        NotifyDiagnosticCommands();
+    }
+
+    partial void OnLastSupportBundleReceiptChanged(SupportBundleReceipt? value) =>
+        CopySupportBundleReceiptCommand.NotifyCanExecuteChanged();
+
+    private string? CurrentRunId =>
+        Snapshot?.Checkpoint.Run.Id ?? RecoveredCheckpoint?.Run.Id;
+
+    private void NotifyDiagnosticCommands()
+    {
+        OnPropertyChanged(nameof(CanCreateSupportBundle));
+        OnPropertyChanged(nameof(CanCopySupportBundleReceipt));
+        CreateSupportBundleCommand.NotifyCanExecuteChanged();
+        CopySupportBundleReceiptCommand.NotifyCanExecuteChanged();
     }
 }

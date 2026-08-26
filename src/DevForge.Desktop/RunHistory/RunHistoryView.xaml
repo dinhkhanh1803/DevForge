@@ -83,10 +83,10 @@
                                             VerticalAlignment="Top"
                                             Style="{StaticResource StatusBadge}">
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Margin="0,0,6,0" Text="{Binding StatusGlyph}" />
+                                            <TextBlock Margin="0,0,6,0" Text="{Binding StatusGlyph, Mode=OneWay}" />
                                             <TextBlock FontSize="12"
                                                        FontWeight="SemiBold"
-                                                       Text="{Binding StatusLabel}" />
+                                                       Text="{Binding StatusLabel, Mode=OneWay}" />
                                         </StackPanel>
                                     </Border>
                                 </Grid>
@@ -119,19 +119,34 @@
                                                 Content="Resume"
                                                 IsEnabled="{Binding CanResume}"
                                                 Command="{Binding DataContext.ResumeCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                                CommandParameter="{Binding}" />
+                                                CommandParameter="{Binding}"
+                                                AutomationProperties.Name="Resume run" />
                                         <Button Style="{StaticResource Button.Secondary}"
                                                 Margin="8,0,0,0"
                                                 Content="Retry"
                                                 IsEnabled="{Binding CanRetry}"
                                                 Command="{Binding DataContext.RetryCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                                CommandParameter="{Binding}" />
+                                                CommandParameter="{Binding}"
+                                                AutomationProperties.Name="Retry run" />
                                         <Button Style="{StaticResource Button.Ghost}"
                                                 Margin="8,0,0,0"
                                                 Content="Cleanup"
                                                 IsEnabled="{Binding CanCleanup}"
                                                 Command="{Binding DataContext.CleanupCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                                CommandParameter="{Binding}" />
+                                                CommandParameter="{Binding}"
+                                                AutomationProperties.Name="Clean up owned run staging" />
+                                        <Button Style="{StaticResource Button.Ghost}"
+                                                Margin="8,0,0,0"
+                                                Content="Support bundle"
+                                                IsEnabled="{Binding CanCreateSupportBundle}"
+                                                Command="{Binding DataContext.CreateSupportBundleCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                CommandParameter="{Binding}"
+                                                AutomationProperties.Name="Create run support bundle" />
+                                        <Button Style="{StaticResource Button.Ghost}"
+                                                Margin="8,0,0,0"
+                                                Content="Copy receipt"
+                                                Command="{Binding DataContext.CopySupportBundleReceiptCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                AutomationProperties.Name="Copy latest support bundle receipt" />
                                         <Button Style="{StaticResource Button.Primary}"
                                                 Margin="8,0,0,0"
                                                 Content="Retry publish"
@@ -174,7 +189,8 @@
                     <Button Style="{StaticResource Button.Secondary}"
                             HorizontalAlignment="Center"
                             Content="Refresh history"
-                            Command="{Binding RefreshCommand}" />
+                            Command="{Binding RefreshCommand}"
+                            AutomationProperties.Name="Refresh empty run history" />
                 </StackPanel>
             </Border>
 

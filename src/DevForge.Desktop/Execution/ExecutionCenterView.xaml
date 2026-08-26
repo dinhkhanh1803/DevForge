@@ -24,7 +24,7 @@
                                FontSize="22"
                                FontWeight="SemiBold"
                                Foreground="{DynamicResource Brush.Accent}"
-                               Text="{Binding Status.Glyph}" />
+                               Text="{Binding Status.Glyph, Mode=OneWay}" />
                 </Border>
                 <StackPanel Grid.Column="1" Margin="16,0,24,0">
                     <TextBlock Style="{StaticResource Text.Caption}"
@@ -38,7 +38,7 @@
                         <Border Style="{StaticResource StatusBadge.Info}">
                             <TextBlock Style="{StaticResource Text.Label}"
                                        Foreground="{DynamicResource Brush.Info}"
-                                       Text="{Binding Status.Label}" />
+                                       Text="{Binding Status.Label, Mode=OneWay}" />
                         </Border>
                         <TextBlock Margin="12,4,0,0"
                                    Style="{StaticResource Text.Caption}"
@@ -92,6 +92,7 @@
                     <ListBox Grid.Row="1"
                              Style="{StaticResource TimelineList}"
                              ItemsSource="{Binding Steps}"
+                             SelectedItem="{Binding SelectedStep, Mode=OneWay}"
                              AutomationProperties.Name="Execution timeline">
                         <ListBox.ItemContainerStyle>
                             <Style TargetType="ListBoxItem">
@@ -254,25 +255,35 @@
                 <WrapPanel Grid.Column="1" HorizontalAlignment="Right">
                     <Button Content="Resume"
                             Style="{StaticResource Button.Secondary}"
-                            Command="{Binding ResumeCommand}" />
+                            Command="{Binding ResumeCommand}"
+                            AutomationProperties.Name="Resume execution" />
                     <Button Content="Retry"
                             Style="{StaticResource Button.Secondary}"
                             Command="{Binding RetryCommand}"
-                            Margin="8,0,0,0" />
+                            Margin="8,0,0,0"
+                            AutomationProperties.Name="Retry execution" />
                     <Button Content="Cleanup"
                             Style="{StaticResource Button.Ghost}"
                             Command="{Binding CleanupCommand}"
-                            Margin="8,0,0,0" />
+                            Margin="8,0,0,0"
+                            AutomationProperties.Name="Clean up owned staging" />
                     <Button Content="Open staging"
                             Style="{StaticResource Button.Ghost}"
                             IsEnabled="False"
                             Margin="8,0,0,0"
-                            AutomationProperties.HelpText="Available in a future release" />
+                            AutomationProperties.Name="Open staging folder"
+                            AutomationProperties.HelpText="Disabled until a verified folder-launch capability is available" />
                     <Button Content="Support bundle"
                             Style="{StaticResource Button.Ghost}"
-                            IsEnabled="False"
+                            Command="{Binding CreateSupportBundleCommand}"
                             Margin="8,0,0,0"
-                            AutomationProperties.HelpText="Available in a future release" />
+                            AutomationProperties.Name="Create support bundle"
+                            AutomationProperties.HelpText="Exports privacy-safe diagnostics from the authoritative run checkpoint" />
+                    <Button Content="Copy receipt"
+                            Style="{StaticResource Button.Ghost}"
+                            Command="{Binding CopySupportBundleReceiptCommand}"
+                            Margin="8,0,0,0"
+                            AutomationProperties.Name="Copy support bundle receipt" />
                 </WrapPanel>
             </Grid>
         </Border>

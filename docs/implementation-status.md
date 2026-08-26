@@ -1,7 +1,7 @@
 # DevForge Studio Implementation Status
 
-**Current milestone:** M10 - Security, diagnostics, packaging, and release hardening (Tasks 1-3 complete; Task 4 active)
-**Status:** M0-M8 complete; M9 implementation and Windows 10 matrix complete; M9 Windows 11 certification is accepted carry-forward environmental debt; M10 Tasks 1-3 affected gates are green
+**Current milestone:** M10 - Security, diagnostics, packaging, and release hardening (Task 4 automated implementation complete; Task 5 active)
+**Status:** M0-M8 complete; M9 implementation and Windows 10 matrix complete; M9 Windows 11 certification is accepted carry-forward environmental debt; M10 Tasks 1-3 complete and Task 4 automated gates green
 **Last updated:** 2026-08-26
 
 ## M10 entry and current scope
@@ -23,6 +23,10 @@ M10 Task 2 is complete locally. `DiagnosticEvent` and `DiagnosticRetentionPolicy
 M10 Task 3 is complete locally. Application now owns canonical non-secret support requests, integrity-bound receipts, typed cleanup results, and an authoritative checkpoint coordinator. Infrastructure generates only a closed set of scrubbed recipe/checkpoint/plan summaries, blueprint identity/checksum, persisted reports, marker-verified run logs, optional tool status without raw environment properties, a bounded error catalog, and an integrity inventory. Text is strict UTF-8, BOM-free and LF-normalized; entries are sorted, individually capped at 4 MiB, aggregate-capped at 16 MiB, scanned before ZIP creation, and published with fixed ZIP metadata. `.env`, customer source, databases, arbitrary paths, duplicate/slip names, and secret-shaped report content cannot enter the archive.
 
 The archive SHA-256 determines the bundle identity. One cross-process lease protects marker-owned staging and final no-overwrite publication; canonical marker codecs reject unknown fields, retries adopt only exact bytes, and two injected ZIP kill windows recover without a claimed partial final bundle. Cleanup requires both the matching marker and complete archive digest and is idempotent; a canonical-looking unowned archive is preserved. ADR-0021 records the decision. Fresh scoped format verification passes, the Release solution builds all 12 projects with 0 warnings/errors, and full suites pass Unit 651, Integration 601, Blueprint 127, and E2E 197 with zero failed/skipped. Task 4 is active.
+
+M10 Task 4 product implementation and automated gates are complete locally. `DesktopDiagnosticsCoordinator` accepts only canonical run identities and typed `SupportBundleReceipt` values, exports through the Application coordinator, copies only the owned relative path/digest/length, emits fixed redacted notifications, and refuses bundle cleanup in safe read-only mode. Execution Center and Run History enable asynchronous single-flight export only from authoritative checkpoint/store projections; neither ViewModel receives an absolute path or uses filesystem/process APIs. `Open staging` remains intentionally disabled because the existing IDE launcher is not a folder-launch authority.
+
+Execution Center selects the first failed step, status indicators pair glyphs with explicit one-way text, live output/history remain recycling-virtualized, actionable controls have automation names, diagnostics retention values are editable in Settings, and XAML uses Auto/star/wrapping rather than a fixed content viewport. The Light/Dark WPF resource smoke measured and arranged all functional views at 960x640, 1200x800, and 1440x960. ADR-0022 records the Desktop authority boundary. Locked restore passed, scoped format verification exited 0, the Release solution built all 12 projects with 0 warnings/errors, and full suites passed Unit 651, Integration 601, Blueprint 127, and E2E 205 with zero failed/skipped. Real-display 100/125/150% checks are not claimed by this automated proxy; they remain Task 6 release-host evidence. Task 5 is active.
 
 ## M8 final scope and closure
 

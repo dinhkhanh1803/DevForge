@@ -192,7 +192,43 @@
                                       Grid.ColumnSpan="2"
                                       Margin="0,6,0,0"
                                       Content="Onboarding checklist complete"
-                                      IsChecked="{Binding OnboardingCompleted}" />
+                                      IsChecked="{Binding OnboardingCompleted}"
+                                      AutomationProperties.Name="Onboarding checklist complete" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource FormCard}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Text.CardTitle}" Text="Local diagnostics" />
+                        <TextBlock Style="{StaticResource Text.Caption}"
+                                   Margin="0,4,0,18"
+                                   TextWrapping="Wrap"
+                                   Text="Retention applies only to marker-owned, privacy-safe local diagnostic logs." />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <TextBlock Style="{StaticResource Text.Label}"
+                                       VerticalAlignment="Center"
+                                       Text="Retention days" />
+                            <TextBox Grid.Column="1"
+                                     Margin="0,0,0,12"
+                                     Text="{Binding DiagnosticRetentionDays, UpdateSourceTrigger=PropertyChanged}"
+                                     AutomationProperties.Name="Diagnostic retention days" />
+                            <TextBlock Grid.Row="1"
+                                       Style="{StaticResource Text.Label}"
+                                       VerticalAlignment="Center"
+                                       Text="Maximum bytes" />
+                            <TextBox Grid.Row="1"
+                                     Grid.Column="1"
+                                     Text="{Binding DiagnosticRetentionMaxBytes, UpdateSourceTrigger=PropertyChanged}"
+                                     AutomationProperties.Name="Diagnostic retention maximum bytes" />
                         </Grid>
                     </StackPanel>
                 </Border>

@@ -16,6 +16,7 @@ public sealed record RunHistoryItemViewModel(
     bool CanRetry,
     bool CanCleanup,
     bool CanRetryPublish,
+    bool CanCreateSupportBundle,
     string? ErrorCode)
 {
     public static RunHistoryItemViewModel From(ProjectRun run)
@@ -40,6 +41,7 @@ public sealed record RunHistoryItemViewModel(
             eligibility.CanRetry,
             eligibility.CanCleanup,
             run.Status == RunStatus.PublishPending,
+            SupportBundleRequest.Create(run.Id, includeEnvironmentSnapshot: true).IsValid,
             run.Errors.LastOrDefault()?.Code ?? lastAttempt?.Error?.Code);
     }
 }
@@ -51,6 +53,10 @@ public sealed partial class RunHistoryViewModel : ObservableObject
     private readonly ExecutionCenterViewModel _executionCenter;
     private readonly ILocalReadyService _localReadyService;
     private bool _isReadOnly;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanCopySupportBundleReceipt))]
+    private SupportBundleReceipt? _lastSupportBundleReceipt;
 
     [ObservableProperty]
     private ImmutableArray<RunHistoryItemViewModel> _items = [];
@@ -81,6 +87,14 @@ public sealed partial class RunHistoryViewModel : ObservableObject
         RetryPublishCommand = new AsyncRelayCommand<RunHistoryItemViewModel>(
             RetryPublishAsync,
             item => !IsBusy && !_isReadOnly && item?.CanRetryPublish == true);
+        CreateSupportBundleCommand = new AsyncRelayCommand<RunHistoryItemViewModel>(
+            CreateSupportBundleAsync,
+            item => !IsBusy
+                && _actions.CanExportSupportBundle
+                && item?.CanCreateSupportBundle == true);
+        CopySupportBundleReceiptCommand = new RelayCommand(
+            CopySupportBundleReceipt,
+            () => CanCopySupportBundleReceipt);
     }
 
     public IAsyncRelayCommand RefreshCommand { get; }
@@ -93,11 +107,18 @@ public sealed partial class RunHistoryViewModel : ObservableObject
 
     public IAsyncRelayCommand<RunHistoryItemViewModel> RetryPublishCommand { get; }
 
+    public IAsyncRelayCommand<RunHistoryItemViewModel> CreateSupportBundleCommand { get; }
+
+    public IRelayCommand CopySupportBundleReceiptCommand { get; }
+
+    public bool CanCopySupportBundleReceipt => !IsBusy && LastSupportBundleReceipt is not null;
+
     public void EnterReadOnlyMode()
     {
         _isReadOnly = true;
         _actions.EnterReadOnlyMode();
         RetryPublishCommand.NotifyCanExecuteChanged();
+        CreateSupportBundleCommand.NotifyCanExecuteChanged();
     }
 
     public event EventHandler? ExecutionOpened;
@@ -140,6 +161,8 @@ public sealed partial class RunHistoryViewModel : ObservableObject
         RetryCommand.NotifyCanExecuteChanged();
         CleanupCommand.NotifyCanExecuteChanged();
         RetryPublishCommand.NotifyCanExecuteChanged();
+        CreateSupportBundleCommand.NotifyCanExecuteChanged();
+        CopySupportBundleReceiptCommand.NotifyCanExecuteChanged();
     }
 
     private async Task ContinueAsync(
@@ -250,4 +273,42 @@ public sealed partial class RunHistoryViewModel : ObservableObject
             SetBusy(false);
         }
     }
+
+    private async Task CreateSupportBundleAsync(
+        RunHistoryItemViewModel? item,
+        CancellationToken cancellationToken)
+    {
+        if (item is null || IsBusy || !item.CanCreateSupportBundle
+            || !_actions.CanExportSupportBundle)
+        {
+            return;
+        }
+
+        SetBusy(true);
+        try
+        {
+            var result = await _actions.ExportSupportBundleAsync(
+                item.RunId,
+                cancellationToken).ConfigureAwait(true);
+            if (result.IsSuccessful)
+            {
+                LastSupportBundleReceipt = result.Value;
+            }
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
+    private void CopySupportBundleReceipt()
+    {
+        if (!IsBusy && LastSupportBundleReceipt is not null)
+        {
+            _actions.CopySupportBundleReceipt(LastSupportBundleReceipt);
+        }
+    }
+
+    partial void OnLastSupportBundleReceiptChanged(SupportBundleReceipt? value) =>
+        CopySupportBundleReceiptCommand.NotifyCanExecuteChanged();
 }
