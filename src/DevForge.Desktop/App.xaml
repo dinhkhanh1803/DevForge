@@ -5,7 +5,10 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/DevForge.Desktop;component/Resources/Tokens.xaml" />
+                <ResourceDictionary Source="/DevForge.Desktop;component/Resources/Typography.xaml" />
+                <ResourceDictionary Source="/DevForge.Desktop;component/Resources/Icons.xaml" />
                 <ResourceDictionary Source="/DevForge.Desktop;component/Resources/Controls.xaml" />
+                <ResourceDictionary Source="/DevForge.Desktop;component/Resources/Components.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

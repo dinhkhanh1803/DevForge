@@ -7,8 +7,18 @@
     <sys:Double x:Key="Space.4">16</sys:Double>
     <sys:Double x:Key="Space.5">20</sys:Double>
     <sys:Double x:Key="Space.6">24</sys:Double>
+    <sys:Double x:Key="Space.8">32</sys:Double>
+    <sys:Double x:Key="Space.10">40</sys:Double>
+    <sys:Double x:Key="Space.12">48</sys:Double>
+    <sys:Double x:Key="Control.Height.Compact">32</sys:Double>
+    <sys:Double x:Key="Control.Height.Standard">40</sys:Double>
+    <sys:Double x:Key="Control.Height.Prominent">44</sys:Double>
     <sys:Double x:Key="Control.MinimumHeight">44</sys:Double>
-    <Thickness x:Key="Page.Padding">24</Thickness>
+    <sys:Double x:Key="Motion.Fast">120</sys:Double>
+    <sys:Double x:Key="Motion.Standard">180</sys:Double>
+    <Thickness x:Key="Page.Padding">28</Thickness>
+    <Thickness x:Key="Page.Padding.Compact">20</Thickness>
     <Thickness x:Key="Card.Padding">20</Thickness>
     <CornerRadius x:Key="Card.CornerRadius">12</CornerRadius>
+    <CornerRadius x:Key="Surface.CornerRadius">16</CornerRadius>
 </ResourceDictionary>
