@@ -136,6 +136,7 @@ internal sealed class ValidateCommandExecutionHandler(IProcessRunner runner) :
             "pyproject-build", "--no-isolation",
         ],
         ["run", "--frozen", "--no-sync", "--no-config", "team-tool", "--help"],
+        ["run", "--frozen", "--no-sync", "--no-config", "team-desktop", "--smoke-test"],
     ];
 
     private static readonly ImmutableHashSet<string> _inputs =
@@ -199,7 +200,7 @@ internal sealed class ValidateCommandExecutionHandler(IProcessRunner runner) :
         {
             return arguments.Length == 2
                 && arguments[0] == "run"
-                && arguments[1] is "lint" or "typecheck" or "test" or "build";
+                && arguments[1] is "lint" or "typecheck" or "test" or "build" or "format:check" or "smoke";
         }
 
         return StringComparer.Ordinal.Equals(executable, "uv")
@@ -326,6 +327,15 @@ internal abstract class ProcessExecutionHandlerBase : IExecutionHandler
         CancellationToken cancellationToken)
     {
         var command = CreateCommand(context);
+        if (command.Executable.Tool == ExecutableTool.Pnpm)
+        {
+            var node = await NodeExecutionWorkspace.OpenAsync(context.Request.Staging, cancellationToken, ExportsReactDist(context)).ConfigureAwait(false);
+            command = InWorkspace(command, node.Project);
+        }
+        if (command.Executable.Tool == ExecutableTool.Uv)
+        {
+            await UvExecutionEnvironment.PrepareAsync(context.Request.Staging, cancellationToken).ConfigureAwait(false);
+        }
         if (!command.UsesWorkspaceRoot
             && !await context.Payload.DirectoryExistsAsync(
                 command.WorkingDirectory!,
@@ -346,6 +356,16 @@ internal abstract class ProcessExecutionHandlerBase : IExecutionHandler
         CancellationToken cancellationToken)
     {
         var command = CreateCommand(context);
+        NodeExecutionWorkspace? node = null;
+        if (command.Executable.Tool == ExecutableTool.Pnpm)
+        {
+            node = await NodeExecutionWorkspace.OpenAsync(context.Request.Staging, cancellationToken, ExportsReactDist(context)).ConfigureAwait(false);
+            command = InWorkspace(command, node.Project);
+        }
+        if (command.Executable.Tool == ExecutableTool.Uv)
+        {
+            await UvExecutionEnvironment.PrepareAsync(context.Request.Staging, cancellationToken).ConfigureAwait(false);
+        }
         var adapter = progress is null
             ? null
             : new ProcessProgressAdapter(context.Request.ItemId, progress);
@@ -356,6 +376,15 @@ internal abstract class ProcessExecutionHandlerBase : IExecutionHandler
         }
 
         var digest = Digest(result);
+        if (node is not null && result.TerminationReason == ProcessTerminationReason.Exited)
+        {
+            var artifacts = await node.VerifyAsync(cancellationToken).ConfigureAwait(false);
+            if (result.ExitCode == 0 && command.ArgumentList.SequenceEqual(["run", "build"], StringComparer.Ordinal))
+            {
+                await node.ExportStaticDistAsync(cancellationToken).ConfigureAwait(false);
+            }
+            digest = "sha256:" + Convert.ToHexStringLower(SHA256.HashData(_strictUtf8.GetBytes(digest + artifacts)));
+        }
         if (result.TerminationReason == ProcessTerminationReason.TimedOut)
         {
             return Failure(
@@ -397,12 +426,18 @@ internal abstract class ProcessExecutionHandlerBase : IExecutionHandler
             throw new ProcessHandlerInputException();
         }
 
+        if (executable.Value.Tool is ExecutableTool.Uv or ExecutableTool.Pnpm && workingDirectory.StringValue != ".")
+        {
+            throw new ProcessHandlerInputException();
+        }
+        var environment = executable.Value.Tool == ExecutableTool.Uv
+            ? UvExecutionEnvironment.Create(context.Request.Staging) : [];
         var result = workingDirectory.StringValue == "."
             ? CommandSpec.CreateAtWorkspaceRoot(
                 executable.Value,
                 arguments,
                 context.Payload,
-                [],
+                environment,
                 context.Request.Timeout,
                 allowedExitCodes,
                 [])
@@ -417,6 +452,15 @@ internal abstract class ProcessExecutionHandlerBase : IExecutionHandler
                 []);
         return result.IsValid ? result.Value : throw new ProcessHandlerInputException();
     }
+
+    private static CommandSpec InWorkspace(CommandSpec command, IWorkspaceFileSystem workspace) =>
+        CommandSpec.CreateAtWorkspaceRoot(command.Executable, command.ArgumentList, workspace,
+            [], command.Timeout, command.AllowedExitCodes, []).Value;
+
+    private static bool ExportsReactDist(ProcessHandlerContext context) =>
+        context.Request.BlueprintPackage.Blueprint.Manifest.Id == "web.react-vite-ts"
+        && context.Request.BlueprintPackage.Blueprint.Manifest.Version.ToString() == "1.0.0"
+        && context.Request.BlueprintPackage.Blueprint.Manifest.Artifacts.Any(artifact => artifact.Path == @"dist\index.html");
 
     protected static string Identifier(ProcessHandlerContext context, string name)
     {

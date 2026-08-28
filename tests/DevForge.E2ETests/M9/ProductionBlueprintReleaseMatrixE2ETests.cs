@@ -133,7 +133,7 @@ public sealed partial class ProductionBlueprintReleaseMatrixE2ETests
         new(
             "web.react-vite-ts",
             WpfBlueprintFixture.CreateReactAsync,
-            "eace5e3ac4c08e0e674a3817729e2e6007e51b6d18fa85d6b3f0319f6935f18e",
+            "d271288038f0e7fa5f794872a6192788850e060d134a1a320ecbc270e85f42fc",
             [
                 ".devforge/project.recipe.yaml",
                 ".editorconfig",
@@ -260,7 +260,7 @@ public sealed partial class ProductionBlueprintReleaseMatrixE2ETests
         Assert.Equal(RunStatus.LocalReady, secondRun.Value.Checkpoint.Run.Status);
         Assert.Equal(blueprintCase.Paths, RelativePaths(first.TargetPath));
         Assert.Equal(blueprintCase.Paths, RelativePaths(second.TargetPath));
-        Assert.Equal(blueprintCase.Digest, TreeDigest(first.TargetPath));
+        Assert.True(blueprintCase.Digest == TreeDigest(first.TargetPath), "Actual reviewed tree digest: " + TreeDigest(first.TargetPath));
         Assert.Equal(blueprintCase.Digest, TreeDigest(second.TargetPath));
         AssertCommands(blueprintCase, first.Runner.Commands);
         AssertCommands(blueprintCase, second.Runner.Commands);
@@ -453,7 +453,16 @@ public sealed partial class ProductionBlueprintReleaseMatrixE2ETests
             Assert.Null(actual.WorkingDirectory);
             Assert.Equal(TimeSpan.FromSeconds(expected.TimeoutSeconds), actual.Timeout);
             Assert.Equal([0], actual.AllowedExitCodes.Order());
-            Assert.Empty(actual.EnvironmentVariables);
+            if (actual.Executable.Tool == ExecutableTool.Uv)
+            {
+                Assert.Equal(["MYPY_CACHE_DIR", "PYTEST_ADDOPTS", "RUFF_NO_CACHE", "UV_PROJECT_ENVIRONMENT"],
+                    actual.EnvironmentVariables.Keys.Order(StringComparer.Ordinal));
+                Assert.All(actual.EnvironmentVariables.Values, value => Assert.Equal(ProcessValueSensitivity.Safe, value.Sensitivity));
+            }
+            else
+            {
+                Assert.Empty(actual.EnvironmentVariables);
+            }
             Assert.Empty(actual.RedactionNeedles);
         }
     }

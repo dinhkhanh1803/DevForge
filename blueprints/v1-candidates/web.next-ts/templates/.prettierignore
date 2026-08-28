@@ -1,0 +1,11 @@
+node_modules/
+.next/
+.devforge-node/
+.devforge/
+pnpm-lock.yaml
+next-env.d.ts
+devforge.lock.json
+generation-report.json
+generation-report.md
+project.recipe.yaml
+policy.snapshot.json

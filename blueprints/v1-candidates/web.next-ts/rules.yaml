@@ -1,0 +1,6 @@
+- id: windows-host
+  condition: runtime.os == "windows"
+  severity: blocking
+  message: This candidate is validated by the Windows DevForge toolchain.
+  remediation: Use the reviewed Windows Node and pnpm runtime.
+  override: none

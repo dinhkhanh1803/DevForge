@@ -1,0 +1,6 @@
+- id: windows-host
+  condition: runtime.os == "windows"
+  severity: blocking
+  message: This candidate targets Windows and requires a Python interpreter with Tcl/Tk.
+  remediation: Run DevForge Studio on a supported Windows environment.
+  override: none

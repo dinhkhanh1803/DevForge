@@ -87,6 +87,14 @@ internal sealed class TrustedExecutableResolver : ITrustedExecutableResolver
                 continue;
             }
 
+            if (executable.Tool == ExecutableTool.Pnpm)
+            {
+                foreach (var script in EnumeratePathFiles(Path.Combine("node_modules", "pnpm", "bin", "pnpm.cjs")))
+                {
+                    yield return new TrustedExecutableLaunch(nodePath, [script]);
+                }
+            }
+
             var corepack = Path.Combine(
                 nodeDirectory,
                 "node_modules",

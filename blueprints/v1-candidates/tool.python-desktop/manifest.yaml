@@ -1,0 +1,264 @@
+id: tool.python-desktop
+name: Python Desktop
+version: 1.0.0
+engineVersion: ">=1.0.0 <2.0.0"
+tools:
+  - id: python
+    version: ">=3.14.0 <3.15.0"
+    required: true
+  - id: uv
+    version: ">=0.12.0 <0.13.0"
+    required: true
+features: []
+actions:
+  - id: copy-source
+    handler: copy-overlay
+    timeoutSeconds: 30
+    parameters:
+      source: 'overlays\base\src'
+      target: src
+  - id: copy-tests
+    handler: copy-overlay
+    timeoutSeconds: 30
+    parameters:
+      source: 'overlays\base\tests'
+      target: tests
+  - id: render-pyproject
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\pyproject.toml'
+      target: pyproject.toml
+  - id: render-lock
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\uv.lock'
+      target: uv.lock
+  - id: render-python-version
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\.python-version'
+      target: .python-version
+  - id: render-editor
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\.editorconfig'
+      target: .editorconfig
+  - id: render-gitignore
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\.gitignore'
+      target: .gitignore
+  - id: render-env-example
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\.env.example'
+      target: .env.example
+  - id: render-readme
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\README.md'
+      target: README.md
+  - id: render-architecture
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\ARCHITECTURE.md'
+      target: ARCHITECTURE.md
+  - id: render-contributing
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\CONTRIBUTING.md'
+      target: CONTRIBUTING.md
+  - id: render-development
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\DEVELOPMENT.md'
+      target: DEVELOPMENT.md
+  - id: render-testing
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\TESTING.md'
+      target: TESTING.md
+  - id: render-deployment
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\DEPLOYMENT.md'
+      target: DEPLOYMENT.md
+  - id: render-team-start
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\TEAM_START_HERE.md'
+      target: TEAM_START_HERE.md
+  - id: install
+    handler: package-install
+    timeoutSeconds: 900
+    parameters:
+      packageManager: uv
+      arguments:
+        - sync
+        - --frozen
+        - --no-config
+      workingDirectory: .
+validators:
+  - id: format
+    handler: validate-command
+    timeoutSeconds: 300
+    required: true
+    parameters:
+      executable: uv
+      arguments:
+        - run
+        - --frozen
+        - --no-sync
+        - --no-config
+        - ruff
+        - format
+        - --check
+        - .
+      workingDirectory: .
+      allowedExitCodes:
+        - 0
+      required: true
+  - id: lint
+    handler: validate-command
+    timeoutSeconds: 300
+    required: true
+    parameters:
+      executable: uv
+      arguments:
+        - run
+        - --frozen
+        - --no-sync
+        - --no-config
+        - ruff
+        - check
+        - .
+      workingDirectory: .
+      allowedExitCodes:
+        - 0
+      required: true
+  - id: typecheck
+    handler: validate-command
+    timeoutSeconds: 300
+    required: true
+    parameters:
+      executable: uv
+      arguments:
+        - run
+        - --frozen
+        - --no-sync
+        - --no-config
+        - mypy
+        - src
+        - tests
+      workingDirectory: .
+      allowedExitCodes:
+        - 0
+      required: true
+  - id: test
+    handler: validate-command
+    timeoutSeconds: 300
+    required: true
+    parameters:
+      executable: uv
+      arguments:
+        - run
+        - --frozen
+        - --no-sync
+        - --no-config
+        - pytest
+      workingDirectory: .
+      allowedExitCodes:
+        - 0
+      required: true
+  - id: build
+    handler: validate-command
+    timeoutSeconds: 300
+    required: true
+    parameters:
+      executable: uv
+      arguments:
+        - run
+        - --frozen
+        - --no-sync
+        - --no-config
+        - pyproject-build
+        - --no-isolation
+      workingDirectory: .
+      allowedExitCodes:
+        - 0
+      required: true
+  - id: cli-smoke
+    handler: validate-command
+    timeoutSeconds: 300
+    required: true
+    parameters:
+      executable: uv
+      arguments:
+        - run
+        - --frozen
+        - --no-sync
+        - --no-config
+        - team-tool
+        - --help
+      workingDirectory: .
+      allowedExitCodes:
+        - 0
+      required: true
+  - id: desktop-smoke
+    handler: validate-command
+    timeoutSeconds: 60
+    required: true
+    parameters:
+      executable: uv
+      arguments:
+        - run
+        - --frozen
+        - --no-sync
+        - --no-config
+        - team-desktop
+        - --smoke-test
+      workingDirectory: .
+      allowedExitCodes:
+        - 0
+      required: true
+artifacts:
+  - path: src\team_tool\desktop.py
+  - path: src\team_tool\desktop_cli.py
+  - path: src\team_tool\model.py
+  - path: tests\test_model.py
+  - path: tests\test_desktop.py
+  - path: pyproject.toml
+  - path: uv.lock
+  - path: README.md
+  - path: ARCHITECTURE.md
+  - path: CONTRIBUTING.md
+  - path: DEVELOPMENT.md
+  - path: TESTING.md
+  - path: DEPLOYMENT.md
+  - path: TEAM_START_HERE.md
+  - path: src\team_tool\cli.py
+  - path: tests\test_cli.py
+dependencies:
+  - id: build
+    version: 1.5.0
+  - id: hatchling
+    version: 1.32.0
+  - id: mypy
+    version: 2.3.1
+  - id: pytest
+    version: 9.1.1
+  - id: ruff
+    version: 0.16.3

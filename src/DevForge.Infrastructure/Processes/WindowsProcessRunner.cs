@@ -27,7 +27,8 @@ public sealed class WindowsProcessRunner : IProcessRunner
         ArgumentNullException.ThrowIfNull(command);
         cancellationToken.ThrowIfCancellationRequested();
         _ = ResolveExecutable(command.Executable);
-        _ = ResolveWorkingDirectory(command);
+        var workingDirectory = ResolveWorkingDirectory(command);
+        _ = CreateStartInfo(command, ResolveExecutable(command.Executable), workingDirectory);
         return Task.CompletedTask;
     }
 
@@ -84,7 +85,7 @@ public sealed class WindowsProcessRunner : IProcessRunner
         return output.CreateResult(terminationReason, null);
     }
 
-    private static ProcessStartInfo CreateStartInfo(
+    private ProcessStartInfo CreateStartInfo(
         CommandSpec command,
         TrustedExecutableLaunch executable,
         string workingDirectory)
@@ -102,6 +103,12 @@ public sealed class WindowsProcessRunner : IProcessRunner
             startInfo.ArgumentList.Add(prefixArgument);
         }
 
+        if (command.Executable.Tool == ExecutableTool.Pnpm)
+        {
+            // pnpm discovers ancestor workspaces before reading environment configuration.
+            startInfo.ArgumentList.Add("--ignore-workspace");
+        }
+
         foreach (var argument in command.ArgumentList)
         {
             startInfo.ArgumentList.Add(argument);
@@ -111,6 +118,23 @@ public sealed class WindowsProcessRunner : IProcessRunner
         foreach (var variable in command.EnvironmentVariables)
         {
             startInfo.Environment[variable.Key] = variable.Value.RevealForProcessStart();
+        }
+
+        if (command.Executable.Tool == ExecutableTool.DotNet)
+        {
+            DotNetProcessEnvironment.Apply(startInfo, executable.ExecutablePath);
+        }
+        else if (command.Executable.Tool == ExecutableTool.Uv)
+        {
+            var versionProbe = command.ArgumentList.SequenceEqual(["--version"], StringComparer.Ordinal);
+            var python = versionProbe ? null : ResolveExecutable(ExecutableIdentity.Create("python").Value).ExecutablePath;
+            UvProcessEnvironment.Apply(startInfo, python);
+        }
+        else if (command.Executable.Tool is ExecutableTool.Node or ExecutableTool.Pnpm)
+        {
+            var node = command.Executable.Tool == ExecutableTool.Node
+                ? executable.ExecutablePath : ResolveExecutable(ExecutableIdentity.Create("node").Value).ExecutablePath;
+            NodeProcessEnvironment.Apply(startInfo, node);
         }
 
         return startInfo;

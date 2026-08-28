@@ -11,6 +11,202 @@ namespace DevForge.IntegrationTests.Infrastructure.Processes;
 public sealed class WindowsProcessRunnerTests
 {
     [Fact]
+    public void PnpmUsesInstalledJavascriptEntryInsteadOfDownloadingThroughCorepack()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "DevForge-PnpmResolver-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(root, "node_modules", "pnpm", "bin"));
+        try
+        {
+            var node = Path.Combine(root, "node.exe");
+            var script = Path.Combine(root, "node_modules", "pnpm", "bin", "pnpm.cjs");
+            File.WriteAllText(node, string.Empty);
+            File.WriteAllText(script, string.Empty);
+            var launch = new TrustedExecutableResolver(root, null).Resolve(ExecutableIdentity.Create("pnpm").Value);
+            Assert.Equal(node, launch.ExecutablePath);
+            Assert.Equal([script], launch.PrefixArguments.ToArray());
+        }
+        finally
+        {
+            Assert.StartsWith(Path.GetTempPath() + "DevForge-PnpmResolver-", root, StringComparison.OrdinalIgnoreCase);
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Theory]
+    [InlineData("node", "SystemRoot")]
+    [InlineData("pnpm", "SystemRoot")]
+    [InlineData("pnpm", "PATH")]
+    [InlineData("pnpm", "CI")]
+    [InlineData("pnpm", "npm_config_ignore_scripts")]
+    [InlineData("pnpm", "npm_config_node_linker")]
+    [InlineData("pnpm", "npm_config_shell_emulator")]
+    [InlineData("pnpm", "COREPACK_ENABLE_NETWORK")]
+    public async Task NodeToolsReceiveDeclaredProductionRuntime(string tool, string key)
+    {
+        await using var fixture = await ProcessFixture.CreateAsync();
+        var runner = tool == "pnpm" ? new WindowsProcessRunner(new FixedExecutableResolver(ProcessFixture.FindDotNetHost(), [fixture.HelperAssemblyPath])) : fixture.Runner;
+        var command = CommandSpec.CreateAtWorkspaceRoot(ExecutableIdentity.Create(tool).Value,
+            tool == "pnpm" ? ["echo-env", key] : [fixture.HelperAssemblyPath, "echo-env", key], fixture.Workspace, [], TimeSpan.FromSeconds(10), [0], []).Value;
+        var result = await runner.RunAsync(command, null, default);
+        Assert.Equal(0, result.ExitCode);
+        var expected = key switch
+        {
+            "SystemRoot" => Path.GetDirectoryName(System.Environment.SystemDirectory),
+            "PATH" => Path.GetDirectoryName(ProcessFixture.FindDotNetHost()) + Path.PathSeparator + System.Environment.SystemDirectory,
+            "COREPACK_ENABLE_NETWORK" => "0",
+            "npm_config_node_linker" => "hoisted",
+            _ => "true",
+        };
+        Assert.Equal(expected, Assert.Single(result.RetainedLines).Text.Value);
+    }
+
+    [Theory]
+    [InlineData("PATH")]
+    [InlineData("NODE_OPTIONS")]
+    [InlineData("npm_config_ignore_scripts")]
+    [InlineData("NPM_CONFIG_USERCONFIG")]
+    [InlineData("npm_config_registry")]
+    [InlineData("NODE_EXTRA_CA_CERTS")]
+    public async Task NodeToolsRejectProtectedOverrides(string key)
+    {
+        await using var fixture = await ProcessFixture.CreateAsync();
+        var command = CommandSpec.CreateAtWorkspaceRoot(ExecutableIdentity.Create("pnpm").Value,
+            [fixture.HelperAssemblyPath, "echo-env", key], fixture.Workspace,
+            [KeyValuePair.Create<string, ProcessEnvironmentValue?>(key, ProcessEnvironmentValue.CreateSafe("untrusted").Value)],
+            TimeSpan.FromSeconds(10), [0], []).Value;
+        var error = await Assert.ThrowsAsync<InfrastructureOperationException>(() => fixture.Runner.RunAsync(command, null, default));
+        Assert.Equal("DF-PROC-001", error.Code);
+        Assert.DoesNotContain("untrusted", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task UvVersionProbeDoesNotRequirePythonInstallation()
+    {
+        await using var fixture = await ProcessFixture.CreateAsync();
+        var runner = new WindowsProcessRunner(new UvOnlyResolver(ProcessFixture.FindDotNetHost()));
+        var command = CommandSpec.CreateAtWorkspaceRoot(ExecutableIdentity.Create("uv").Value,
+            ["--version"], fixture.Workspace, [], TimeSpan.FromSeconds(10), [0], []).Value;
+        await runner.CheckPreconditionsAsync(command, default);
+        Assert.Equal(0, (await runner.RunAsync(command, null, default)).ExitCode);
+    }
+
+    private sealed class UvOnlyResolver(string executablePath) : ITrustedExecutableResolver
+    {
+        public TrustedExecutableLaunch Resolve(ExecutableIdentity executable) => executable.Tool == ExecutableTool.Uv
+            ? new TrustedExecutableLaunch(executablePath, [])
+            : throw new InfrastructureOperationException("DF-PROC-001", "Python is unavailable.");
+    }
+
+    [Theory]
+    [InlineData("SystemRoot")]
+    [InlineData("UV_PYTHON")]
+    [InlineData("UV_PYTHON_DOWNLOADS")]
+    [InlineData("UV_LINK_MODE")]
+    [InlineData("UV_NO_CACHE")]
+    public async Task UvReceivesDeclaredRuntimeWithoutAmbientEnvironment(string key)
+    {
+        await using var fixture = await ProcessFixture.CreateAsync();
+        var command = CommandSpec.CreateAtWorkspaceRoot(ExecutableIdentity.Create("uv").Value,
+            [fixture.HelperAssemblyPath, "echo-env", key], fixture.Workspace, [], TimeSpan.FromSeconds(10), [0], []).Value;
+        var result = await fixture.Runner.RunAsync(command, null, default);
+        Assert.Equal(0, result.ExitCode);
+        var expected = key switch
+        {
+            "SystemRoot" => Path.GetDirectoryName(System.Environment.SystemDirectory),
+            "UV_PYTHON" => ProcessFixture.FindDotNetHost(),
+            "UV_PYTHON_DOWNLOADS" => "never",
+            "UV_LINK_MODE" => "copy",
+            "UV_NO_CACHE" => "true",
+            _ => throw new InvalidOperationException(),
+        };
+        Assert.Equal(expected, Assert.Single(result.RetainedLines).Text.Value);
+    }
+
+    [Theory]
+    [InlineData("SystemRoot")]
+    [InlineData("UV_PYTHON")]
+    [InlineData("UV_PYTHON_DOWNLOADS")]
+    [InlineData("PATH")]
+    public async Task UvRejectsProtectedEnvironmentOverrides(string key)
+    {
+        await using var fixture = await ProcessFixture.CreateAsync();
+        var command = CommandSpec.CreateAtWorkspaceRoot(ExecutableIdentity.Create("uv").Value,
+            [fixture.HelperAssemblyPath, "echo-env", key], fixture.Workspace,
+            [KeyValuePair.Create<string, ProcessEnvironmentValue?>(key, ProcessEnvironmentValue.CreateSafe("untrusted").Value)],
+            TimeSpan.FromSeconds(10), [0], []).Value;
+        var error = await Assert.ThrowsAsync<InfrastructureOperationException>(() => fixture.Runner.RunAsync(command, null, default));
+        Assert.Equal("DF-PROC-001", error.Code);
+        Assert.DoesNotContain("untrusted", error.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("dotnet")]
+    [InlineData("uv")]
+    [InlineData("node")]
+    [InlineData("pnpm")]
+    public async Task RuntimeDoesNotInheritUndeclaredAmbientVariables(string tool)
+    {
+        const string key = "DEVFORGE_M11_AMBIENT_SENTINEL";
+        var original = System.Environment.GetEnvironmentVariable(key);
+        try
+        {
+            System.Environment.SetEnvironmentVariable(key, "not-declared");
+            await using var fixture = await ProcessFixture.CreateAsync();
+            var runner = tool == "pnpm" ? new WindowsProcessRunner(new FixedExecutableResolver(ProcessFixture.FindDotNetHost(), [fixture.HelperAssemblyPath])) : fixture.Runner;
+            var command = CommandSpec.CreateAtWorkspaceRoot(ExecutableIdentity.Create(tool).Value,
+                tool == "pnpm" ? ["echo-env", key] : [fixture.HelperAssemblyPath, "echo-env", key], fixture.Workspace, [], TimeSpan.FromSeconds(10), [0], []).Value;
+            var result = await runner.RunAsync(command, null, default);
+            Assert.Equal(0, result.ExitCode);
+            Assert.Equal("<missing>", Assert.Single(result.RetainedLines).Text.Value);
+        }
+        finally
+        {
+            System.Environment.SetEnvironmentVariable(key, original);
+        }
+    }
+
+    [Theory]
+    [InlineData("DOTNET_HOST_PATH")]
+    [InlineData("DOTNET_ROOT")]
+    [InlineData("PATH")]
+    [InlineData("ProgramFiles")]
+    [InlineData("ProgramFiles(x86)")]
+    [InlineData("USERPROFILE")]
+    [InlineData("TEMP")]
+    public async Task DotnetReceivesDeclaredRuntimeEnvironment(string key)
+    {
+        await using var fixture = await ProcessFixture.CreateAsync();
+        var result = await fixture.Runner.RunAsync(fixture.CreateCommand(["echo-env", key]), null, default);
+        Assert.Equal(0, result.ExitCode);
+        var value = Assert.Single(result.RetainedLines).Text.Value;
+        Assert.NotEqual("<missing>", value);
+        Assert.False(string.IsNullOrWhiteSpace(value));
+        if (key == "DOTNET_HOST_PATH")
+        {
+            Assert.Equal(ProcessFixture.FindDotNetHost(), value);
+        }
+        if (key == "PATH")
+        {
+            Assert.Equal(Path.GetDirectoryName(ProcessFixture.FindDotNetHost()) + Path.PathSeparator
+                + System.Environment.SystemDirectory, value);
+        }
+    }
+
+    [Theory]
+    [InlineData("PATH")]
+    [InlineData("DOTNET_ROOT")]
+    [InlineData("DOTNET_HOST_PATH")]
+    public async Task DotnetRejectsProtectedEnvironmentOverrides(string key)
+    {
+        await using var fixture = await ProcessFixture.CreateAsync();
+        var command = fixture.CreateCommand(["echo-env", key], environmentVariables:
+            [KeyValuePair.Create<string, ProcessEnvironmentValue?>(key, ProcessEnvironmentValue.CreateSafe("untrusted").Value)]);
+        var error = await Assert.ThrowsAsync<InfrastructureOperationException>(() => fixture.Runner.RunAsync(command, null, default));
+        Assert.Equal("DF-PROC-001", error.Code);
+        Assert.DoesNotContain("untrusted", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ArgumentsWithShellMetacharactersRemainIndividualData()
     {
         await using var fixture = await ProcessFixture.CreateAsync();

@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Collections.Immutable;
+using System.Security.Cryptography;
 using System.Text;
 using DevForge.Application.Contracts;
 using DevForge.Domain.Privacy;
@@ -9,8 +10,10 @@ namespace DevForge.Infrastructure.Security;
 public sealed class WorkspaceSecretScanner : ISecretScanner
 {
     private const int MaxFileBytes = 1_048_576;
-    private const int MaxLineCharacters = 16_384;
     private const int ReadBufferSize = 8_192;
+    // Immutable React 1.0.0 public bundle; exact-byte provenance and fixture in ADR-0028.
+    // This is not a file exemption: only one reviewed generic-assignment occurrence differs.
+    private const string ReviewedReactBundleHash = "0dc53246ec934df87e6acfa00a2471debd43f04b14226866942282655cb5236d";
 
     private static readonly ImmutableHashSet<string> _textExtensions =
         ImmutableHashSet.Create(
@@ -19,6 +22,7 @@ public sealed class WorkspaceSecretScanner : ISecretScanner
             ".cs",
             ".csproj",
             ".css",
+            ".cjs",
             ".env",
             ".fsproj",
             ".html",
@@ -26,6 +30,7 @@ public sealed class WorkspaceSecretScanner : ISecretScanner
             ".json",
             ".jsx",
             ".md",
+            ".mjs",
             ".pem",
             ".props",
             ".ps1",
@@ -106,7 +111,7 @@ public sealed class WorkspaceSecretScanner : ISecretScanner
         };
     }
 
-    private static async Task<string?> ReadBoundedTextAsync(
+    private static async Task<ScannableText?> ReadBoundedTextAsync(
         IWorkspaceFileSystem workspace,
         WorkspaceRelativePath path,
         CancellationToken cancellationToken)
@@ -138,12 +143,14 @@ public sealed class WorkspaceSecretScanner : ISecretScanner
             var bytes = contents.ToArray();
             if (IsBinary(bytes))
             {
+                if (IsJavascript(path)) { throw ScanFailure(); }
                 return null;
             }
 
-            return new UTF8Encoding(
+            var text = new UTF8Encoding(
                 encoderShouldEmitUTF8Identifier: false,
                 throwOnInvalidBytes: true).GetString(bytes);
+            return new ScannableText(text, Convert.ToHexStringLower(SHA256.HashData(bytes)));
         }
         finally
         {
@@ -154,22 +161,23 @@ public sealed class WorkspaceSecretScanner : ISecretScanner
 
     private static void ScanText(
         WorkspaceRelativePath path,
-        string contents,
+        ScannableText contents,
         ImmutableArray<SecretFinding>.Builder findings,
         CancellationToken cancellationToken)
     {
-        using var reader = new StringReader(contents);
+        using var reader = new StringReader(contents.Text);
+        var reviewedReactBundle = Path.GetExtension(path.Value).Equals(".js", StringComparison.OrdinalIgnoreCase)
+            && contents.RawByteHash == ReviewedReactBundleHash;
         var lineNumber = 0;
         while (reader.ReadLine() is { } line)
         {
             cancellationToken.ThrowIfCancellationRequested();
             lineNumber++;
-            if (line.Length > MaxLineCharacters)
-            {
-                throw ScanFailure();
-            }
-
-            foreach (var category in SecretPatternCatalog.FindCategories(line))
+            // The complete UTF-8 file is already bounded to 1 MiB. Scan a minified
+            // line intact so tokens spanning arbitrary chunk boundaries cannot escape.
+            // Each catalog expression still has its bounded execution timeout.
+            foreach (var category in SecretPatternCatalog.FindCategories(line,
+                         reviewedReactBundle && lineNumber == 8))
             {
                 var safeCategory = category.Equals(
                     "bearer credential",
@@ -197,6 +205,11 @@ public sealed class WorkspaceSecretScanner : ISecretScanner
         var prefixLength = Math.Min(contents.Length, 4_096);
         return contents[..prefixLength].Contains((byte)0);
     }
+
+    private static bool IsJavascript(WorkspaceRelativePath path) => Path.GetExtension(path.Value).ToLowerInvariant()
+        is ".js" or ".mjs" or ".cjs";
+
+    private sealed record ScannableText(string Text, string RawByteHash);
 
     private static InfrastructureOperationException ScanFailure()
     {

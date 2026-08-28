@@ -12,6 +12,69 @@ namespace DevForge.IntegrationTests.Infrastructure.Execution;
 
 public sealed class ProcessExecutionHandlerTests
 {
+    [Theory]
+    [InlineData("format:check")]
+    [InlineData("smoke")]
+    public async Task ReviewedNextValidationCommandsAreAccepted(string script)
+    {
+        await using var fixture = await ProcessFixture.CreateAsync();
+        var request = fixture.ValidatorRequest(true,
+            ("executable", Text("pnpm")), ("arguments", Sequence(Text("run"), Text(script))),
+            ("workingDirectory", Text(".")), ("allowedExitCodes", Sequence(PlanValue.FromInteger(0))),
+            ("required", PlanValue.FromBoolean(true)));
+        var result = await new ValidateCommandExecutionHandler(new RecordingRunner(Exited(0))).ExecuteAsync(request, null, default);
+        Assert.Equal(ExecutionHandlerOutcome.Succeeded, result.Outcome);
+    }
+
+    [Fact]
+    public async Task PnpmRunsInSourceVerifiedToolingSnapshotAndLeavesPayloadUntouched()
+    {
+        await using var fixture = await ProcessFixture.CreateAsync();
+        var request = fixture.StepRequest("package-install",
+            ("packageManager", Text("pnpm")),
+            ("arguments", Sequence(Text("install"), Text("--frozen-lockfile"), Text("--ignore-scripts"))),
+            ("workingDirectory", Text(".")));
+        var file = WorkspaceRelativePath.Create("package.json").Value;
+        await ((IAtomicFileWorkspaceFileSystem)request.Staging.PayloadWorkspace).WriteFileAtomicallyAsync(file,
+            "{\"private\":true}"u8.ToArray(), false, default);
+        var runner = new RecordingRunner(Exited(0));
+        var result = await new PackageInstallExecutionHandler(runner).ExecuteAsync(request, null, default);
+        Assert.Equal(ExecutionHandlerOutcome.Succeeded, result.Outcome);
+        Assert.NotEqual(request.Staging.PayloadWorkspace.Root, runner.Command!.Workspace.Root);
+        Assert.True(await runner.Command.Workspace.FileExistsAsync(file, default));
+        Assert.False(await request.Staging.PayloadWorkspace.DirectoryExistsAsync(WorkspaceRelativePath.Create("node_modules").Value, default));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    public async Task PnpmRejectsSourceChangedByValidationEvenWhenExitIsAllowed(int exitCode)
+    {
+        await using var fixture = await ProcessFixture.CreateAsync();
+        var request = fixture.ValidatorRequest(true,
+            ("executable", Text("pnpm")), ("arguments", Sequence(Text("run"), Text("build"))),
+            ("workingDirectory", Text(".")), ("allowedExitCodes", Sequence(PlanValue.FromInteger(exitCode))),
+            ("required", PlanValue.FromBoolean(true)));
+        var file = WorkspaceRelativePath.Create("package.json").Value;
+        await ((IAtomicFileWorkspaceFileSystem)request.Staging.PayloadWorkspace).WriteFileAtomicallyAsync(file,
+            "{\"private\":true}"u8.ToArray(), false, default);
+        var result = await new ValidateCommandExecutionHandler(new SourceMutatingRunner(exitCode)).ExecuteAsync(request, null, default);
+        Assert.Equal(ExecutionHandlerOutcome.Failed, result.Outcome);
+        await using var source = await request.Staging.PayloadWorkspace.OpenReadAsync(file, default);
+        Assert.Equal("{\"private\":true}", await new StreamReader(source).ReadToEndAsync());
+    }
+
+    private sealed class SourceMutatingRunner(int exitCode) : IProcessRunner
+    {
+        public Task CheckPreconditionsAsync(CommandSpec command, CancellationToken cancellationToken) => Task.CompletedTask;
+        public async Task<ProcessResult> RunAsync(CommandSpec command, IProgress<ProcessOutputLine>? progress, CancellationToken cancellationToken)
+        {
+            await ((IAtomicFileWorkspaceFileSystem)command.Workspace).WriteFileAtomicallyAsync(
+                WorkspaceRelativePath.Create("package.json").Value, "changed"u8.ToArray(), true, cancellationToken);
+            return Exited(exitCode);
+        }
+    }
+
     [Fact]
     public async Task RunProcessBuildsASeparatedGuardedCommandAndRedactedEvidence()
     {
@@ -424,6 +487,11 @@ public sealed class ProcessExecutionHandlerTests
         var command = Assert.Single(runner.Commands);
         Assert.Equal(ExecutableTool.Uv, command.Executable.Tool);
         Assert.Equal(["sync", "--frozen", "--no-config"], command.ArgumentList.ToArray());
+        Assert.True(command.EnvironmentVariables.ContainsKey("UV_PROJECT_ENVIRONMENT"));
+        Assert.True(command.EnvironmentVariables.ContainsKey("PYTEST_ADDOPTS"));
+        Assert.True(command.EnvironmentVariables.ContainsKey("MYPY_CACHE_DIR"));
+        Assert.False(StagingWorkspace.Create(valid.Staging.Descriptor, valid.Staging.PayloadWorkspace,
+            valid.Staging.PayloadWorkspace).IsValid);
     }
 
     [Fact]
@@ -443,6 +511,7 @@ public sealed class ProcessExecutionHandlerTests
                 "pyproject-build", "--no-isolation",
             },
             new[] { "run", "--frozen", "--no-sync", "--no-config", "team-tool", "--help" },
+            new[] { "run", "--frozen", "--no-sync", "--no-config", "team-desktop", "--smoke-test" },
         };
 
         foreach (var arguments in reviewed)
@@ -483,6 +552,10 @@ public sealed class ProcessExecutionHandlerTests
             new[] { "build", "--index-url", "https://example.invalid" },
             new[] { "add", "requests" },
             new[] { "sync", "--config-file", "uv.toml" },
+            new[] { "run", "--frozen", "--no-sync", "--no-config", "team-desktop" },
+            new[] { "run", "--frozen", "--no-sync", "--no-config", "team-desktop", "--smoke-test", "extra" },
+            new[] { "run", "--no-sync", "--no-config", "team-desktop", "--smoke-test" },
+            new[] { "run", "--with", "tk", "team-desktop", "--smoke-test" },
         };
 
         foreach (var arguments in rejected)
@@ -874,11 +947,13 @@ public sealed class ProcessExecutionHandlerTests
         private ProcessFixture(
             string rootPath,
             IWorkspaceFileSystem payload,
-            BlueprintExecutionPackage package)
+            BlueprintExecutionPackage package,
+            IWorkspaceFileSystem container)
         {
             RootPath = rootPath;
             Payload = payload;
             Package = package;
+            Container = container;
         }
 
         private string RootPath { get; }
@@ -886,16 +961,18 @@ public sealed class ProcessExecutionHandlerTests
         private IWorkspaceFileSystem Payload { get; }
 
         private BlueprintExecutionPackage Package { get; }
+        private IWorkspaceFileSystem Container { get; }
 
         public static async Task<ProcessFixture> CreateAsync()
         {
             var rootPath = Path.GetFullPath(Path.Combine(
                 Path.GetTempPath(),
                 "DevForge-M5-ProcessHandlers-" + Guid.NewGuid().ToString("N")));
-            Directory.CreateDirectory(Path.Combine(rootPath, "src"));
+            Directory.CreateDirectory(Path.Combine(rootPath, "payload", "src"));
             var payload = await new WindowsFileSystem().OpenWorkspaceAsync(
-                WorkspaceRoot.Create(rootPath).Value,
+                WorkspaceRoot.Create(Path.Combine(rootPath, "payload")).Value,
                 default);
+            var container = await new WindowsFileSystem().OpenWorkspaceAsync(WorkspaceRoot.Create(rootPath).Value, default);
             var packageWorkspace = VerifiedBlueprintWorkspace.Create(
                 $"sha256:{new string('a', 64)}",
                 ImmutableDictionary<string, ImmutableArray<byte>>.Empty,
@@ -918,7 +995,7 @@ public sealed class ProcessExecutionHandlerTests
                 $"sha256:{new string('a', 64)}").Value;
             var resolved = ResolvedBlueprint.Create(manifest, [], fingerprint).Value;
             var package = BlueprintExecutionPackage.Create(resolved, packageWorkspace).Value;
-            return new ProcessFixture(rootPath, payload, package);
+            return new ProcessFixture(rootPath, payload, package, container);
         }
 
         public ExecutionHandlerRequest StepRequest(
@@ -991,7 +1068,7 @@ public sealed class ProcessExecutionHandlerTests
                 WorkspaceRelativePath.Create(".devforge-staging\\run-1\\payload").Value,
                 WorkspaceRelativePath.Create(".devforge-staging\\run-1\\ownership.json").Value,
                 "marker-1").Value;
-            return StagingWorkspace.Create(descriptor, Payload).Value;
+            return StagingWorkspace.Create(descriptor, Payload, Container).Value;
         }
 
         public void DeleteOwnedPayloadRoot()

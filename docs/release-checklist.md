@@ -1,6 +1,6 @@
 # DevForge Studio M10 Release Checklist
 
-**Milestone state:** Open. M11 remains blocked.
+**Milestone state:** Open. M11 release promotion remains blocked; isolated candidate development is explicitly authorized under [ADR-0024](decisions/0024-m11-candidate-development-with-open-release-debt.md). No Pending gate is waived.
 
 Evidence timestamp for this local checkpoint: `2026-08-26T16:30:00+07:00`. Local host: Microsoft Windows 10.0.19045 x64; SDK 10.0.302; runtime 10.0.10. A Pass row is backed by the exact linked command/test evidence. A Pending row cannot be changed without new observed evidence.
 

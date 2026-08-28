@@ -348,13 +348,13 @@ public sealed class LocalGitService(
                 "The finalized project tree changed before Git publication.");
         }
 
-        if (tree.SourceFiles.Length != 0)
+        if (tree.AllFiles.Length != 0)
         {
             SecretScanResult scan;
             try
             {
                 scan = await _secretScanner.ScanAsync(
-                    SecretScanRequest.ExplicitPaths(workspace, tree.SourceFiles).Value,
+                    SecretScanRequest.ExplicitPaths(workspace, tree.AllFiles).Value,
                     cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)

@@ -11,7 +11,8 @@ namespace DevForge.Infrastructure.Git;
 internal sealed record CanonicalProjectTreeSnapshot(
     string Digest,
     ImmutableArray<WorkspaceRelativePath> SourceFiles,
-    bool HasRootGit);
+    bool HasRootGit,
+    ImmutableArray<WorkspaceRelativePath> AllFiles);
 
 internal static class CanonicalProjectTree
 {
@@ -78,6 +79,7 @@ internal static class CanonicalProjectTree
         }
 
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        byte[]? buildOutputBytes = null;
         long aggregateBytes = 0;
         foreach (var file in sourceFiles)
         {
@@ -97,6 +99,22 @@ internal static class CanonicalProjectTree
             var lengthBytes = new byte[sizeof(long)];
             BinaryPrimitives.WriteInt64BigEndian(lengthBytes, input.Length);
             hash.AppendData(lengthBytes);
+            if (file.Equals(BuildOutputManifest.Path))
+            {
+                if (input.Length > BuildOutputManifest.MaximumBytes)
+                {
+                    throw UnsafeTree();
+                }
+                buildOutputBytes = new byte[checked((int)input.Length)];
+                await input.ReadExactlyAsync(buildOutputBytes, cancellationToken).ConfigureAwait(false);
+                if (await input.ReadByteAsync(cancellationToken).ConfigureAwait(false) != -1)
+                {
+                    throw UnsafeTree();
+                }
+                // One read supplies both digest and membership: no second-read race.
+                hash.AppendData(buildOutputBytes);
+                continue;
+            }
             var buffer = new byte[BufferSize];
             while (true)
             {
@@ -112,8 +130,9 @@ internal static class CanonicalProjectTree
 
         return new CanonicalProjectTreeSnapshot(
             $"sha256:{Convert.ToHexStringLower(hash.GetHashAndReset())}",
-            sourceFiles,
-            rootGitDirectory);
+            BuildOutputManifest.SourceFiles(sourceFiles, buildOutputBytes),
+            rootGitDirectory,
+            sourceFiles);
     }
 
     private static async Task ValidateDirectoriesAsync(

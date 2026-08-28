@@ -1,4 +1,96 @@
-# Milestone M10 Security, Diagnostics, Packaging, and Release Hardening Implementation Plan
+# Milestone M11 V1 Catalog Implementation Plan
+
+**Integration request (2026-08-28):** consolidate existing local milestone branches
+and uncommitted source into `dev`, verify and push to `origin/dev`, then clean up
+merged local branches/worktree registrations while preserving their ignored data.
+Scope, exact verification and cleanup evidence are tracked in
+`docs/verification-2026-08-28-dev-consolidation.md`. This does not approve a release
+or waive the PostgreSQL/Windows 11/UX/packaging/remote-CI gates below.
+
+**Latest request (2026-08-28):** design and prove the PostgreSQL validation
+runtime, transient credentials and ownership/recovery before Nest. ADR-0030,
+`docs/superpowers/specs/2026-08-28-postgresql-validation-runtime-design.md` and
+`docs/superpowers/plans/2026-08-28-postgresql-runtime-proof.md` define scope,
+files/tests and exit gates. Installed PostgreSQL 18.2/service are outside scope;
+a separate EDB 18.6-1 binary set is provisioned for proof. Runtime gates remain
+open; no candidate/package/catalog promotion yet.
+
+**Proof checkpoint:** real headless initdb fails with `0xC0000005`; SystemRoot-only
+injection did not resolve it. Exact 18.6 source uses a CRT command processor
+internally. No implicit exception to the owner's cmd /c ban, COMSPEC workaround
+or existing-service access. Experimental process/test code was removed; the next
+step needs an explicit CLI-internal-shell policy decision or a separately reviewed
+shell-free bootstrap strategy. See `docs/verification-2026-08-28-postgresql-runtime.md`.
+
+**Previous request (review only, 2026-08-28):** separately review
+`backend.nest-postgres`, the recommended next baseline-listed candidate. Findings
+and acceptance boundaries are in [the review](reviews/2026-08-28-m11-nest-postgres-review.md)
+and ADR-0029. Do not implement the package or expand the shipping catalog in this
+turn. Next recommended slice is a PostgreSQL validation-runtime design/proof:
+typed owned lifecycle/recovery, authenticated transient credential delivery and
+guarded data boundary. Candidate implementation waits for that prerequisite gate.
+
+**Previous implementation slice:** Node/pnpm production and guarded source/tooling
+boundary first, then isolated `web.next-ts` candidate. ADR-0028 and
+`docs/superpowers/plans/2026-08-27-m11-node-next.md` define files, tests and exit.
+Foundation acceptance must pass before candidate implementation. Existing release
+holds remain; no production catalog promotion or remote writes.
+
+**Completed locally (2026-08-28):** foundation first, then the single test-only
+Next candidate. Final locked restore, scoped format/verify and Release build
+exit 0 (0 warnings/errors); full tests 1,762/1,762, zero failed/skipped. Real Next
+passes every required validator, source-only publication and tamper/recovery;
+the shared React/.NET/Python paths also pass. Review added behavioral negative
+smoke lifecycle tests and output-drain synchronization. See
+`docs/verification-2026-08-28-node-production.md` for exact evidence. Next slice:
+separately review one specification-listed M11 candidate, keeping all external
+release holds and the unchanged three-blueprint production catalog.
+
+**2026-08-28 foundation gate:** real React production + full static tree + local
+publication/source-and-bundle tamper/recovery passed; Unit 651, Integration 722,
+Blueprint 141 passed. Sequential Release build: zero warnings/errors. Proceed to
+one test-only Next candidate, not catalog promotion. Candidate files: manifest,
+schema/rules/checksums, App Router source, environment helper/tests, bounded local
+production HTTP smoke, pinned package/lock/config and seven handoff documents.
+Test-only content links and fixtures cover deterministic planning, checksum
+quarantine, occupied targets, failure cleanup, publication/retry/tamper and real
+install/format/lint/typecheck/test/build/smoke. Closed pnpm vocabulary adds only
+`run format:check` and `run smoke`; arbitrary commands remain rejected.
+
+**Previous completed slice:** uv production runtime and source/tooling/dist boundary under
+ADR-0027 and `docs/superpowers/plans/2026-08-27-m11-uv-production.md`.
+Production Python Desktop and CLI acceptance are locally green; full regressions
+pass 1,673/1,673. Exact commands/results are in
+`docs/verification-2026-08-27-uv-production.md`. The next slice is one separately
+reviewed M11 candidate under ADR-0024, retaining Windows 11/remote release gates.
+No blueprint addition or shipped catalog expansion in this repair.
+
+**Previous completed repair:** source/build-output integrity and production .NET environment,
+per ADR-0025 and `docs/superpowers/plans/2026-08-27-m11-output-boundary.md`.
+Completed locally: real acceptance 5/5 and full regression gate 1,629/1,629 pass.
+No additional blueprint was added. Next: candidate-specific checksum mutation
+coverage, then a separately reviewed next-candidate slice; retain all external
+release holds.
+
+**Current scope (2026-08-27):** The owner explicitly requests M11 development. Under detailed specification section 18.1 and ADR-0024, M9/M10 Windows 11/remote CI debt remains accepted for development only; no release gate is marked Pass. First slice: isolated `desktop.csharp-winforms-tool@1.0.0` candidate, not shipped in the three-blueprint MVP package.
+
+**Design:** `docs/superpowers/specs/2026-08-27-m11-winforms-candidate-design.md`.
+
+**Execution plan:** `docs/superpowers/plans/2026-08-27-m11-winforms-candidate.md`.
+
+**Files/tests/exit:** candidate package and test-only content links; production catalog/plan/checksum contracts; guarded workflow generation, failure and local Git tests; real .NET restore/format/build/test/publish and native WinForms smoke; complete root regressions. No core process permissions, WPF shell behavior, or production catalog expansion. Windows 11 certification and release promotion remain separate gates.
+
+## M10 retained release hold
+
+Historical pre-repair M11 checkpoint (superseded by ADR-0025 and the latest status):
+the WinForms payload and local toolchain/native smoke are implemented;
+the real publication exit gate fails because final-tree evidence includes ignored
+build outputs. Do not expand to the next candidate until a reviewed source/artifact
+evidence policy resolves this shared-pipeline mismatch. Preserve the full-tree
+tamper guard and existing ignored-file rejection tests; do not force-add build
+outputs, delete arbitrary output directories, or bypass Git verification. The
+current test-only .NET environment also needs a production-environment design
+before Desktop promotion. Detailed results are in implementation-status.md.
 
 **Goal:** close the MVP security/recovery/diagnostics/documentation/package release gates without expanding the blueprint catalog.
 

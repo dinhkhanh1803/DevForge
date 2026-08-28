@@ -49,20 +49,30 @@ public sealed class CanonicalProjectEvidenceWriter : IProjectEvidenceWriter
             var recipe = WriteRecipe(checkpoint);
             var targetReport = WriteReport(checkpoint, report);
             var policy = WritePolicy(checkpoint);
-            var integrityDigests = new[]
+            var buildOutputs = await BuildOutputManifest.CreateAsync(checkpoint, payloadWorkspace, cancellationToken)
+                .ConfigureAwait(false);
+            var integrityDigests = new List<(WorkspaceRelativePath Path, string Digest)>
             {
                 (Path: _recipePath, Digest: Digest(recipe)),
                 (Path: _reportPath, Digest: Digest(targetReport)),
                 (Path: _policyPath, Digest: Digest(policy)),
             };
+            if (buildOutputs is not null)
+            {
+                integrityDigests.Add((BuildOutputManifest.Path, Digest(buildOutputs)));
+            }
             var projectLock = WriteLock(checkpoint, report, integrityDigests);
-            var files = new[]
+            var files = new List<(WorkspaceRelativePath, byte[])>
             {
                 (_recipePath, recipe),
                 (_lockPath, projectLock),
                 (_reportPath, targetReport),
                 (_policyPath, policy),
             };
+            if (buildOutputs is not null)
+            {
+                files.Add((BuildOutputManifest.Path, buildOutputs));
+            }
             if (files.Any(file => file.Item2.Length > MaximumEvidenceFileBytes
                     || RedactedText.IsSecretShapedValue(_utf8.GetString(file.Item2))))
             {
@@ -110,7 +120,7 @@ public sealed class CanonicalProjectEvidenceWriter : IProjectEvidenceWriter
             return ExecutionOperationResult.Success(
                 ProjectEvidenceWriteReceipt.Create(
                     _paths,
-                    files.Select(file => Digest(file.Item2))).Value);
+                    files.Take(_paths.Length).Select(file => Digest(file.Item2))).Value);
         }
         catch (OperationCanceledException)
         {

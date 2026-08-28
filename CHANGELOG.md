@@ -4,7 +4,46 @@ All notable DevForge Studio changes are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- Aligned candidate blueprint text with Git's canonical LF checkout bytes and
+  regenerated the six affected Next payload checksums, with a three-candidate
+  regression test. Matched editor defaults to the existing blueprint Git policy.
+- Normalized import ordering in two Desktop test files for full-solution format.
+
+### Documentation
+
+- Designed the M11 PostgreSQL validation prerequisite and recorded an unsuccessful
+  real 18.6 headless bootstrap proof. Official initdb's internal Windows shell use
+  requires a policy decision before proceeding; no runtime capability or Nest
+  candidate was enabled. ADR-0030 retains all ownership/auth/recovery/release gates.
+
+- Reviewed `backend.nest-postgres` as the next independent M11 candidate. Recorded
+  PostgreSQL owned-runtime/recovery and transient-credential prerequisites before
+  implementation (ADR-0029). No candidate, dependency or shipping catalog change;
+  existing Windows 11/UX/packaging/remote CI release holds remain unchanged.
+
 ### Added
+
+- M11 protected Node/pnpm runtime and source-verified sibling tooling workspace;
+  bounded owned cleanup, exact immutable React static-dist handoff, local Git
+  publication and source/bundle tamper recovery. Long-line JavaScript scanning
+  retains full-file bounds and a narrowly raw-hash-bound reviewed public match.
+- Test-only `web.next-ts` candidate with pinned Next 16.3.3, strict App Router
+  source, six required gates, public environment validation and seven handoff
+  documents. Negative smoke subprocess tests cover failed HTTP assertions, hung
+  shutdown and cancellation with port-closure checks. Real production acceptance
+  and full regressions pass 1,762/1,762; no catalog promotion or external release
+  gate is implied.
+- M11 uv production runtime repair: declared Windows/Python environment, download-disabled interpreter selection, run-owned sibling virtualenv/cache, bounded guarded cleanup and digest-bound Python dist membership. Production CLI/Desktop local publication/recovery and tamper rejection pass; full gate 1,673/1,673. No catalog promotion or Windows 11 release claim.
+- M11 WinForms private-copy checksum-tamper contracts for manifest, source, package pins and inventory; quarantine and non-resolution are verified without modifying shared packages.
+- Isolated Python Desktop candidate with native Tk/ttk, pure refresh state, pinned Python/uv development tools, seven handoff documents, exact bounded smoke vocabulary and Python checksum mutations. Its initial production uv DNS/environment hold is superseded by ADR-0027. Not shipped or release-certified.
+- Regression for a Tk callback that throws after updating state: native smoke now latches failure instead of reporting a false success.
+
+- M11 source/build-output evidence boundary: optional canonical engine-only inventory, full-tree integrity retained, exact source-only Git verification, and all-file input to secret scanning. Production .NET launches receive a declared isolated runtime environment; WinForms acceptance no longer injects a test environment.
+
+- M11 candidate-development boundary accepted under baseline section 18.1: first WinForms slice is isolated from the shipped three-blueprint MVP catalog; M9/M10 external release evidence remains Pending (ADR-0024).
+- Native WinForms candidate payload, deterministic catalog/composition contracts, generated ViewModel tests and real .NET/UI acceptance coverage. The source/output Git mismatch and test-only environment gap are repaired; local acceptance passes 5/5. The candidate is not shipped or Windows 11 release-certified.
 
 - M10 canonical bounded JSONL diagnostics with guarded atomic daily/run streams, credential revalidation at serialization, exact ownership markers, a shared bounded cross-process writer/retention lease, validated 30-day/256-MiB defaults, typed partial cleanup results, and normal-startup lifecycle composition.
 - Deterministic privacy-safe support bundles with a closed evidence catalog, normalized bounded UTF-8, per-entry SHA-256 inventory, marker-owned staging and atomic publication, exact kill-window recovery, and marker-plus-digest-authorized idempotent cleanup.

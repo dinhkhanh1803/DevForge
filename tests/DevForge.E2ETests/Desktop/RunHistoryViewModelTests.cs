@@ -1,10 +1,10 @@
 using System.Collections.Immutable;
 using DevForge.Application.Contracts;
-using DevForge.Desktop.RunHistory;
 using DevForge.Desktop.Diagnostics;
 using DevForge.Desktop.EnvironmentDoctor;
 using DevForge.Desktop.Execution;
 using DevForge.Desktop.Notifications;
+using DevForge.Desktop.RunHistory;
 using DevForge.Domain.Diagnostics;
 using DevForge.Domain.Privacy;
 using DevForge.Domain.Runs;

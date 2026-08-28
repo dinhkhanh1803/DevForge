@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using DevForge.Application.Contracts;
 using DevForge.Domain.Projects;
 using DevForge.Infrastructure;
@@ -14,6 +15,45 @@ namespace DevForge.IntegrationTests.Infrastructure.Git;
 [Collection(GitEnvironmentIsolationTestGroup.Name)]
 public sealed class LocalGitServiceTests
 {
+    private static readonly JsonSerializerOptions _markerOptions = new() { WriteIndented = true };
+    private const string BuildOutputs = "{\"schema\":\"devforge-build-outputs-v1\",\"projects\":[\"src/App/App.csproj\"],\"publish\":false,\"outputs\":[\"src/App/obj/cache.json\"]}";
+
+    private static async Task AddBuildOutputsAsync(GitFixture fixture)
+    {
+        await fixture.WriteAsync("src\\App\\App.csproj", "<Project />\n");
+        await fixture.WriteAsync("src\\App\\obj\\cache.json", "build output\n");
+        await fixture.WriteAsync(".gitignore", "bin/\nobj/\n");
+        using var marker = JsonDocument.Parse(BuildOutputs);
+        await fixture.WriteAsync(".devforge\\build-outputs.json", JsonSerializer.Serialize(marker.RootElement, _markerOptions) + "\n");
+    }
+
+    [Fact]
+    public async Task OutputMutationAfterCleanBootstrapStillFailsFullTreeVerification()
+    {
+        await using var fixture = await GitFixture.CreateAsync();
+        await AddBuildOutputsAsync(fixture);
+        var request = await fixture.CreateBootstrapRequestAsync(GitBranchPolicy.Main);
+        var receipt = await fixture.Service.BootstrapAsync(request, default);
+        await fixture.WriteAsync("src\\App\\obj\\cache.json", "tampered\n", true);
+        var error = await Assert.ThrowsAsync<InfrastructureOperationException>(() => fixture.Service.VerifyAsync(
+            GitVerificationRequest.Create(fixture.Workspace, GitBranchPolicy.Main, request.FinalTreeDigest,
+                receipt.InitialCommitId).Value, default));
+        Assert.Equal("DF-GIT-004", error.Code);
+        Assert.Single(await fixture.ReadCommitIdsAsync());
+    }
+
+    [Fact]
+    public async Task SecretInExcludedBuildOutputStillBlocksGitBeforeInitialization()
+    {
+        await using var fixture = await GitFixture.CreateAsync();
+        await AddBuildOutputsAsync(fixture);
+        await fixture.WriteAsync("src\\App\\obj\\cache.json", "{\"access_token\":\"ghp_abcdefghijklmnopqrstuvwxyz123456\"}", true);
+        var request = await fixture.CreateBootstrapRequestAsync(GitBranchPolicy.Main);
+        var error = await Assert.ThrowsAsync<InfrastructureOperationException>(() => fixture.Service.BootstrapAsync(request, default));
+        Assert.Equal("DF-GIT-003", error.Code);
+        Assert.False(Directory.Exists(Path.Combine(fixture.RootPath, ".git")));
+    }
+
     [Theory]
     [InlineData(GitBranchPolicy.Main)]
     [InlineData(GitBranchPolicy.MainAndDevelop)]
@@ -92,14 +132,22 @@ public sealed class LocalGitServiceTests
     }
 
     [Theory]
-    [InlineData("init")]
-    [InlineData("add")]
-    [InlineData("commit")]
-    [InlineData("develop")]
-    public async Task ExactKillWindowStateIsAdoptedWithoutDuplicateCommit(string phase)
+    [InlineData("init", false)]
+    [InlineData("add", false)]
+    [InlineData("commit", false)]
+    [InlineData("develop", false)]
+    [InlineData("init", true)]
+    [InlineData("add", true)]
+    [InlineData("commit", true)]
+    [InlineData("develop", true)]
+    public async Task ExactKillWindowStateIsAdoptedWithoutDuplicateCommit(string phase, bool buildOutputs)
     {
         await using var fixture = await GitFixture.CreateAsync();
         await fixture.WriteAsync("README.md", "# Recovery\n");
+        if (buildOutputs)
+        {
+            await AddBuildOutputsAsync(fixture);
+        }
         var request = await fixture.CreateBootstrapRequestAsync(GitBranchPolicy.MainAndDevelop);
         await fixture.RunAsync(GitCommandFactory.Initialize(fixture.Workspace));
         if (phase is "add" or "commit" or "develop")

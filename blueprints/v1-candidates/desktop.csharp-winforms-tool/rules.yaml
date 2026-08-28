@@ -1,0 +1,6 @@
+- id: windows-only
+  condition: runtime.os == "windows"
+  severity: blocking
+  message: This blueprint requires Windows for native WinForms compilation.
+  remediation: Run DevForge Studio on a supported Windows environment.
+  override: none

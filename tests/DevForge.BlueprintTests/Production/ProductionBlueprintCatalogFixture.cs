@@ -22,11 +22,17 @@ internal sealed class ProductionBlueprintCatalogFixture : IDisposable
 
     public BlueprintCatalog Catalog { get; }
 
-    public static async Task<ProductionBlueprintCatalogFixture> CreateAsync()
+    public static Task<ProductionBlueprintCatalogFixture> CreateAsync() =>
+        CreateAtAsync(BuiltInBlueprintCatalog.OutputDirectory);
+
+    public static Task<ProductionBlueprintCatalogFixture> CreateCandidatesAsync() =>
+        CreateAtAsync(Path.Combine("blueprints", "candidates"));
+
+    internal static async Task<ProductionBlueprintCatalogFixture> CreateAtAsync(string directory)
     {
         var root = WorkspaceRoot.Create(Path.Combine(
             AppContext.BaseDirectory,
-            BuiltInBlueprintCatalog.OutputDirectory));
+            directory));
         Assert.True(root.IsValid);
         var workspace = await new WindowsFileSystem().OpenWorkspaceAsync(
             root.Value,

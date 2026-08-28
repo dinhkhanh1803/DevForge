@@ -1,0 +1,6 @@
+node_modules/
+.next/
+.devforge-node/
+.env*
+!.env.example
+*.log

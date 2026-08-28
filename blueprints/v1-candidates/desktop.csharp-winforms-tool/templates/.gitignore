@@ -1,0 +1,12 @@
+bin/
+obj/
+.vs/
+.idea/
+.vscode/
+artifacts/
+publish/
+.env
+.env.*
+!.env.example
+*.user
+*.suo

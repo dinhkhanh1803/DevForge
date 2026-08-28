@@ -9,6 +9,7 @@ using DevForge.Blueprints.Abstractions.Models;
 using DevForge.Domain.Execution;
 using DevForge.Domain.Projects;
 using DevForge.Domain.Runs;
+using DevForge.Infrastructure;
 using DevForge.Infrastructure.Execution;
 using DevForge.Infrastructure.FileSystem;
 using DevForge.Infrastructure.Persistence;
@@ -22,6 +23,43 @@ namespace DevForge.IntegrationTests.Infrastructure.Execution;
 [Collection(ExecutionRecoveryActivityTestGroup.Name)]
 public sealed partial class OwnedStagingWorkspaceManagerTests
 {
+    [Fact]
+    public async Task NodeToolingRejectsNestedJunctionBeforeExecution()
+    {
+        await using var fixture = await StagingFixture.CreateAsync();
+        var created = await fixture.Manager.CreateAsync(fixture.Request, default);
+        Assert.True(created.IsSuccessful);
+        await using var lease = created.Value;
+        await NodeExecutionWorkspace.OpenAsync(lease.Workspace, default);
+        fixture.AddEscapingJunctionInsideNodeTooling(lease.Workspace.Descriptor);
+        await Assert.ThrowsAsync<InfrastructureOperationException>(() => NodeExecutionWorkspace.OpenAsync(lease.Workspace, default));
+        Assert.Equal("outside remains unchanged", await File.ReadAllTextAsync(fixture.OutsideSentinelPath));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task LargeToolingCleanupRequiresReviewedNodePlan(bool nodePlan)
+    {
+        await using var fixture = await StagingFixture.CreateAsync(nodePlan: nodePlan);
+        var created = await fixture.Manager.CreateAsync(fixture.Request, default);
+        Assert.True(created.IsSuccessful);
+        var descriptor = created.Value.Workspace.Descriptor;
+        await using var heldLease = created.Value;
+        await created.Value.Workspace.ContainerWorkspace!.CreateDirectoryAsync(Relative(@"tooling\node\project\node_modules"), default);
+        for (var index = 0; index < 4097; index++)
+        {
+            await using var stream = await created.Value.Workspace.ContainerWorkspace.OpenWriteAsync(Relative($@"tooling\node\project\node_modules\{index}.js"), false, default);
+        }
+        await created.Value.DisposeAsync();
+        await fixture.TargetParent.MoveDirectoryAsync(descriptor.PayloadDirectory, fixture.Request.TargetDirectory,
+            WorkspaceMoveIntent.AtomicNoOverwriteFinalize, default);
+        var checkpoint = fixture.CreateCheckpoint(descriptor, RunStatus.LocalReady, FinalizationState.Succeeded, ReportPersistenceState.Succeeded);
+        var result = await fixture.Manager.CleanupFinalizedAsync(checkpoint, fixture.TargetParent, default);
+        Assert.Equal(nodePlan, result.IsSuccessful);
+        Assert.True(await fixture.TargetParent.DirectoryExistsAsync(fixture.Request.TargetDirectory, default));
+    }
+
     [Fact]
     public async Task AppKillRecoveryResumesThroughRealOwnershipAndRefusesTamperedCleanup()
     {
@@ -254,12 +292,57 @@ public sealed partial class OwnedStagingWorkspaceManagerTests
     }
 
     [Fact]
-    public async Task FinalizedCleanupRemovesOnlyMarkerContainerAfterDurableReportAndLocalReady()
+    public async Task PythonToolingRejectsNestedJunctionBeforeExecution()
+    {
+        await using var fixture = await StagingFixture.CreateAsync();
+        var created = await fixture.Manager.CreateAsync(fixture.Request, default);
+        Assert.True(created.IsSuccessful);
+        await using var lease = created.Value;
+        await UvExecutionEnvironment.PrepareAsync(lease.Workspace, default);
+        fixture.AddEscapingJunctionInsideTooling(lease.Workspace.Descriptor);
+        await Assert.ThrowsAsync<InfrastructureOperationException>(() => UvExecutionEnvironment.PrepareAsync(lease.Workspace, default));
+        Assert.Equal("outside remains unchanged", await File.ReadAllTextAsync(fixture.OutsideSentinelPath));
+    }
+
+    [Fact]
+    public async Task PythonToolingRejectsFileCountBeyondSafetyBound()
+    {
+        await using var fixture = await StagingFixture.CreateAsync();
+        var created = await fixture.Manager.CreateAsync(fixture.Request, default);
+        Assert.True(created.IsSuccessful);
+        await using var lease = created.Value;
+        await UvExecutionEnvironment.PrepareAsync(lease.Workspace, default);
+        for (var index = 0; index <= AtomicProjectFinalizer.MaximumFileCount; index++)
+        {
+            await using var stream = await lease.Workspace.ContainerWorkspace!.OpenWriteAsync(Relative($"tooling\\mypy\\{index}.bin"), false, default);
+        }
+        await Assert.ThrowsAsync<InfrastructureOperationException>(() => UvExecutionEnvironment.PrepareAsync(lease.Workspace, default));
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    [InlineData(true, false, AtomicProjectFinalizer.MaximumFileCount)]
+    public async Task FinalizedCleanupRemovesOnlyMarkerContainerAfterDurableReportAndLocalReady(bool withTooling, bool unexpectedSibling, int toolingFileCount = 0)
     {
         await using var fixture = await StagingFixture.CreateAsync();
         var created = await fixture.Manager.CreateAsync(fixture.Request, CancellationToken.None);
         Assert.True(created.IsSuccessful);
         var descriptor = created.Value.Workspace.Descriptor;
+        if (withTooling)
+        {
+            await UvExecutionEnvironment.PrepareAsync(created.Value.Workspace, default);
+            for (var index = 0; index < toolingFileCount; index++)
+            {
+                await using var stream = await created.Value.Workspace.ContainerWorkspace!.OpenWriteAsync(Relative($"tooling\\mypy\\{index}.bin"), false, default);
+            }
+            await UvExecutionEnvironment.PrepareAsync(created.Value.Workspace, default);
+        }
+        if (unexpectedSibling)
+        {
+            await created.Value.Workspace.ContainerWorkspace!.CreateDirectoryAsync(Relative("unrecognized"), default);
+        }
         await created.Value.DisposeAsync();
         await fixture.TargetParent.MoveDirectoryAsync(
             descriptor.PayloadDirectory,
@@ -277,11 +360,11 @@ public sealed partial class OwnedStagingWorkspaceManagerTests
             fixture.TargetParent,
             CancellationToken.None);
 
-        Assert.True(result.IsSuccessful);
+        Assert.Equal(!unexpectedSibling, result.IsSuccessful);
         Assert.True(await fixture.TargetParent.DirectoryExistsAsync(
             fixture.Request.TargetDirectory,
             CancellationToken.None));
-        Assert.False(await fixture.TargetParent.DirectoryExistsAsync(
+        Assert.Equal(unexpectedSibling, await fixture.TargetParent.DirectoryExistsAsync(
             descriptor.ContainerDirectory,
             CancellationToken.None));
     }
@@ -795,7 +878,7 @@ public sealed partial class OwnedStagingWorkspaceManagerTests
             IWorkspaceFileSystem? targetParent = null) =>
             CreateRequest(targetParent ?? TargetParent, RunArtifacts, runId);
 
-        public static async Task<StagingFixture> CreateAsync(string runId = "run-1")
+        public static async Task<StagingFixture> CreateAsync(string runId = "run-1", bool nodePlan = false)
         {
             var rootPath = Path.GetFullPath(Path.Combine(
                 Path.GetTempPath(),
@@ -812,7 +895,7 @@ public sealed partial class OwnedStagingWorkspaceManagerTests
             var runArtifacts = await fileSystem.OpenWorkspaceAsync(
                 WorkspaceRoot.Create(runArtifactPath).Value,
                 CancellationToken.None);
-            var request = CreateRequest(targetParent, runArtifacts, runId);
+            var request = CreateRequest(targetParent, runArtifacts, runId, nodePlan);
             return new StagingFixture(
                 rootPath,
                 targetParentPath,
@@ -935,6 +1018,26 @@ public sealed partial class OwnedStagingWorkspaceManagerTests
             _payloadJunctionPath = junctionPath;
         }
 
+        public void AddEscapingJunctionInsideTooling(StagingDescriptor descriptor)
+        {
+            _outsideRootPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "DevForge.StagingTests.Outside", Guid.NewGuid().ToString("N")));
+            Directory.CreateDirectory(_outsideRootPath);
+            File.WriteAllText(OutsideSentinelPath, "outside remains unchanged");
+            var junctionPath = Path.Combine(TargetParentPath, descriptor.ContainerDirectory.Value, "tooling", "venv", "escape");
+            JunctionFixture.Create(junctionPath, _outsideRootPath);
+            _payloadJunctionPath = junctionPath;
+        }
+
+        public void AddEscapingJunctionInsideNodeTooling(StagingDescriptor descriptor)
+        {
+            _outsideRootPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "DevForge.StagingTests.Outside", Guid.NewGuid().ToString("N")));
+            Directory.CreateDirectory(_outsideRootPath);
+            File.WriteAllText(OutsideSentinelPath, "outside remains unchanged");
+            var junctionPath = Path.Combine(TargetParentPath, descriptor.ContainerDirectory.Value, "tooling", "node", "project", "node_modules");
+            JunctionFixture.Create(junctionPath, _outsideRootPath);
+            _payloadJunctionPath = junctionPath;
+        }
+
         public ValueTask DisposeAsync()
         {
             if (_payloadJunctionPath is not null && Directory.Exists(_payloadJunctionPath))
@@ -981,21 +1084,22 @@ public sealed partial class OwnedStagingWorkspaceManagerTests
         private static ExecutionRequest CreateRequest(
             IWorkspaceFileSystem targetParent,
             IWorkspaceFileSystem runArtifacts,
-            string runId)
+            string runId, bool nodePlan = false)
         {
             var hash = $"sha256:{new string('1', 64)}";
             var step = ExecutionStep.Create(
                 "create",
                 "Create",
-                "create-directory",
-                [],
+                nodePlan ? "package-install" : "create-directory",
+                nodePlan ? [KeyValuePair.Create<string, PlanValue?>("packageManager", PlanValue.FromString("pnpm").Value),
+                    KeyValuePair.Create<string, PlanValue?>("workingDirectory", PlanValue.FromString(".").Value)] : [],
                 TimeSpan.FromSeconds(30),
                 RetryPolicy.None).Value;
             var plan = ExecutionPlan.Create(hash, [step], []).Value;
             var reference = BlueprintReference.Create("desktop.csharp-wpf-tool", "1.0.0").Value;
             var preview = PlanPreview.Create(
                 reference,
-                [new PlanPreviewStep("create", "create-directory", TimeSpan.FromSeconds(30))],
+                [new PlanPreviewStep("create", step.Handler, TimeSpan.FromSeconds(30))],
                 [],
                 [],
                 [],

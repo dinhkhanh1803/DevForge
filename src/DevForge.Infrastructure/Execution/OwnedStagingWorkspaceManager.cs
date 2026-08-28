@@ -103,7 +103,9 @@ public sealed class OwnedStagingWorkspaceManager : IStagingWorkspaceManager
                 request.TargetParentWorkspace,
                 descriptor.Value.PayloadDirectory,
                 cancellationToken).ConfigureAwait(false);
-            var workspace = StagingWorkspace.Create(descriptor.Value, payloadWorkspace);
+            var containerWorkspace = await OpenChildWorkspaceAsync(request.TargetParentWorkspace,
+                descriptor.Value.ContainerDirectory, cancellationToken).ConfigureAwait(false);
+            var workspace = StagingWorkspace.Create(descriptor.Value, payloadWorkspace, containerWorkspace);
             if (!workspace.IsValid)
             {
                 throw new InvalidStagingMarkerException();
@@ -218,7 +220,9 @@ public sealed class OwnedStagingWorkspaceManager : IStagingWorkspaceManager
                 checkpoint.Staging.PayloadDirectory,
                 cancellationToken).ConfigureAwait(false);
             _ = await payloadWorkspace.EnumerateAllFilesAsync(cancellationToken).ConfigureAwait(false);
-            var workspace = StagingWorkspace.Create(checkpoint.Staging, payloadWorkspace);
+            var containerWorkspace = await OpenChildWorkspaceAsync(targetParentWorkspace,
+                checkpoint.Staging.ContainerDirectory, cancellationToken).ConfigureAwait(false);
+            var workspace = StagingWorkspace.Create(checkpoint.Staging, payloadWorkspace, containerWorkspace);
             if (!workspace.IsValid)
             {
                 throw new InvalidStagingMarkerException();
@@ -370,12 +374,23 @@ public sealed class OwnedStagingWorkspaceManager : IStagingWorkspaceManager
                 targetParentWorkspace,
                 checkpoint.Staging.ContainerDirectory,
                 cancellationToken).ConfigureAwait(false);
-            var files = await container.EnumerateAllFilesAsync(cancellationToken).ConfigureAwait(false);
+            if (container is not DevForge.Infrastructure.FileSystem.IBoundedWorkspaceEnumerator bounded)
+            {
+                throw new InvalidStagingMarkerException();
+            }
+            // The container adds exactly ownership.json and the tooling root to the tooling limits.
+            var node = NodeExecutionWorkspace.UsesPnpm(checkpoint.Plan);
+            var tree = await bounded.EnumerateTreeBoundedAsync(null,
+                node ? NodeExecutionWorkspace.MaximumFiles + 2 : AtomicProjectFinalizer.MaximumFileCount + 1,
+                node ? NodeExecutionWorkspace.MaximumDirectories + 3 : AtomicProjectFinalizer.MaximumDirectoryCount + 1,
+                node ? NodeExecutionWorkspace.MaximumDepth + 3 : AtomicProjectFinalizer.MaximumPathDepth + 1, cancellationToken).ConfigureAwait(false);
+            var files = tree.Files;
             var directories = await container.EnumerateRootDirectoriesAsync(
                 cancellationToken).ConfigureAwait(false);
-            if (files.Length != 1
-                || !StringComparer.Ordinal.Equals(files[0].Value, MarkerName)
-                || !directories.IsEmpty)
+            if (tree.LimitExceeded
+                || !files.Any(file => StringComparer.Ordinal.Equals(file.Value, MarkerName))
+                || files.Any(file => file.Value != MarkerName && !file.Value.StartsWith("tooling\\", StringComparison.Ordinal))
+                || directories.Any(directory => directory.Value != "tooling"))
             {
                 throw new InvalidStagingMarkerException();
             }
@@ -576,7 +591,9 @@ public sealed class OwnedStagingWorkspaceManager : IStagingWorkspaceManager
                 request.TargetParentWorkspace,
                 checkpoint.Staging.PayloadDirectory,
                 CancellationToken.None).ConfigureAwait(false);
-            var workspace = StagingWorkspace.Create(checkpoint.Staging, payloadWorkspace);
+            var containerWorkspace = await OpenChildWorkspaceAsync(request.TargetParentWorkspace,
+                checkpoint.Staging.ContainerDirectory, CancellationToken.None).ConfigureAwait(false);
+            var workspace = StagingWorkspace.Create(checkpoint.Staging, payloadWorkspace, containerWorkspace);
             if (!workspace.IsValid)
             {
                 throw new InvalidStagingMarkerException();

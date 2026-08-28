@@ -102,3 +102,7 @@ trim_trailing_whitespace = false
 
 [*.sln]
 indent_style = tab
+
+# Match .gitattributes so local checksum inputs survive a fresh Git checkout.
+[blueprints/**]
+end_of_line = lf

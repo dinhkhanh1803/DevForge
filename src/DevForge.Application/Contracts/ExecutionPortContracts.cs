@@ -112,19 +112,24 @@ public sealed class StagingWorkspace
 {
     private StagingWorkspace(
         StagingDescriptor descriptor,
-        IWorkspaceFileSystem payloadWorkspace)
+        IWorkspaceFileSystem payloadWorkspace,
+        IWorkspaceFileSystem? containerWorkspace)
     {
         Descriptor = descriptor;
         PayloadWorkspace = payloadWorkspace;
+        ContainerWorkspace = containerWorkspace;
     }
 
     public StagingDescriptor Descriptor { get; }
 
     public IWorkspaceFileSystem PayloadWorkspace { get; }
 
+    public IWorkspaceFileSystem? ContainerWorkspace { get; }
+
     public static ValidationResult<StagingWorkspace> Create(
         StagingDescriptor? descriptor,
-        IWorkspaceFileSystem? payloadWorkspace)
+        IWorkspaceFileSystem? payloadWorkspace,
+        IWorkspaceFileSystem? containerWorkspace = null)
     {
         var issues = new List<ValidationIssue>();
         if (descriptor is null)
@@ -143,8 +148,17 @@ public sealed class StagingWorkspace
                 "payloadWorkspace"));
         }
 
+        if (containerWorkspace is not null && payloadWorkspace is not null
+            && !StringComparer.OrdinalIgnoreCase.Equals(
+                Path.Combine(containerWorkspace.Root.RevealForFileSystem(), "payload"),
+                payloadWorkspace.Root.RevealForFileSystem()))
+        {
+            issues.Add(new ValidationIssue("staging.workspace.container.invalid",
+                "The tooling container must own the exact payload child.", "containerWorkspace"));
+        }
+
         return issues.Count == 0
-            ? ValidationResult.Success(new StagingWorkspace(descriptor!, payloadWorkspace!))
+            ? ValidationResult.Success(new StagingWorkspace(descriptor!, payloadWorkspace!, containerWorkspace))
             : ValidationResult.Failure<StagingWorkspace>(issues);
     }
 }
@@ -553,6 +567,8 @@ public sealed class ReportWriteReceipt
 
 public static class ProjectEvidencePathPolicy
 {
+    public static WorkspaceRelativePath BuildOutputsPath { get; } =
+        WorkspaceRelativePath.Create(@".devforge\build-outputs.json").Value;
     private static readonly ImmutableArray<WorkspaceRelativePath> _canonicalPaths =
     [
         WorkspaceRelativePath.Create(@".devforge\project.recipe.yaml").Value,
@@ -570,7 +586,7 @@ public static class ProjectEvidencePathPolicy
     public static ImmutableHashSet<string> CanonicalFileNames => _canonicalFileNames;
 
     public static bool IsReserved(WorkspaceRelativePath? path) =>
-        path is not null && _canonicalPaths.Contains(path);
+        path is not null && (_canonicalPaths.Contains(path) || path.Equals(BuildOutputsPath));
 }
 
 public sealed class ProjectEvidenceWriteReceipt

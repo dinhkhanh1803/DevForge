@@ -11,6 +11,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="Fixtures\react-19.2.8-vite-8.2.2.base64" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="coverlet.collector">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

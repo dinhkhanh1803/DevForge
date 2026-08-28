@@ -1,8 +1,360 @@
 # DevForge Studio Implementation Status
 
-**Current milestone:** M10 - Security, diagnostics, packaging, and release hardening (Task 6 locally complete; external release evidence pending)
-**Status:** M0-M8 complete; M9 implementation/Windows 10 matrix complete; M10 local implementation/release gates green; M9/M10 remain open for Windows 11 and remote CI evidence; M11 blocked
-**Last updated:** 2026-08-26
+## Dev integration — 2026-08-28 — verification in progress
+
+The owner requested local branch consolidation and push to `origin/dev`. Existing
+M11 candidate work is included without promoting it into the BuiltIn catalog.
+Full format exposed two test import-order issues; these were normalized. Git index
+inspection also exposed six Next candidate payloads whose CRLF bytes would change
+on checkout and invalidate their hashes. A new three-candidate LF regression first
+failed for Next; after LF normalization and checksum regeneration, Blueprint tests
+passed 155/155. Full integration and publication evidence will be recorded in
+`docs/verification-2026-08-28-dev-consolidation.md`. All release holds remain open.
+
+## PostgreSQL prerequisite proof — 2026-08-28 — gate not passed
+
+Designed isolated PostgreSQL ownership/recovery, transient SCRAM credentials,
+source/artifact separation and a kill-window matrix (ADR-0030). Found an existing
+18.2 service Running; did not connect to, stop, upgrade or modify it. Provisioned
+an independent EDB 18.6-1 ZIP under ignored `.tools`, with measured SHA-256 and
+version evidence; not a signed-runtime or release certification.
+
+A temporary test-first stdin extension passed 2 helper checks; the real 18.6
+initdb proof failed: sandbox restricted-token errors, then outside-sandbox native
+exit `-1073741819` (`0xC0000005`). Adding SystemRoot alone did not fix it. Root cause
+of that crash remains unproven. Exact 18.6 source independently confirms initdb
+uses a Windows command processor internally; no COMSPEC workaround or implicit
+exception to the cmd /c prohibition was taken.
+
+Removed only this turn's experimental product/test code. No PostgreSQL capability
+or candidate is enabled, no raw password file was created, and all four real
+attempt directories were inspected with zero files. Ownership/recovery/database
+authentication gates have not run or passed. The next step is an explicit decision
+on official CLI-internal shell use, or review of a shell-free bootstrap strategy.
+All release holds and the three-MVP/three-candidate catalog boundary remain.
+
+Exact evidence and fresh baseline verification are recorded in
+[PostgreSQL verification](verification-2026-08-28-postgresql-runtime.md).
+After removing the experiment: locked restore, scoped format/verify and Release
+build exit 0 (0 warnings/errors). Unit 651 + Integration 724 + Blueprint 152 =
+**1,527/1,527 passed**, zero failed/skipped. E2E was not rerun. These baseline
+results do not change the failed PostgreSQL runtime gate.
+
+## Next-candidate review — 2026-08-28
+
+Reviewed `backend.nest-postgres` against detailed baseline 17.2/18 and current
+engine boundaries. Recommendation: standalone Nest + TypeORM/pg with explicit
+migrations, after a separate PostgreSQL validation-runtime prerequisite. The
+current tool/lease boundary does not manage PostgreSQL; pnpm workspace remapping
+does not carry transient DB environment/redaction data. Authenticated bootstrap,
+owned service recovery and guarded DB data cleanup must be proven first.
+
+Only review docs/ADR/plan/status/changelog changed. No Nest package, dependency,
+process capability, test code or catalog entry was added. `postgres`, `initdb`,
+`pg_ctl`, `psql` and `docker` were not found on PATH; no DB connection or service
+operation was attempted. Existing catalog/Next contract filter passed **8/8**,
+exit 0, zero failed/skipped. The 1,762-test result below is the previous full
+implementation gate, not a rerun in this documentation-only review.
+
+See [review and prerequisite gates](reviews/2026-08-28-m11-nest-postgres-review.md)
+and [ADR-0029](decisions/0029-nest-postgres-candidate-review.md). BuiltIn remains
+three MVP roots; M11 still has three isolated candidates. All external release
+holds remain unchanged. Next action is the runtime design/proof, not promotion.
+
+## Completed Node/Next local acceptance — 2026-08-28
+
+Owner approved Node/pnpm foundation before `web.next-ts`. ADR-0028 records the
+source-only handoff and run-owned tooling design. Foundation acceptance now passes:
+real React production install and validators, static-dist handoff, local Git,
+repeat verification and source/bundle tamper recovery. Integration passed 722/722.
+The isolated `web.next-ts` candidate has passing contract/tamper tests (14/14
+in the initial candidate-focused run) and simulated workflow tests (4/4).
+Real Next acceptance passed 1/1 in 8.2876 minutes: 13 production commands,
+all six required validators, generated tests 10/10 twice, actual HTTP smoke,
+source-only handoff, local Git publication and four tamper/restored-byte retries.
+Three negative smoke subprocess cases additionally prove failed assertion,
+hung shutdown deadline and cancellation close the observed listening port.
+Final locked restore, 19-file format/verify and Release build pass, exit 0;
+build has 0 warnings/errors. Full solution test: **1,762/1,762 passed**, exit 0,
+zero failed/skipped (Unit 651, Integration 724, Blueprint 152, E2E 235).
+E2E took 14 minutes 37 seconds and reran the real React/Next and existing
+.NET/Python workflows. This adds 89 managed cases over the prior 1,673 baseline,
+including five reviewed-runtime planning cases. Exact commands, red/green
+history and review fixes are in [the Node verification record](verification-2026-08-28-node-production.md).
+Prior uv results below remain historical evidence, not acceptance of this slice.
+Windows 11, UX, packaging and remote CI release holds are unchanged.
+
+M11 now has three isolated development candidates (WinForms, Python Desktop,
+Next); BuiltIn still ships exactly the three MVP blueprints. The Next package
+has 35 checksummed entries plus its inventory. No commit/push, remote operation,
+machine tool installation or persistent PATH change. Next recommended work is a
+separate review of the next specification-listed M11 candidate; do not promote
+any candidate until external release gates close. The cold Next acceptance took
+8.2876 minutes locally; tooling integrity enumeration should be profiled before
+broader catalog scaling, without reducing its path/source guards.
+
+**Previous M11 checkpoint:** uv production runtime and source/tooling/dist boundary
+are implemented under ADR-0027. Real Python Desktop generation, native validators,
+local Git publication, repeated recovery and wheel-tamper rejection pass. Full
+solution verification, including the shared Python CLI path, passes 1,673/1,673.
+No new blueprint was added; the two M11 candidates remain test-only.
+
+Final gate: locked restore exit 0; scoped format and verify exit 0; Release build
+exit 0 with 0 warnings/errors; tests exit 0 (Unit 651, Integration 653, Blueprint
+141, E2E 228; zero failed/skipped). This adds 28 managed cases versus the prior
+baseline and strengthens existing contracts. Exact commands, 15-file format scope,
+red/green evidence and diagnostic history are in
+[the verification record](verification-2026-08-27-uv-production.md).
+
+The requested local uv/publication hold is closed. The next slice may review one
+additional M11 candidate under the existing development-only waiver, but Windows
+11/remote release gates must close before candidate promotion. No further blueprint
+is implemented by this repair.
+
+## M11 uv production repair (2026-08-27)
+
+The original no-environment runner reproduced frozen-sync DNS 11003 outside the
+sandbox. A declared Windows runtime environment with trusted Python, no interpreter
+downloads, no shared uv cache and copy linking allows the production command to
+complete. No ambient proxy/index/credential variables are inherited. Version-only
+uv probes still work without Python. Protected runtime overrides are rejected.
+
+The staging lease now exposes its guarded container. uv virtualenv and mypy cache
+live beside payload in `tooling`; Ruff/pytest caching and bytecode writes are
+disabled for engine execution. uv manages temporary build isolation under OS temp:
+deep staging TEMP reproduced a Windows path-length failure and is not used.
+The project receives source and its two dist archives, never the staging virtualenv.
+The documented final-path frozen sync and native smoke pass with the production
+runner, replacing the former explicit test-environment workaround.
+
+Only exact direct `dist/*.whl`/`dist/*.tar.gz` members with reviewed root pyproject,
+uv.lock and the required closed build vector enter the Python evidence schema.
+The manifest is atomic/exact-retry and digest-bound. All finalized bytes remain
+in the full-tree digest and existing scanner input; arbitrary .venv/cache/extra
+dist files stay source, not implicit ignored exemptions. Archive contents are not
+unpacked by the existing text-candidate secret scanner.
+
+Independent review found and regression-tested subtree enumeration, finalized
+tooling cleanup and exact-bound accounting defects. Nested junctions and 4097
+tooling files fail closed; 4096 accepted files clean successfully. Unexpected
+container siblings prevent cleanup, and the finalized target is preserved.
+
+Release limitations remain: this is Windows 10 local evidence, not Windows 11 or
+remote GitHub/CI certification. No package upgrades, UI redesign, remote operations,
+commit or push. Do not promote either candidate as a released blueprint.
+
+## Historical M11 Python Desktop checkpoint, before ADR-0027 (2026-08-27)
+
+Detailed baseline sections 17.2/18 allow independent V1 candidates. ADR-0026
+selects Tk/ttk with a pure refresh model, native view, bounded smoke, existing
+configuration/logging, and seven handoff guides. The package has 33 files with 32
+checksummed payload entries. Python 3.14/uv 0.12 and every dependency retain the
+M9 pins; no GUI package, DevForge UI change, SDK install or shipped catalog change.
+BuiltIn still contains exactly the three MVP packages.
+
+WinForms has four package-specific mutations: manifest, MainForm source, central
+package-version template, and checksum inventory. Each test first resolves a
+pristine private copy, then verifies quarantine, DF-BP-002 and failed resolution;
+the original and sibling candidate remain unchanged. Four equivalent Python
+cases cover manifest, desktop source, uv.lock template and inventory.
+
+Production command policy adds only the exact frozen/no-sync/no-config
+`team-desktop --smoke-test` vector. Near-miss arguments, normal unbounded GUI launch
+and evaluation remain rejected. The Python composition tests prove deterministic
+source including uv.lock, engine evidence, absent-target failure/owned cleanup,
+occupied-target preservation, real local Git and repeated publication verification.
+Their tool calls are simulated and are not labeled real-toolchain certification.
+
+The standalone native matrix passes all eight real commands through
+WindowsProcessRunner with an explicitly declared release-host environment:
+frozen sync (19 packages), Ruff format (19 formatted files), lint, mypy (12 source
+files), pytest (11 passed), sdist/wheel build, CLI help, and native desktop smoke.
+Native smoke opens the real Tk view, invokes Refresh, checks changed bound state
+and keyboard focus, then exits. The fixed report_callback_exception failure latch
+prevents an exception after state updates from reporting success. Its regression
+was observed failing (returned 0 instead of 1), then all 11 generated tests passed.
+Review also caused the Python tamper cases and uv.lock comparison to be added;
+read-only re-review found no further actionable findings in this candidate scope.
+
+The unskipped `ProductionUvWorkflowMustReachCleanPublicationWithoutEnvironmentInjection`
+test forwards the original CommandSpec unchanged. It currently fails at
+`uv sync --frozen --no-config` with DF-EXEC-001: uv exits 1 while downloading locked
+hatchling 1.32.0 (pathspec 1.1.1 in the final full run), reporting DNS
+`os error 11003`. The run was already outside the
+sandbox with reviewed uv/python executable directories on PATH; no credentials or
+proxy values were read. The standalone explicit-environment/cache result does not
+prove this production path. Production uv host environment/cache/network behavior
+needs isolation and regression coverage before retrying the combined gate.
+
+The later .venv/cache/dist finalized-tree/Git boundary has not been reached by
+that production run and is **unverified**, not claimed to be this observed failure's
+cause. ADR-0025 only classifies reviewed .NET outputs. Do not force-add, delete,
+exempt arbitrary ignored paths, or loosen scan/finalizer bounds to close Python.
+Python candidate, M11, Windows 11 and remote CI release acceptance remain open.
+
+Local host: Windows 10 Pro 22H2 build 19045.6466; .NET SDK 10.0.302/runtime
+10.0.10; CPython 3.14.6/Tk 8.6; uv 0.12.1. No commit/push/remote change occurred.
+The only deleted cache was test-created `__pycache__` inside the new Python
+candidate, after exact path validation. No user data was removed.
+
+### Final verification for this slice
+
+Working directory: `E:\MyProjects\DevForge\.worktrees\m4-m11-completion`.
+`dotnet` below means `E:\MyProjects\DevForge\.tools\dotnet\dotnet.exe`.
+Real Python tests prepend the existing `.tools\uv-0.12.1` and
+`.tools\python\cpython-3.14.6-windows-x86_64-none` executable directories to the
+test-host PATH; product CommandSpecs are unchanged. No SDK was downloaded.
+
+| Gate | Exact command | Observed result |
+| --- | --- | --- |
+| Locked restore | `dotnet restore DevForge.sln --locked-mode --disable-build-servers -m:1 -nodeReuse:false -p:UseSharedCompilation=false` | Exit 0; all projects up-to-date. |
+| Scoped format | `dotnet format DevForge.sln --no-restore --include` followed by the eight paths in the execution plan | Exit 0; only scope-owned C# formatted. |
+| Format verify | Same command with `--verify-no-changes` | Exit 0, no diagnostics. |
+| Release build | `dotnet build DevForge.sln -c Release --no-restore --disable-build-servers -m:1 -nodeReuse:false -p:UseSharedCompilation=false` | Exit 0; 12 projects, 0 warnings/errors. |
+| Full tests | `dotnet test DevForge.sln -c Release --no-restore --disable-build-servers -m:1 -nodeReuse:false -p:UseSharedCompilation=false --logger "console;verbosity=minimal"` | Exit 1; Unit 651 pass, Integration 626 pass, Blueprint 141 pass, E2E 226 pass / 1 fail. Total 1,644 pass / 1 fail / 0 skipped. Sole failure is unchanged production Python workflow described above. |
+| Standalone native acceptance | `dotnet test tests/DevForge.E2ETests/DevForge.E2ETests.csproj -c Release --no-restore --disable-build-servers -m:1 -nodeReuse:false -p:UseSharedCompilation=false --filter FullyQualifiedName~StandaloneNativeToolchainPassesWithExplicitReleaseHostEnvironment --logger "console;verbosity=normal"` | Exit 0; 1/1 pass, all eight actual uv commands succeed, 11 generated tests pass. Also passed in final full suite. |
+| Checksum audit | Canonical-LF SHA-256 comparison of every Python payload against checked-in inventory | Exit 0; 32 entries, 0 mismatches. |
+| Whitespace | `git diff --check` | Exit 0; normal LF-to-CRLF conversion notices only. |
+
+Sixteen new root cases consist of eight tamper cases, two Python catalog/planning
+contracts, and six Python E2E cases (five pass, production acceptance fails).
+Existing handler tests now include the exact accepted desktop smoke and four
+rejected near misses. Ruff import classification differed between package-overlay
+and generated-src layouts; explicit `known-first-party = ["team_tool"]` fixed
+that configuration issue. Generated format/lint, mypy and native regressions were
+rerun afterward. No false green, test skip, commit or push was used.
+
+## Earlier M11 .NET boundary checkpoint (historical scope)
+
+**Latest completed scope:** M11 source/build-output boundary and production .NET
+environment repair under ADR-0025. Real acceptance and the full solution gate pass;
+M11 as a whole and external release certification remain open.
+
+**Current milestone:** M11 - V1 catalog (WinForms candidate local acceptance passing; release promotion pending)
+**Status:** M0-M8 complete; M9/M10 implementation locally verified, external release evidence still Pending; M11 development explicitly authorized with accepted debt, not release-certified
+**Last updated:** 2026-08-27
+
+## M11 entry and candidate boundary
+
+The owner explicitly requested moving to M11 after the Windows 11/remote CI blockers were explained. Detailed baseline section 18.1 and ADR-0024 permit development with recorded accepted technical debt; they do not waive release acceptance. The first independently scoped candidate is `desktop.csharp-winforms-tool@1.0.0`, using the existing .NET process boundary and test-only candidate distribution. The default shipped catalog retains exactly the three MVP blueprints. No new package, workflow result, or release readiness is claimed before verification. Historical M11-blocked statements below describe the earlier hold; this explicit development authorization supersedes that hold only for implementation, not release.
+
+### M11 repair checkpoint (2026-08-27)
+
+The source/build-output and production environment blockers are repaired. The
+engine atomically writes an optional canonical `.devforge/build-outputs.json`,
+derived from hash-bound reviewed project artifacts and mandatory .NET validators.
+Git verifies the exact source subset; the durable digest still covers all files,
+including outputs and the membership marker. Secret scanning receives AllFiles
+under its unchanged text-candidate policy. No ignored-source exemption, force-add,
+output deletion, new Git command, or database migration was introduced.
+
+The production runner declares the bounded .NET SDK/runtime environment after
+trusted executable resolution. Protected environment overrides fail closed and
+ambient variables are not copied wholesale. WinForms acceptance forwards the
+original CommandSpec unchanged. All five candidate project files are explicitly
+declared in its reviewed artifact preview; the shipped three-blueprint catalog is
+unchanged and no further candidate has been added.
+
+Read-only review found a marker second-read race. The fix parses the same bounded
+bytes used by the full-tree digest, with a deterministic swapping-read regression.
+A large-inventory regression also found the existing scanner's line bound;
+canonical indented LF JSON fixes it without changing scanner limits. Focused
+tree/Git/evidence tests pass 68/68. The real M11 acceptance passes 5/5, including
+nine production .NET invocations, 3/3 generated tests, native Refresh/status/exit,
+clean local Git, and a second durable publication verification.
+
+Host: Windows 10 Pro 22H2 build 19045.6466, SDK 10.0.302/runtime 10.0.10. This is
+not Windows 11 certification. Candidate-specific checksum-tamper coverage remains
+an explicitly open candidate-promotion task; the generic checksum rejection suite
+and current 39/39 candidate payload hash audit pass. The real MVP WPF matrix was
+not recertified by this WinForms repair; undeclared project roots remain source.
+
+Working directory and exact SDK executable are unchanged from the historical
+command table below. Final repair gate:
+
+| Gate | Command | Observed result |
+| --- | --- | --- |
+| Locked restore | `dotnet restore DevForge.sln --locked-mode --disable-build-servers -m:1 -nodeReuse:false -p:UseSharedCompilation=false` | Exit 0; all projects up-to-date. |
+| Scoped format/write + verify | `dotnet format DevForge.sln --no-restore --include <15 scope-owned C# paths>`; repeat with `--verify-no-changes` | Both exit 0; final verification has no diagnostics. Full path list is in the repair execution plan. |
+| Release build | `dotnet build DevForge.sln -c Release --no-restore --disable-build-servers -m:1 -nodeReuse:false -p:UseSharedCompilation=false` | Exit 0; 12 projects, 0 warnings, 0 errors. |
+| Full test gate | `dotnet test DevForge.sln -c Release --no-restore --disable-build-servers -m:1 -nodeReuse:false -p:UseSharedCompilation=false --logger "console;verbosity=minimal"` | Exit 0: Unit 651, Integration 626, Blueprint 131, E2E 221. Total 1,629 passed, 0 failed, 0 skipped. |
+| Candidate checksum audit | PowerShell canonical-LF SHA-256 comparison against `checksums.json` | Exit 0; 39 entries, 0 mismatches. |
+| Whitespace | `git diff --check` | Exit 0; only normal LF-to-CRLF notices. |
+
+The first sandboxed format verification failed with named-pipe access denied;
+the allowed rerun exposed two CRLF issues, corrected by the scoped formatter.
+The final verify then exited 0. These failed attempts are not hidden by the final
+green result. No Administrator, remote GitHub mutation, commit, merge, or push was
+used. Four unrelated Desktop/presentation files were preserved.
+
+The repair adds 25 integration cases over the previous 601-test baseline: 11
+environment cases, seven tree/marker cases, six local-Git output/security/recovery
+cases, and one large-inventory/exact-retry case. No new blueprint is required by
+this slice. Next M11 work is the remaining candidate-specific checksum mutation
+contract and a separately reviewed next-candidate scope; release promotion still
+requires the pending Windows 11 and remote CI evidence.
+
+### Historical M11 WinForms checkpoint: initial red gate, superseded by repair above
+
+The candidate contains 40 files, including a canonical checksum inventory for all
+39 payload entries. It generates five centrally pinned .NET 10 projects, native
+STA WinForms startup with Generic Host/DI, a DPI-aware form and observable Refresh
+binding, three generated unit tests, locked dependencies, a fixed publish profile,
+and seven handoff documents. It is test-only and not selectable in Desktop; the
+shipped BuiltIn catalog remains exactly three MVP roots. No product runtime code
+or dependency was changed. Four unrelated pre-existing Desktop/presentation files
+were preserved.
+
+On Windows 10 Pro 22H2 build 19045.6466, SDK 10.0.302 / runtime 10.0.10:
+the real guarded workflow executes restore once and format/build/test/publish
+twice each (the durable execution/recheck path): all nine commands exit 0. Native
+UI automation verifies a responsive published process, keyboard-focusable Refresh,
+a changed bound status across a clock tick, and clean exit 0. Generated tests pass
+3/3. This is local candidate/toolchain evidence, not Windows 11 certification or
+Desktop production-environment certification; the real-runner test supplies an
+explicit bounded environment that the production command composition does not yet
+supply. Package checksum audit passes 39/39 with zero mismatches.
+
+The unskipped `RealDotnetMatrixPublishesResponsiveNativeFormAndCleanLocalGit`
+acceptance test fails at publication with `DF-PUB-003`. A direct diagnostic call
+localized the cause to `GitTreeVerifier`'s exact file-count check (`DF-GIT-004`):
+finalized source evidence includes generated bin/obj/artifacts, but `.gitignore`
+excludes them from the Git commit. The existing ignored-file regression deliberately
+enforces that mismatch rejection. Source-only composition with simulated tool
+commands can publish and verify; it is not a substitute for the real matrix.
+No Git guard was weakened, no output forcibly committed/deleted, and no test skipped.
+
+Next work within M11 is a reviewed source-versus-engine-output evidence design,
+with full-tree tamper detection, atomic finalization, recovery and secret scanning
+preserved. Also close the production .NET command-environment gap and add explicit
+candidate checksum-tamper coverage before promotion. The other seven V1 candidates
+are not started; do not expand the catalog before this candidate's gates pass.
+M9/M10 Windows 11 and remote CI evidence remain Pending. No M11 commit or push was
+made while the acceptance gate is red.
+
+### Historical M11 verification commands before the repair (2026-08-27)
+
+Working directory: `E:\MyProjects\DevForge\.worktrees\m4-m11-completion`.
+Below, `dotnet` is the exact executable
+`E:\MyProjects\DevForge\.tools\dotnet\dotnet.exe`.
+
+| Gate | Command | Observed result |
+| --- | --- | --- |
+| Locked restore | `dotnet restore DevForge.sln --locked-mode --disable-build-servers -m:1 -nodeReuse:false -p:UseSharedCompilation=false` | Exit 0; all projects up-to-date from locks. |
+| Scoped format | `dotnet format DevForge.sln --no-restore --include tests/DevForge.BlueprintTests/Production/ProductionBlueprintCatalogFixture.cs tests/DevForge.BlueprintTests/Production/WinFormsCandidateContractTests.cs tests/DevForge.E2ETests/M9/WpfBlueprintFixture.cs tests/DevForge.E2ETests/M11/WinFormsCandidateE2ETests.cs` | Exit 0; only scope-owned test sources formatted. |
+| Scoped format verify | Same format command with `--verify-no-changes` | Exit 0; no diagnostics. Not a claim about unrelated dirty files. |
+| Release build | `dotnet build DevForge.sln -c Release --no-restore --disable-build-servers -m:1 -nodeReuse:false -p:UseSharedCompilation=false` | Exit 0; 12 projects, 0 warnings, 0 errors. |
+| Full test gate | `dotnet test DevForge.sln -c Release --no-restore --disable-build-servers -m:1 -nodeReuse:false -p:UseSharedCompilation=false --logger "console;verbosity=minimal"` | Exit 1: Unit 651 pass; Integration 601 pass; Blueprint 131 pass; E2E 220 pass / 1 fail. Total 1,603 pass / 1 fail / 0 skipped. Sole failure is the M11 real publication acceptance above; existing release/document/package contracts pass within E2E. |
+| Whitespace | `git diff --check` | Exit 0; Git reports normal LF-to-CRLF conversion notices, no whitespace error. |
+
+The new root tests are four candidate contracts and five E2E cases: deterministic
+source-only composition/local Git; restore failure; mandatory build-validator
+failure; occupied-target preservation; and the real .NET/native/Git matrix. Eight
+pass and the real matrix remains red. Two generated ViewModel tests supplement
+the retained domain test. Review's Refresh-state and targeted-validator coverage
+findings were corrected and rechecked. Earlier network-restricted restore and
+named-pipe-restricted format attempts failed; allowed reruns produced the exit-0
+results above. No Administrator happy path or remote GitHub action was used.
 
 ## M10 entry and current scope
 

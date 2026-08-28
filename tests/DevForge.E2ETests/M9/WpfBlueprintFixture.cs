@@ -132,29 +132,56 @@ internal sealed class WpfBlueprintFixture : IAsyncDisposable
         "desktop.csharp-wpf-tool",
         [new EnvironmentTool("dotnet", "10.0.302", true)]);
 
-    public static Task<WpfBlueprintFixture> CreateReactAsync() => CreateAsync(
+    public static Task<WpfBlueprintFixture> CreateReactAsync() => CreateReactAsync(null);
+
+    public static Task<WpfBlueprintFixture> CreateReactAsync(IProcessRunner? executionRunner) => CreateAsync(
         "Team Portal",
         "team-portal",
         "web.react-vite-ts",
         [
             new EnvironmentTool("node", "22.21.1", true),
             new EnvironmentTool("pnpm", "10.24.0", true),
-        ]);
+        ], executionRunner: executionRunner);
 
-    public static Task<WpfBlueprintFixture> CreatePythonAsync() => CreateAsync(
+    public static Task<WpfBlueprintFixture> CreatePythonAsync() => CreatePythonAsync(null);
+
+    public static Task<WpfBlueprintFixture> CreateNextCandidateAsync(IProcessRunner? executionRunner = null) => CreateAsync(
+        "Team Portal", "team-portal", "web.next-ts",
+        [new EnvironmentTool("node", "22.23.2", true), new EnvironmentTool("pnpm", "10.24.0", true)],
+        Path.Combine("blueprints", "candidates"), executionRunner);
+
+    public static Task<WpfBlueprintFixture> CreatePythonAsync(IProcessRunner? executionRunner) => CreateAsync(
         "Team Tool",
         "team-tool",
         "tool.python-cli",
         [
             new EnvironmentTool("python", "3.14.6", true),
             new EnvironmentTool("uv", "0.12.1", true),
-        ]);
+        ], executionRunner: executionRunner);
+
+    public static Task<WpfBlueprintFixture> CreateWinFormsCandidateAsync(IProcessRunner? executionRunner = null) => CreateAsync(
+        "Team Tool",
+        "team-tool",
+        "desktop.csharp-winforms-tool",
+        [new EnvironmentTool("dotnet", "10.0.302", true)],
+        Path.Combine("blueprints", "candidates"),
+        executionRunner);
+
+    public static Task<WpfBlueprintFixture> CreatePythonDesktopCandidateAsync(IProcessRunner? executionRunner = null) => CreateAsync(
+        "Team Desktop",
+        "team-desktop",
+        "tool.python-desktop",
+        [new EnvironmentTool("python", "3.14.6", true), new EnvironmentTool("uv", "0.12.1", true)],
+        Path.Combine("blueprints", "candidates"),
+        executionRunner);
 
     private static async Task<WpfBlueprintFixture> CreateAsync(
         string projectName,
         string targetName,
         string blueprintId,
-        IReadOnlyCollection<EnvironmentTool> tools)
+        IReadOnlyCollection<EnvironmentTool> tools,
+        string? sourceDirectory = null,
+        IProcessRunner? executionRunner = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "DevForge-M9-Blueprint-E2E-" + Guid.NewGuid().ToString("N"));
         var targetRoot = Path.Combine(root, "projects");
@@ -167,7 +194,7 @@ internal sealed class WpfBlueprintFixture : IAsyncDisposable
             var fileSystem = new WindowsFileSystem();
             var sourceRoot = Path.GetFullPath(Path.Combine(
                 AppContext.BaseDirectory,
-                BuiltInBlueprintCatalog.OutputDirectory));
+                sourceDirectory ?? BuiltInBlueprintCatalog.OutputDirectory));
             var sourceWorkspace = await fileSystem.OpenWorkspaceAsync(
                 WorkspaceRoot.Create(sourceRoot).Value,
                 CancellationToken.None);
@@ -197,7 +224,7 @@ internal sealed class WpfBlueprintFixture : IAsyncDisposable
             var checkpointStore = new SqliteRunCheckpointStore(dbFactory);
             var staging = new OwnedStagingWorkspaceManager(fileSystem);
             var blueprintSource = new BlueprintExecutionSource([source], metadata);
-            var runner = new RecordingProcessRunner(targetRoot, blueprintId);
+            var runner = new RecordingProcessRunner(blueprintId);
             var timeProvider = new FixedTimeProvider();
             var completion = new ValidatedRunCompletionCoordinator(
                 checkpointStore,
@@ -210,7 +237,7 @@ internal sealed class WpfBlueprintFixture : IAsyncDisposable
                 checkpointStore,
                 staging,
                 blueprintSource,
-                new ClosedExecutionHandlerRegistryProvider(runner),
+                new ClosedExecutionHandlerRegistryProvider(executionRunner ?? runner),
                 completion,
                 timeProvider);
             var workflow = new ProjectCreationWorkflow(
@@ -300,14 +327,19 @@ internal sealed class WpfBlueprintFixture : IAsyncDisposable
         public override DateTimeOffset GetUtcNow() => DateTimeOffset.UnixEpoch;
     }
 
-    internal sealed class RecordingProcessRunner(string targetRoot, string blueprintId) : IProcessRunner
+    internal sealed class RecordingProcessRunner(string blueprintId) : IProcessRunner
     {
         private readonly List<CommandSpec> _commands = [];
         private bool _failNext;
+        private string? _failOperation;
 
         public ImmutableArray<CommandSpec> Commands => [.. _commands];
 
-        public void FailNext() => _failNext = true;
+        public void FailNext(string? operation = null)
+        {
+            _failNext = true;
+            _failOperation = operation;
+        }
 
         public Task CheckPreconditionsAsync(CommandSpec command, CancellationToken cancellationToken)
         {
@@ -315,34 +347,31 @@ internal sealed class WpfBlueprintFixture : IAsyncDisposable
             return Task.CompletedTask;
         }
 
-        public Task<ProcessResult> RunAsync(
+        public async Task<ProcessResult> RunAsync(
             CommandSpec command,
             IProgress<ProcessOutputLine>? progress,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             _commands.Add(command);
-            if (_failNext)
+            if (_failNext && (_failOperation is null || command.ArgumentList[0] == _failOperation))
             {
                 _failNext = false;
-                return Task.FromResult(ProcessResult.Create(
+                return ProcessResult.Create(
                     ProcessTerminationReason.Exited,
                     1,
-                    []).Value);
+                    []).Value;
             }
 
             if (blueprintId == "web.react-vite-ts"
                 && command.ArgumentList.SequenceEqual(["run", "build"]))
             {
-                var stagingRoot = Path.Combine(targetRoot, ".devforge-staging");
-                var payload = Directory.EnumerateDirectories(stagingRoot)
-                    .Select(path => Path.Combine(path, "payload"))
-                    .Single(Directory.Exists);
-                var dist = Path.Combine(payload, "dist");
-                Directory.CreateDirectory(dist);
-                File.WriteAllText(Path.Combine(dist, "index.html"), "<!doctype html><title>Team Portal</title>\n");
+                await command.Workspace.CreateDirectoryAsync(WorkspaceRelativePath.Create("dist").Value, cancellationToken);
+                await ((IAtomicFileWorkspaceFileSystem)command.Workspace).WriteFileAtomicallyAsync(
+                    WorkspaceRelativePath.Create(@"dist\index.html").Value,
+                    "<!doctype html><title>Team Portal</title>\n"u8.ToArray(), true, cancellationToken);
             }
-            return Task.FromResult(ProcessResult.Create(ProcessTerminationReason.Exited, 0, []).Value);
+            return ProcessResult.Create(ProcessTerminationReason.Exited, 0, []).Value;
         }
     }
 

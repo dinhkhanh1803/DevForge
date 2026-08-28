@@ -1,0 +1,271 @@
+id: web.next-ts
+name: Next.js + TypeScript
+version: 1.0.0
+engineVersion: ">=1.0.0 <2.0.0"
+tools:
+  - id: node
+    version: ">=22.23.2 <23.0.0"
+    required: true
+  - id: pnpm
+    version: ">=10.24.0 <10.25.0"
+    required: true
+features: []
+actions:
+  - id: copy-src
+    handler: copy-overlay
+    timeoutSeconds: 30
+    parameters:
+      source: 'overlays\base\src'
+      target: src
+  - id: copy-tests
+    handler: copy-overlay
+    timeoutSeconds: 30
+    parameters:
+      source: 'overlays\base\tests'
+      target: tests
+  - id: copy-scripts
+    handler: copy-overlay
+    timeoutSeconds: 30
+    parameters:
+      source: 'overlays\base\scripts'
+      target: scripts
+  - id: render-package-json
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\package.json'
+      target: "package.json"
+  - id: render-pnpm-lock-yaml
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\pnpm-lock.yaml'
+      target: "pnpm-lock.yaml"
+  - id: render-tsconfig-json
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\tsconfig.json'
+      target: "tsconfig.json"
+  - id: render-next-env-d-ts
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\next-env.d.ts'
+      target: "next-env.d.ts"
+  - id: render-next-config-mjs
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\next.config.mjs'
+      target: "next.config.mjs"
+  - id: render-eslint-config-mjs
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\eslint.config.mjs'
+      target: "eslint.config.mjs"
+  - id: render-prettierrc-json
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\.prettierrc.json'
+      target: ".prettierrc.json"
+  - id: render-prettierignore
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\.prettierignore'
+      target: ".prettierignore"
+  - id: render-gitignore
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\.gitignore'
+      target: ".gitignore"
+  - id: render-editorconfig
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\.editorconfig'
+      target: ".editorconfig"
+  - id: render-env-example
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\.env.example'
+      target: ".env.example"
+  - id: render-readme-md
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\README.md'
+      target: "README.md"
+  - id: render-architecture-md
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\ARCHITECTURE.md'
+      target: "ARCHITECTURE.md"
+  - id: render-contributing-md
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\CONTRIBUTING.md'
+      target: "CONTRIBUTING.md"
+  - id: render-development-md
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\DEVELOPMENT.md'
+      target: "DEVELOPMENT.md"
+  - id: render-testing-md
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\TESTING.md'
+      target: "TESTING.md"
+  - id: render-deployment-md
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\DEPLOYMENT.md'
+      target: "DEPLOYMENT.md"
+  - id: render-team-start-here-md
+    handler: render-template
+    timeoutSeconds: 30
+    parameters:
+      source: 'templates\TEAM_START_HERE.md'
+      target: "TEAM_START_HERE.md"
+  - id: install
+    handler: package-install
+    timeoutSeconds: 900
+    parameters:
+      packageManager: pnpm
+      arguments:
+        - install
+        - --frozen-lockfile
+        - --ignore-scripts
+      workingDirectory: .
+validators:
+  - id: format
+    handler: validate-command
+    timeoutSeconds: 600
+    required: true
+    parameters:
+      executable: pnpm
+      arguments:
+        - run
+        - "format:check"
+      workingDirectory: .
+      allowedExitCodes:
+        - 0
+      required: true
+  - id: lint
+    handler: validate-command
+    timeoutSeconds: 600
+    required: true
+    parameters:
+      executable: pnpm
+      arguments:
+        - run
+        - "lint"
+      workingDirectory: .
+      allowedExitCodes:
+        - 0
+      required: true
+  - id: typecheck
+    handler: validate-command
+    timeoutSeconds: 600
+    required: true
+    parameters:
+      executable: pnpm
+      arguments:
+        - run
+        - "typecheck"
+      workingDirectory: .
+      allowedExitCodes:
+        - 0
+      required: true
+  - id: test
+    handler: validate-command
+    timeoutSeconds: 600
+    required: true
+    parameters:
+      executable: pnpm
+      arguments:
+        - run
+        - "test"
+      workingDirectory: .
+      allowedExitCodes:
+        - 0
+      required: true
+  - id: build
+    handler: validate-command
+    timeoutSeconds: 600
+    required: true
+    parameters:
+      executable: pnpm
+      arguments:
+        - run
+        - "build"
+      workingDirectory: .
+      allowedExitCodes:
+        - 0
+      required: true
+  - id: smoke
+    handler: validate-command
+    timeoutSeconds: 60
+    required: true
+    parameters:
+      executable: pnpm
+      arguments:
+        - run
+        - "smoke"
+      workingDirectory: .
+      allowedExitCodes:
+        - 0
+      required: true
+artifacts:
+  - path: "package.json"
+  - path: "pnpm-lock.yaml"
+  - path: 'src\app\page.tsx'
+  - path: 'src\app\api\health\route.ts'
+  - path: 'scripts\smoke.mjs'
+  - path: 'tests\environment.test.mjs'
+  - path: "README.md"
+  - path: "ARCHITECTURE.md"
+  - path: "CONTRIBUTING.md"
+  - path: "DEVELOPMENT.md"
+  - path: "TESTING.md"
+  - path: "DEPLOYMENT.md"
+  - path: "TEAM_START_HERE.md"
+dependencies:
+  - id: next
+    version: 16.3.3
+  - id: react
+    version: 19.2.8
+  - id: react-dom
+    version: 19.2.8
+  - id: types.node
+    version: 22.20.1
+  - id: types.react
+    version: 19.2.18
+  - id: types.react-dom
+    version: 19.2.5
+  - id: eslint
+    version: 10.9.1
+  - id: eslint.js
+    version: 10.0.1
+  - id: next.eslint-plugin-next
+    version: 16.3.3
+  - id: eslint-plugin-react-hooks
+    version: 7.1.1
+  - id: globals
+    version: 16.4.0
+  - id: prettier
+    version: 3.9.6
+  - id: typescript
+    version: 6.0.3
+  - id: typescript-eslint
+    version: 8.68.0

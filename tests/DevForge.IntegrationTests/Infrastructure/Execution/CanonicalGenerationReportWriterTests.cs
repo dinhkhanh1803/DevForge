@@ -12,11 +12,103 @@ using DevForge.Domain.Reports;
 using DevForge.Domain.Runs;
 using DevForge.Infrastructure.Execution;
 using DevForge.Infrastructure.FileSystem;
+using DevForge.Infrastructure.Git;
+using DevForge.Infrastructure.Security;
 
 namespace DevForge.IntegrationTests.Infrastructure.Execution;
 
 public sealed class CanonicalGenerationReportWriterTests
 {
+    [Fact]
+    public async Task PythonDistMembershipPreservesReviewedFilesAndBindsExactRetry()
+    {
+        var rootPath = TestRoot();
+        Directory.CreateDirectory(rootPath);
+        try
+        {
+            var workspace = await new WindowsFileSystem().OpenWorkspaceAsync(WorkspaceRoot.Create(rootPath).Value, default);
+            await workspace.CreateDirectoryAsync(Path("dist"), default);
+            foreach (var file in new[] { "pyproject.toml", "uv.lock", "dist\\app.whl", "dist\\reviewed.whl" })
+            {
+                await using var stream = await workspace.OpenWriteAsync(Path(file), false, default);
+                await stream.WriteAsync("sample\n"u8.ToArray());
+            }
+            string[] buildArguments = ["run", "--frozen", "--no-sync", "--no-config", "pyproject-build", "--no-isolation"];
+            var validator = ExecutionValidator.Create("build", "validate-command",
+                new Dictionary<string, PlanValue?>
+                {
+                    ["executable"] = PlanValue.FromString("uv").Value,
+                    ["workingDirectory"] = PlanValue.FromString(".").Value,
+                    ["arguments"] = PlanValue.FromArray(buildArguments
+                        .Select(item => (PlanValue?)PlanValue.FromString(item).Value)).Value,
+                }, TimeSpan.FromSeconds(30), true).Value;
+            var checkpoint = Checkpoint(workspace.Root, validators: [validator], artifacts:
+                [new BlueprintArtifact("pyproject.toml"), new BlueprintArtifact("uv.lock"), new BlueprintArtifact("dist\\reviewed.whl")]);
+            var writer = new CanonicalProjectEvidenceWriter();
+            Assert.True((await writer.WriteAsync(checkpoint, EvidenceReport(checkpoint), workspace, default)).IsSuccessful);
+            Assert.True(await workspace.FileExistsAsync(ProjectEvidencePathPolicy.BuildOutputsPath, default));
+            var tree = await CanonicalProjectTree.CaptureAsync(workspace, false, default);
+            Assert.DoesNotContain(tree.SourceFiles, path => path.Value == "dist\\app.whl");
+            Assert.Contains(tree.SourceFiles, path => path.Value == "dist\\reviewed.whl");
+            Assert.Contains(tree.AllFiles, path => path.Value == "dist\\app.whl");
+            Assert.True((await writer.WriteAsync(checkpoint, EvidenceReport(checkpoint), workspace, default)).IsSuccessful);
+        }
+        finally { Directory.Delete(rootPath, recursive: true); }
+    }
+
+    [Fact]
+    public async Task LargeBuildOutputEvidenceIsScannableAndExactRetryPreservesReviewedSource()
+    {
+        var rootPath = TestRoot();
+        Directory.CreateDirectory(rootPath);
+        try
+        {
+            var workspace = await new WindowsFileSystem().OpenWorkspaceAsync(WorkspaceRoot.Create(rootPath).Value, default);
+            await workspace.CreateDirectoryAsync(Path("src\\obj"), default);
+            async Task Write(string path, string text)
+            {
+                await using var stream = await workspace.OpenWriteAsync(Path(path), false, default);
+                await stream.WriteAsync(Encoding.UTF8.GetBytes(text));
+            }
+            await Write("src\\App.csproj", "<Project />\n");
+            await Write("src\\obj\\Reviewed.cs", "reviewed source\n");
+            for (var index = 0; index < 200; index++)
+            {
+                await Write($"src\\obj\\{index:D3}-{new string('x', 100)}.json", "{}\n");
+            }
+            var validator = ExecutionValidator.Create("build", "validate-command",
+                new Dictionary<string, PlanValue?>
+                {
+                    ["executable"] = PlanValue.FromString("dotnet").Value,
+                    ["workingDirectory"] = PlanValue.FromString(".").Value,
+                }, TimeSpan.FromSeconds(30), true).Value;
+            var checkpoint = Checkpoint(workspace.Root, validators: [validator], artifacts:
+                [new BlueprintArtifact("src\\App.csproj"), new BlueprintArtifact("src\\obj\\Reviewed.cs")]);
+            var writer = new CanonicalProjectEvidenceWriter();
+            var first = await writer.WriteAsync(checkpoint, EvidenceReport(checkpoint), workspace, default);
+            Assert.True(first.IsSuccessful);
+            var marker = await ReadAsync(workspace, ProjectEvidencePathPolicy.BuildOutputsPath);
+            Assert.True(marker.Length > 16_384);
+            var scan = await new WorkspaceSecretScanner().ScanAsync(SecretScanRequest.WholeWorkspace(workspace).Value, default);
+            Assert.Empty(scan.Findings);
+            var tree = await CanonicalProjectTree.CaptureAsync(workspace, false, default);
+            Assert.Contains(tree.SourceFiles, path => path.Value == "src\\obj\\Reviewed.cs");
+            var retry = await writer.WriteAsync(checkpoint, EvidenceReport(checkpoint), workspace, default);
+            Assert.True(retry.IsSuccessful);
+            Assert.Equal(marker, await ReadAsync(workspace, ProjectEvidencePathPolicy.BuildOutputsPath));
+            await using (var tamper = await workspace.OpenWriteAsync(ProjectEvidencePathPolicy.BuildOutputsPath, true, default))
+            {
+                await tamper.WriteAsync("{}"u8.ToArray());
+            }
+            var refused = await writer.WriteAsync(checkpoint, EvidenceReport(checkpoint), workspace, default);
+            Assert.False(refused.IsSuccessful);
+        }
+        finally
+        {
+            Directory.Delete(rootPath, recursive: true);
+        }
+    }
+
     private static readonly WorkspaceRelativePath[] _evidencePaths =
     [
         Path(".devforge\\project.recipe.yaml"),
@@ -858,7 +950,8 @@ public sealed class CanonicalGenerationReportWriterTests
         IEnumerable<ExecutionEvidence?>? evidence = null,
         bool includeEngineVersion = true,
         bool includeProjectName = true,
-        bool includeTeamSnapshotStatus = true)
+        bool includeTeamSnapshotStatus = true,
+        IEnumerable<BlueprintArtifact?>? artifacts = null)
     {
         var hash = $"sha256:{new string('1', 64)}";
         var checkpointRun = run ?? ProjectRun.Create("run-report", "recipe-1").Value
@@ -910,7 +1003,7 @@ public sealed class CanonicalGenerationReportWriterTests
             [],
             [],
             [],
-            [],
+            artifacts ?? [],
             [],
             [],
             [],

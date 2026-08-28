@@ -2,6 +2,12 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Reflection;
 
+// Emulate pnpm's protected universal CLI option before a test-helper operation.
+if (args.Length > 0 && args[0] == "--ignore-workspace")
+{
+    args = args[1..];
+}
+
 if (args.Length == 0)
 {
     return 64;

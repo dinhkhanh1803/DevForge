@@ -31,10 +31,21 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="..\..\blueprints\**\*">
-      <Link>blueprints\built-in\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    <None Include="..\..\blueprints\v1-candidates\desktop.csharp-winforms-tool\**\*">
+      <Link>blueprints\candidates\desktop.csharp-winforms-tool\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </None>
+    <None Include="..\..\blueprints\v1-candidates\web.next-ts\**\*">
+      <Link>blueprints\candidates\web.next-ts\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </None>
+    <None Include="..\..\blueprints\v1-candidates\tool.python-desktop\**\*">
+      <Link>blueprints\candidates\tool.python-desktop\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </None>
   </ItemGroup>
 
 </Project>
