@@ -8,7 +8,7 @@ promotion. M9/M10 external gates and the PostgreSQL prerequisite hold remain ope
 
 - Preserve all existing implementation, candidate, test and documentation changes.
 - Do not publish ignored tools, caches, generated projects, credentials or build outputs.
-- Normalize only the two import-order failures identified by full-solution format
+- Normalize the two import-order failures identified by full-solution format
   verification: `ExecutionCenterViewModelTests.cs` and `RunHistoryViewModelTests.cs`.
 - M0, M2, M3 core and M3 renderer branch tips are ancestors of `cd44154`.
 - The separate M4 design commit `2b72b3d` is patch-equivalent to `4bd87a3`;
@@ -63,15 +63,65 @@ That full run used the original copied E2E payloads; the subsequent checksum-onl
 normalization is independently covered by the 155/155 Blueprint run and Git export
 verification below. The three new LF regression cases raise the complete suite to
 1,765 tests. Formatter initially caught LF lines in the new C# test; scoped format
-then full-solution verification both exited 0. Post-merge verification will rerun
-the solution except the three expensive `Category=ReleaseAcceptance` tests, whose
+then full-solution verification both exited 0. Post-merge verification reran the
+solution except four `Category=ReleaseAcceptance` cases (three test methods), whose
 runtime code and generated templates are unchanged and passed in the full run.
-This is not Windows 11 or release certification. Remote publication is pending.
+This is not Windows 11 or release certification.
 
 Git-index export verification (fresh archive, not the working-copy payloads):
 6 packages, 208 declared SHA-256 payload hashes, zero mismatches, exit 0.
 All 109 candidate files also match their raw Git index blobs before commit.
 The exported snapshot is ignored and remains local.
+
+## Post-merge verification and publication
+
+Source commit: `d82a63c2160efc138f6a4e2fca61555bd82152f9` (181 changed files).
+Merged history: `0b0e6636fb9864a1a6944f47f887b491e0219a05`.
+`git diff --exit-code HEAD^1 HEAD` exited 0: the M4 ancestry merge did not change
+the tested source tree. All six local branch tips were verified as ancestors.
+
+Commands below ran in `E:/MyProjects/DevForge` on `dev`, using the portable SDK at
+`E:/MyProjects/DevForge/.tools/dotnet/dotnet.exe`.
+
+| Command | Exact result |
+| --- | --- |
+| `dotnet restore DevForge.sln --locked-mode --disable-build-servers -m:1` | Exit 0, all 12 projects restored. |
+| `dotnet format DevForge.sln --verify-no-changes --no-restore` | Final exit 0, no changes or workspace warning after Debug refresh below. |
+| `dotnet build DevForge.sln -c Release --no-restore --disable-build-servers -m:1 -p:UseSharedCompilation=false` | Exit 0, 0 warnings/errors, 27.75 s. |
+| `dotnet build DevForge.sln -c Debug --no-restore --disable-build-servers -m:1 -p:UseSharedCompilation=false` | Exit 0, 0 warnings/errors, 32.56 s. |
+| `dotnet test DevForge.sln -c Release --no-build --no-restore -m:1 --filter 'Category!=ReleaseAcceptance'` | Exit 0: Unit 651 (716 ms), Integration 724 (34 s), Blueprint 155 (3 s), E2E 231 (2 min 13 s); 1,761 passed, 0 failed/skipped. Four acceptance cases intentionally excluded, not represented as rerun. |
+| Root-checkout SHA-256 inventory | 6 packages, 208 payload hashes, 0 mismatches. |
+| `git push --set-upstream origin dev` | Exit 0; created `origin/dev` and tracking. |
+| `git ls-remote --heads origin refs/heads/dev` | Remote exactly matched `0b0e6636fb9864a1a6944f47f887b491e0219a05`. |
+
+The first root format runs exited 0 but reported a design-time warning: the Debug
+WPF workspace could not resolve `EnvironmentToolStatus` from the old checkout's
+assemblies. Diagnostic output identified the Debug path. A complete Debug build
+refreshed those artifacts, and the subsequent full format check exited 0 without
+that warning. No application code workaround or suppressed diagnostic was added.
+
+All runtime PATH additions were process-local. The provisioned Node/uv/Python
+directories were under the M4–M11 worktree during verification and are now preserved
+under the backup described below. No machine-wide tool or environment installation.
+
+## Cleanup and continuation
+
+After remote confirmation, all three clean worktrees were moved intact into the
+new, previously absent directory
+`E:/MyProjects/DevForge/.artifacts/worktree-backups/2026-08-28-dev-consolidation`.
+Resolved source/destination boundaries and reparse attributes were checked before
+moving; no occupied directory was overwritten. A dry-run prune listed only the
+three missing old worktree locations, then `git worktree prune --verbose --expire now`
+removed those registrations. `git branch -d` removed the six ancestor-verified local
+`codex/*` pointers, without force. Their commits and all ignored working data remain
+recoverable. A README in the ignored backup explains recovery and runtime locations.
+
+The only active worktree and local branch are now the main checkout and `dev`.
+The existing remote default branch `codex/m0-baseline` and `origin/HEAD` were left
+unchanged. No remote branch was deleted, no force-push or release tag was made.
+This evidence update is documentation-only and is published as a descendant of the
+verified merge. Windows 11, UX/DPI, packaging, observed remote-CI and PostgreSQL
+bootstrap/ownership/auth/recovery release holds remain open.
 
 ## Original local branch tips
 

@@ -7,6 +7,11 @@ Scope, exact verification and cleanup evidence are tracked in
 `docs/verification-2026-08-28-dev-consolidation.md`. This does not approve a release
 or waive the PostgreSQL/Windows 11/UX/packaging/remote-CI gates below.
 
+**Integration result:** source is committed and published to `origin/dev`; the main
+checkout is the sole active worktree on `dev`. Merged local branches were removed,
+and their full worktree contents preserved in the ignored dated backup. Continue
+from the existing PostgreSQL prerequisite hold below, not a newly closed milestone.
+
 **Latest request (2026-08-28):** design and prove the PostgreSQL validation
 runtime, transient credentials and ownership/recovery before Nest. ADR-0030,
 `docs/superpowers/specs/2026-08-28-postgresql-validation-runtime-design.md` and

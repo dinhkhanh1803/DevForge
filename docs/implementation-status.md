@@ -1,15 +1,23 @@
 # DevForge Studio Implementation Status
 
-## Dev integration — 2026-08-28 — verification in progress
+## Dev integration — 2026-08-28 — integrated and published
 
-The owner requested local branch consolidation and push to `origin/dev`. Existing
-M11 candidate work is included without promoting it into the BuiltIn catalog.
-Full format exposed two test import-order issues; these were normalized. Git index
-inspection also exposed six Next candidate payloads whose CRLF bytes would change
-on checkout and invalidate their hashes. A new three-candidate LF regression first
-failed for Next; after LF normalization and checksum regeneration, Blueprint tests
-passed 155/155. Full integration and publication evidence will be recorded in
-`docs/verification-2026-08-28-dev-consolidation.md`. All release holds remain open.
+Consolidated all six local milestone branches and existing M11 work into `dev`,
+without promoting candidates into BuiltIn. Source commit `d82a63c` and ancestry-only
+merge `0b0e663` were pushed and verified on `origin/dev`. The root checkout now uses
+`dev`; six merged local branch pointers and three worktree registrations were
+removed only after remote verification. All worktree contents, including ignored
+tools/data, were preserved under `.artifacts/worktree-backups/2026-08-28-dev-consolidation`.
+
+Fixed two test import-order issues and a Git round-trip checksum defect in six
+Next metadata/document files. New three-candidate LF regression was observed red
+for Next, then green; all 208 exported/checked-out blueprint payload hashes match.
+Full pre-merge suite passed 1,762/1,762. After merge, locked restore, clean format,
+Release/Debug builds and 1,761/1,761 selected tests passed (651 Unit, 724 Integration,
+155 Blueprint, 231 E2E); four unchanged runtime acceptance cases had already passed
+in the full run and were excluded from the repeated run. Exact commands and scope
+are in `docs/verification-2026-08-28-dev-consolidation.md`. All release holds remain
+open; publication to a development branch is not release certification.
 
 ## PostgreSQL prerequisite proof — 2026-08-28 — gate not passed
 
